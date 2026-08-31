@@ -1,0 +1,324 @@
+// datasource and client configuration
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// -----------------------------------------------------------------------------
+// USER & AUTHENTICATION (PHASE 01)
+// -----------------------------------------------------------------------------
+
+model User {
+  id              String           @id @default(uuid()) @db.Uuid
+  email           String           @unique @db.VarChar(255)
+  passwordHash    String           @map("password_hash") @db.VarChar(255)
+  isActive        Boolean          @default(true) @map("is_active")
+  
+  // RBAC relation
+  roleId          String           @map("role_id") @db.Uuid
+  role            Role             @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  // 1:1 Link to HR Profile
+  employeeProfile EmployeeProfile?
+
+  // Audit trail relation
+  auditLogs       AuditLog[]
+
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([email])
+  @@index([roleId])
+  @@map("users")
+}
+
+// -----------------------------------------------------------------------------
+// ROLE-BASED ACCESS CONTROL (RBAC) (PHASE 01)
+// -----------------------------------------------------------------------------
+
+model Role {
+  id              String           @id @default(uuid()) @db.Uuid
+  name            String           @unique @db.VarChar(50)
+  description     String?          @db.VarChar(255)
+  isSystem        Boolean          @default(false) @map("is_system")
+  
+  users           User[]
+  rolePermissions RolePermission[]
+
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("roles")
+}
+
+model Permission {
+  id              String           @id @default(uuid()) @db.Uuid
+  name            String           @unique @db.VarChar(100)
+  module          String           @db.VarChar(50)
+  description     String?          @db.VarChar(255)
+  
+  rolePermissions RolePermission[]
+
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([module])
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String     @map("role_id") @db.Uuid
+  permissionId String     @map("permission_id") @db.Uuid
+  
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+// -----------------------------------------------------------------------------
+// AUDIT LOGGING (PHASE 01)
+// -----------------------------------------------------------------------------
+
+enum AuditAction {
+  LOGIN
+  LOGOUT
+  LOGIN_FAILED
+  CREATE
+  UPDATE
+  DELETE
+  EXPORT
+}
+
+model AuditLog {
+  id        String       @id @default(uuid()) @db.Uuid
+  userId    String?      @map("user_id") @db.Uuid
+  user      User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  action    AuditAction
+  entity    String       @db.VarChar(100)
+  entityId  String?      @map("entity_id") @db.VarChar(255)
+  metadata  Json?        @db.JsonB
+  ipAddress String?      @map("ip_address") @db.VarChar(45)
+  userAgent String?      @map("user_agent") @db.Text
+
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([userId])
+  @@index([entity, entityId])
+  @@index([action, createdAt])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// -----------------------------------------------------------------------------
+// ORGANIZATION STRUCTURE (PHASE 02)
+// -----------------------------------------------------------------------------
+
+model Department {
+  id          String            @id @default(uuid()) @db.Uuid
+  name        String            @db.VarChar(100)
+  code        String            @unique @db.VarChar(20)
+  description String?           @db.VarChar(255)
+  isActive    Boolean           @default(true) @map("is_active")
+
+  positions   Position[]
+  employees   EmployeeProfile[]
+
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([code])
+  @@map("departments")
+}
+
+model Position {
+  id           String            @id @default(uuid()) @db.Uuid
+  name         String            @db.VarChar(100)
+  description  String?           @db.VarChar(255)
+  isActive     Boolean           @default(true) @map("is_active")
+
+  departmentId String            @map("department_id") @db.Uuid
+  department   Department        @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+
+  levels       Level[]
+  employees    EmployeeProfile[]
+
+  createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([departmentId, name])
+  @@index([departmentId])
+  @@map("positions")
+}
+
+model Level {
+  id          String            @id @default(uuid()) @db.Uuid
+  name        String            @db.VarChar(50)
+  rank        Int               @default(1)
+  description String?           @db.VarChar(255)
+
+  positionId  String            @map("position_id") @db.Uuid
+  position    Position          @relation(fields: [positionId], references: [id], onDelete: Restrict)
+
+  employees   EmployeeProfile[]
+
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([positionId, name])
+  @@index([positionId])
+  @@map("levels")
+}
+
+// -----------------------------------------------------------------------------
+// EMPLOYEES MODULE (PHASE 03)
+// -----------------------------------------------------------------------------
+
+enum ShiftType {
+  RS // Regular Shift (6 days, 8 hrs/day)
+  LS // Long Shift (5 days, 9 hrs/day)
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  TRAINING
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+  PROBATION
+  ENDED
+}
+
+enum EmergencyRelationship {
+  FATHER
+  MOTHER
+  BROTHER
+  SISTER
+  SPOUSE
+  OTHER
+}
+
+enum DocumentType {
+  NATIONAL_ID
+  PASSPORT
+  CV
+  CONTRACT
+  OTHER
+}
+
+model EmployeeProfile {
+  id                     String            @id @default(uuid()) @db.Uuid
+  userId                 String            @unique @map("user_id") @db.Uuid
+  user                   User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Basic Info
+  employeeCode           String            @unique @map("employee_code") @db.VarChar(20)
+  fullName               String            @map("full_name") @db.VarChar(150)
+  phone                  String            @db.VarChar(30)
+  dob                    DateTime?         @db.Date
+  gender                 Gender            @default(MALE)
+  avatarUrl              String?           @map("avatar_url") @db.Text
+
+  // Shift & Default Entitlements
+  shiftType              ShiftType         @default(RS) @map("shift_type")
+  monthlyPermissionHours Int               @default(4) @map("monthly_permission_hours")
+  annualLeaveDays        Int               @default(21) @map("annual_leave_days")
+
+  // Employment Details
+  company                String            @default("Tawfeer") @db.VarChar(100)
+  branch                 String            @default("Headquarters") @db.VarChar(100)
+  departmentId           String            @map("department_id") @db.Uuid
+  department             Department        @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  positionId             String            @map("position_id") @db.Uuid
+  position               Position          @relation(fields: [positionId], references: [id], onDelete: Restrict)
+  levelId                String?           @map("level_id") @db.Uuid
+  level                  Level?            @relation(fields: [levelId], references: [id], onDelete: SetNull)
+
+  joiningDate            DateTime          @default(now()) @map("joining_date") @db.Date
+  employmentType         EmploymentType    @default(FULL_TIME) @map("employment_type")
+  status                 EmployeeStatus    @default(ACTIVE)
+
+  // Contact Info
+  address                String?           @db.Text
+  altPhone               String?           @map("alt_phone") @db.VarChar(30)
+
+  // 1:1 Sub-aggregates
+  emergencyContact       EmergencyContact?
+  bankInfo               BankInfo?
+  documents              EmployeeDocument[]
+
+  createdAt              DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([employeeCode])
+  @@index([departmentId])
+  @@index([positionId])
+  @@index([status])
+  @@map("employee_profiles")
+}
+
+model EmergencyContact {
+  id                String                @id @default(uuid()) @db.Uuid
+  employeeProfileId String                @unique @map("employee_profile_id") @db.Uuid
+  employeeProfile   EmployeeProfile       @relation(fields: [employeeProfileId], references: [id], onDelete: Cascade)
+
+  name              String                @db.VarChar(100)
+  relationship      EmergencyRelationship @default(OTHER)
+  phone             String                @db.VarChar(30)
+
+  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("emergency_contacts")
+}
+
+model BankInfo {
+  id                String          @id @default(uuid()) @db.Uuid
+  employeeProfileId String          @unique @map("employee_profile_id") @db.Uuid
+  employeeProfile   EmployeeProfile @relation(fields: [employeeProfileId], references: [id], onDelete: Cascade)
+
+  bankName          String?         @map("bank_name") @db.VarChar(100)
+  accountHolder     String?         @map("account_holder") @db.VarChar(150)
+  accountNumber     String?         @map("account_number") @db.VarChar(50)
+  iban              String?         @db.VarChar(50)
+  swift             String?         @db.VarChar(30)
+  branch            String?         @db.VarChar(100)
+  basicSalary       Decimal         @default(0.0) @map("basic_salary") @db.Decimal(12, 2)
+
+  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("bank_infos")
+}
+
+model EmployeeDocument {
+  id                String          @id @default(uuid()) @db.Uuid
+  employeeProfileId String          @map("employee_profile_id") @db.Uuid
+  employeeProfile   EmployeeProfile @relation(fields: [employeeProfileId], references: [id], onDelete: Cascade)
+
+  type              DocumentType    @default(NATIONAL_ID)
+  fileName          String          @map("file_name") @db.VarChar(255)
+  fileUrl           String          @map("file_url") @db.Text
+
+  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([employeeProfileId])
+  @@map("employee_documents")
+}
