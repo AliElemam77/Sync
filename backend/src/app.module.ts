@@ -11,6 +11,7 @@ import { EventsModule } from './modules/events/events.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { LeavesModule } from './modules/leaves/leaves.module';
 import { WorkPermissionsModule } from './modules/work-permissions/work-permissions.module';
+import { ChatModule } from './modules/chat/chat.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
@@ -31,6 +32,7 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
     AttendanceModule,
     LeavesModule,
     WorkPermissionsModule,
+    ChatModule,
   ],
   providers: [
     {

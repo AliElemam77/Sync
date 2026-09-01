@@ -23,10 +23,15 @@ model User {
   role            Role             @relation(fields: [roleId], references: [id], onDelete: Restrict)
 
   // 1:1 Link to HR Profile
-  employeeProfile EmployeeProfile?
+  employeeProfile          EmployeeProfile?
 
   // Audit trail relation
-  auditLogs       AuditLog[]
+  auditLogs                AuditLog[]
+
+  // Chat & Groups relations (PHASE 06)
+  conversationParticipants ConversationParticipant[]
+  sentMessages             Message[]                 @relation("SentMessages")
+  messageReadReceipts      MessageReadReceipt[]
 
   createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -134,7 +139,10 @@ model Department {
   employees   EmployeeProfile[]
 
   // Cross-Department task routing (PHASE 04)
-  targetTasks Task[]            @relation("DepartmentTargetTasks")
+  targetTasks   Task[]            @relation("DepartmentTargetTasks")
+
+  // Chat channels (PHASE 06)
+  conversations Conversation[]
 
   createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -273,12 +281,16 @@ model EmployeeProfile {
   taskComments           TaskComment[]
 
   // Attendance & Requests relations (PHASE 05)
-  attendanceRecords      AttendanceRecord[]
-  leaveRequests          LeaveRequest[]
-  permissionRequests     PermissionRequest[]
+  attendanceRecords        AttendanceRecord[]
+  leaveRequests            LeaveRequest[]
+  permissionRequests       PermissionRequest[]
 
-  createdAt              DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt              DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  // Chat & Groups relations (PHASE 06)
+  conversationParticipants ConversationParticipant[]
+  sentMessages             Message[]                 @relation("SentEmployeeMessages")
+
+  createdAt                DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@index([employeeCode])
   @@index([departmentId])
@@ -522,4 +534,148 @@ model PermissionRequest {
   @@index([status])
   @@index([date])
   @@map("permission_requests")
+}
+
+// =============================================================================
+// PHASE 06: REAL-TIME CHAT & GROUPS MODULE ENUMS & MODELS
+// =============================================================================
+
+enum ConversationType {
+  DIRECT
+  WORK_GROUP
+  PUBLIC_GROUP
+}
+
+enum ParticipantRole {
+  MEMBER
+  ADMIN
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  SYSTEM
+}
+
+// -----------------------------------------------------------------------------
+// CONVERSATION (المحادثات والمجموعات)
+// -----------------------------------------------------------------------------
+
+model Conversation {
+  id             String                   @id @default(uuid()) @db.Uuid
+  title          String?                  @db.VarChar(150)
+  description    String?                  @db.Text
+  avatarUrl      String?                  @map("avatar_url") @db.Text
+  type           ConversationType         @default(DIRECT)
+  isGroup        Boolean                  @default(false) @map("is_group")
+
+  // Optional link to Department (e.g. for department work groups)
+  departmentId   String?                  @map("department_id") @db.Uuid
+  department     Department?              @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  // Creator / Owner user ID
+  creatorId      String?                  @map("creator_id") @db.Uuid
+
+  // Relational Participants & Messages
+  participants   ConversationParticipant[]
+  messages       Message[]
+
+  lastMessageAt  DateTime?                @map("last_message_at") @db.Timestamptz(6)
+
+  createdAt      DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([type])
+  @@index([departmentId])
+  @@index([lastMessageAt])
+  @@map("conversations")
+}
+
+// -----------------------------------------------------------------------------
+// CONVERSATION PARTICIPANT (المشاركون في المحادثة)
+// -----------------------------------------------------------------------------
+
+model ConversationParticipant {
+  id             String           @id @default(uuid()) @db.Uuid
+  conversationId String           @map("conversation_id") @db.Uuid
+  conversation   Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  userId         String           @map("user_id") @db.Uuid
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  employeeId     String?          @map("employee_id") @db.Uuid
+  employee       EmployeeProfile? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  role           ParticipantRole  @default(MEMBER)
+  joinedAt       DateTime         @default(now()) @map("joined_at") @db.Timestamptz(6)
+  lastReadAt     DateTime?        @map("last_read_at") @db.Timestamptz(6)
+  isMuted        Boolean          @default(false) @map("is_muted")
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@index([employeeId])
+  @@index([conversationId])
+  @@map("conversation_participants")
+}
+
+// -----------------------------------------------------------------------------
+// MESSAGE (الرسائل)
+// -----------------------------------------------------------------------------
+
+model Message {
+  id               String               @id @default(uuid()) @db.Uuid
+  conversationId   String               @map("conversation_id") @db.Uuid
+  conversation     Conversation         @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  senderId         String               @map("sender_id") @db.Uuid
+  sender           User                 @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+
+  senderEmployeeId String?              @map("sender_employee_id") @db.Uuid
+  senderEmployee   EmployeeProfile?     @relation("SentEmployeeMessages", fields: [senderEmployeeId], references: [id], onDelete: SetNull)
+
+  // Reply Reference (الرد على رسالة)
+  replyToId        String?              @map("reply_to_id") @db.Uuid
+  replyTo          Message?             @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies          Message[]            @relation("MessageReplies")
+
+  content          String               @db.Text
+  type             MessageType          @default(TEXT)
+  attachmentUrls   String[]             @default([]) @map("attachment_urls")
+
+  // Reactions JSON array: [{ emoji: "👍", userId: "...", userName: "..." }]
+  reactions        Json?                @default("[]")
+
+  isEdited         Boolean              @default(false) @map("is_edited")
+  isDeleted        Boolean              @default(false) @map("is_deleted")
+
+  readReceipts     MessageReadReceipt[]
+
+  createdAt        DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+  @@index([replyToId])
+  @@map("messages")
+}
+
+// -----------------------------------------------------------------------------
+// MESSAGE READ RECEIPT (إشعارات القراءة)
+// -----------------------------------------------------------------------------
+
+model MessageReadReceipt {
+  id        String   @id @default(uuid()) @db.Uuid
+  messageId String   @map("message_id") @db.Uuid
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  userId    String   @map("user_id") @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  readAt    DateTime @default(now()) @map("read_at") @db.Timestamptz(6)
+
+  @@unique([messageId, userId])
+  @@index([messageId])
+  @@index([userId])
+  @@map("message_read_receipts")
 }

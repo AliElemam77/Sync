@@ -3,12 +3,100 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 248, 250, 252;
-  --background-start-rgb: 2, 6, 23;
-  --background-end-rgb: 2, 6, 23;
+  /* ========================================================================= */
+  /* LIGHT MODE THEME TOKENS (Brand: #EFECE3, #8FABD4, #4A70A9, #000000)     */
+  /* ========================================================================= */
+  --background: #FFFFFF;
+  --background-subtle: #F6F4EE;
+  --surface: #FFFFFF;
+  --surface-raised: #EFECE3;
+  --surface-hover: #E4E0D4;
+
+  --foreground: #000000;
+  --foreground-muted: #4A5568;
+  --foreground-subtle: #718096;
+
+  --primary: #4A70A9;
+  --primary-hover: #3B5D90;
+  --primary-foreground: #FFFFFF;
+
+  --secondary: #8FABD4;
+  --secondary-hover: #7E9DC6;
+  --secondary-foreground: #000000;
+
+  --accent: #EFECE3;
+  --accent-foreground: #4A70A9;
+
+  --border: rgba(0, 0, 0, 0.08);
+  --border-subtle: rgba(74, 112, 169, 0.18);
+  --ring: #4A70A9;
+
+  --card: #FFFFFF;
+  --card-foreground: #000000;
+  --card-border: rgba(0, 0, 0, 0.07);
+
+  --skeleton: rgba(0, 0, 0, 0.07);
+  --skeleton-highlight: rgba(74, 112, 169, 0.12);
 }
 
+.dark {
+  /* ========================================================================= */
+  /* DARK MODE THEME TOKENS (Brand: #EFECE3, #8FABD4, #4A70A9, #000000)      */
+  /* ========================================================================= */
+  --background: #000000;
+  --background-subtle: #080C14;
+  --surface: #0E1420;
+  --surface-raised: #151D2E;
+  --surface-hover: #1D283E;
+
+  --foreground: #EFECE3;
+  --foreground-muted: #8FABD4;
+  --foreground-subtle: #677A98;
+
+  --primary: #8FABD4;
+  --primary-hover: #A5C0E5;
+  --primary-foreground: #000000;
+
+  --secondary: #4A70A9;
+  --secondary-hover: #5D85C2;
+  --secondary-foreground: #EFECE3;
+
+  --accent: #172238;
+  --accent-foreground: #8FABD4;
+
+  --border: rgba(239, 236, 227, 0.12);
+  --border-subtle: rgba(143, 171, 212, 0.22);
+  --ring: #8FABD4;
+
+  --card: #0A0F1A;
+  --card-foreground: #EFECE3;
+  --card-border: rgba(239, 236, 227, 0.1);
+
+  --skeleton: rgba(239, 236, 227, 0.08);
+  --skeleton-highlight: rgba(143, 171, 212, 0.16);
+}
+
+/* Base Body Styles */
 body {
-  color: rgb(var(--foreground-rgb));
-  background: rgb(var(--background-start-rgb));
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--foreground-subtle);
 }

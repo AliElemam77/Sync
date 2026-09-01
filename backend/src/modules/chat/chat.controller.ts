@@ -1,0 +1,123 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Body,
+  Param,
+  Query,
+  ParseIntPipe,
+  DefaultValuePipe,
+} from '@nestjs/common';
+import { ChatService } from './chat.service';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { CreateGroupDto } from './dto/create-group.dto';
+import { CreateDirectConversationDto } from './dto/create-direct-conversation.dto';
+import { SendMessageDto } from './dto/send-message.dto';
+import { AddParticipantsDto } from './dto/add-participants.dto';
+import { ToggleReactionDto } from './dto/toggle-reaction.dto';
+
+@Controller('api/v1/chat')
+export class ChatController {
+  constructor(private readonly chatService: ChatService) {}
+
+  /**
+   * Get all active conversations and groups for the authenticated user
+   */
+  @Get('conversations')
+  async getConversations(@CurrentUser() user: any) {
+    return this.chatService.getConversations(user.id);
+  }
+
+  /**
+   * Get details of a single conversation
+   */
+  @Get('conversations/:id')
+  async getConversationById(
+    @Param('id') conversationId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.chatService.getConversationById(conversationId, user.id);
+  }
+
+  /**
+   * Get paginated messages for a conversation
+   */
+  @Get('conversations/:id/messages')
+  async getMessages(
+    @Param('id') conversationId: string,
+    @CurrentUser() user: any,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number,
+  ) {
+    return this.chatService.getMessages(conversationId, user.id, page, limit);
+  }
+
+  /**
+   * Get or initiate a 1-to-1 direct conversation with another employee/user
+   */
+  @Post('conversations/direct')
+  async getOrCreateDirectConversation(
+    @Body() dto: CreateDirectConversationDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.chatService.getOrCreateDirectConversation(user.id, dto.targetUserId);
+  }
+
+  /**
+   * Create a new Work Group or Public Group channel
+   */
+  @Post('conversations/group')
+  async createGroup(
+    @Body() dto: CreateGroupDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.chatService.createGroup(user.id, dto);
+  }
+
+  /**
+   * Send a message to a conversation
+   */
+  @Post('messages')
+  async sendMessage(
+    @Body() dto: SendMessageDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.chatService.sendMessage(user.id, dto);
+  }
+
+  /**
+   * Toggle emoji reaction on a message
+   */
+  @Post('messages/:id/reactions')
+  async toggleReaction(
+    @Param('id') messageId: string,
+    @Body() dto: ToggleReactionDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.chatService.toggleReaction(messageId, user.id, dto.emoji);
+  }
+
+  /**
+   * Add members to a group conversation
+   */
+  @Post('conversations/:id/participants')
+  async addParticipants(
+    @Param('id') conversationId: string,
+    @Body() dto: AddParticipantsDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.chatService.addParticipants(conversationId, user.id, dto);
+  }
+
+  /**
+   * Mark all messages in a conversation as read
+   */
+  @Patch('conversations/:id/read')
+  async markAsRead(
+    @Param('id') conversationId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.chatService.markAsRead(conversationId, user.id);
+  }
+}
