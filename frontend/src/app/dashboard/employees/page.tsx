@@ -9,6 +9,7 @@ import { useAuth } from '../../../hooks/use-auth';
 export default function EmployeesListPage() {
   const { hasPermission } = useAuth();
   const canCreate = hasPermission('employees.create');
+  const canUpdate = hasPermission('employees.update');
   const canDelete = hasPermission('employees.delete');
 
   const [search, setSearch] = useState('');
@@ -178,11 +179,19 @@ export default function EmployeesListPage() {
                         {emp.status}
                       </span>
                     </td>
-                    <td className="px-5 py-4 text-right">
+                    <td className="px-5 py-4 text-right space-x-2 whitespace-nowrap">
+                      {canUpdate && (
+                        <Link
+                          href={`/dashboard/employees/${emp.id}/edit`}
+                          className="inline-block rounded px-2.5 py-1 text-[11px] font-medium text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 transition-colors"
+                        >
+                          Edit
+                        </Link>
+                      )}
                       {canDelete && (
                         <button
                           onClick={() => handleDelete(emp.id, emp.fullName)}
-                          className="rounded px-2 py-1 text-[11px] font-medium text-red-400 hover:bg-red-500/20 transition-colors"
+                          className="inline-block rounded px-2.5 py-1 text-[11px] font-medium text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-colors"
                         >
                           Delete
                         </button>

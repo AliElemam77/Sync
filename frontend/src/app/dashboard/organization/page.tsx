@@ -12,6 +12,7 @@ import {
 } from '../../../hooks/use-organization';
 import { useAuth } from '../../../hooks/use-auth';
 import { AxiosError } from 'axios';
+import { Plus, Trash2, X, Building2, Layers } from 'lucide-react';
 
 export default function OrganizationPage() {
   const { hasPermission } = useAuth();
@@ -140,9 +141,10 @@ export default function OrganizationPage() {
                 setActionError(null);
                 setIsDeptModalOpen(true);
               }}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 transition-colors"
             >
-              + Add Department
+              <Plus className="h-3.5 w-3.5" />
+              <span>Add Department</span>
             </button>
             <button
               onClick={() => {
@@ -152,9 +154,10 @@ export default function OrganizationPage() {
                 }
                 setIsPosModalOpen(true);
               }}
-              className="rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition-colors"
             >
-              + Add Position
+              <Plus className="h-3.5 w-3.5" />
+              <span>Add Position</span>
             </button>
           </div>
         )}
@@ -166,9 +169,9 @@ export default function OrganizationPage() {
           <span>{actionError}</span>
           <button
             onClick={() => setActionError(null)}
-            className="text-red-400 hover:text-white font-bold ml-4"
+            className="text-red-400 hover:text-white p-1 ml-4"
           >
-            ✕
+            <X className="h-4 w-4" />
           </button>
         </div>
       )}

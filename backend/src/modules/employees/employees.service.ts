@@ -261,11 +261,35 @@ export class EmployeesService {
   ) {
     const existing = await this.prisma.employeeProfile.findUnique({
       where: { id },
-      include: { bankInfo: true, emergencyContact: true },
+      include: { user: true, bankInfo: true, emergencyContact: true },
     });
 
     if (!existing) {
       throw new NotFoundException(`Employee with ID '${id}' not found`);
+    }
+
+    // Handle user account updates (email, password, status, role)
+    if (dto.email && dto.email.toLowerCase().trim() !== existing.user.email.toLowerCase()) {
+      const emailTaken = await this.prisma.user.findUnique({
+        where: { email: dto.email.toLowerCase().trim() },
+      });
+      if (emailTaken && emailTaken.id !== existing.userId) {
+        throw new ConflictException(`Email '${dto.email}' is already registered.`);
+      }
+    }
+
+    const userDataToUpdate: Prisma.UserUpdateInput = {
+      ...(dto.email && { email: dto.email.toLowerCase().trim() }),
+      ...(dto.password && { passwordHash: await bcrypt.hash(dto.password, 12) }),
+      ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+      ...(dto.roleId && { role: { connect: { id: dto.roleId } } }),
+    };
+
+    if (Object.keys(userDataToUpdate).length > 0) {
+      await this.prisma.user.update({
+        where: { id: existing.userId },
+        data: userDataToUpdate,
+      });
     }
 
     const updated = await this.prisma.employeeProfile.update({

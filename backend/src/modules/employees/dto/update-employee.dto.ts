@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsEmail,
   IsEnum,
   IsNumber,
@@ -6,6 +7,7 @@ import {
   IsString,
   IsUUID,
   Min,
+  MinLength,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -25,6 +27,19 @@ export class UpdateEmployeeDto {
   @IsEmail()
   @IsOptional()
   email?: string;
+
+  @IsString()
+  @MinLength(8)
+  @IsOptional()
+  password?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean;
+
+  @IsUUID('4')
+  @IsOptional()
+  roleId?: string;
 
   @IsString()
   @IsOptional()

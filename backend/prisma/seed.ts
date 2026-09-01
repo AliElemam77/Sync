@@ -28,6 +28,12 @@ const INITIAL_PERMISSIONS = [
   { name: 'leaves.request', module: 'LEAVES', description: 'Submit leave requests' },
   { name: 'leaves.approve', module: 'LEAVES', description: 'Approve leave requests' },
 
+  // Tasks Management (PHASE 04)
+  { name: 'tasks.view', module: 'TASKS', description: 'View assigned and department tasks' },
+  { name: 'tasks.create', module: 'TASKS', description: 'Create and assign new tasks' },
+  { name: 'tasks.update', module: 'TASKS', description: 'Edit task details or advance task status' },
+  { name: 'tasks.delete', module: 'TASKS', description: 'Delete tasks' },
+
   // Audit Logs
   { name: 'audit.view', module: 'AUDIT', description: 'Inspect audit trail logs' },
 ];
@@ -80,6 +86,16 @@ async function main() {
     },
   });
 
+  const teamLeaderRole = await prisma.role.upsert({
+    where: { name: 'TEAM_LEADER' },
+    update: {},
+    create: {
+      name: 'TEAM_LEADER',
+      description: 'Department team leader with task distribution and review authority',
+      isSystem: true,
+    },
+  });
+
   // 4. Attach all permissions to SUPER_ADMIN
   console.log('Assigning full permissions to SUPER_ADMIN...');
   await prisma.rolePermission.deleteMany({
@@ -96,7 +112,7 @@ async function main() {
 
   // 5. Attach scoped permissions to HR_MANAGER & EMPLOYEE
   const hrPerms = createdPermissions.filter((p) =>
-    ['ORGANIZATION', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES'].includes(p.module),
+    ['ORGANIZATION', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'TASKS'].includes(p.module),
   );
   await prisma.rolePermission.createMany({
     data: hrPerms.map((p) => ({ roleId: hrManagerRole.id, permissionId: p.id })),
@@ -104,16 +120,24 @@ async function main() {
   });
 
   const empPerms = createdPermissions.filter((p) =>
-    ['leaves.request', 'attendance.view', 'org.view', 'employees.view'].includes(p.name),
+    ['leaves.request', 'attendance.view', 'org.view', 'employees.view', 'tasks.view', 'tasks.create', 'tasks.update'].includes(p.name),
   );
   await prisma.rolePermission.createMany({
     data: empPerms.map((p) => ({ roleId: employeeRole.id, permissionId: p.id })),
     skipDuplicates: true,
   });
 
+  const leadPerms = createdPermissions.filter((p) =>
+    ['leaves.request', 'attendance.view', 'org.view', 'employees.view', 'tasks.view', 'tasks.create', 'tasks.update'].includes(p.name),
+  );
+  await prisma.rolePermission.createMany({
+    data: leadPerms.map((p) => ({ roleId: teamLeaderRole.id, permissionId: p.id })),
+    skipDuplicates: true,
+  });
+
   // 6. Seed Default Super Admin User
   const adminEmail = (process.env.ADMIN_EMAIL || 'admin@sync-erp.local').toLowerCase().trim();
-  const rawAdminPassword = process.env.ADMIN_PASSWORD || 'Admin@Sync2026!';
+  const rawAdminPassword = (process.env.ADMIN_PASSWORD || 'Admin@Sync2026!').replace(/^["']|["']$/g, '').trim();
   const passwordHash = await bcrypt.hash(rawAdminPassword, 12);
 
   const adminUser = await prisma.user.upsert({
@@ -153,6 +177,56 @@ async function main() {
       name: 'Human Resources & People Operations',
       code: 'HR',
       description: 'Talent management and employee relations',
+    },
+  });
+
+  const uiDept = await prisma.department.upsert({
+    where: { code: 'UI' },
+    update: { name: 'UI / UX Design' },
+    create: {
+      name: 'UI / UX Design',
+      code: 'UI',
+      description: 'Product design, creative assets, and interface design',
+    },
+  });
+
+  const adminPos = await prisma.position.upsert({
+    where: {
+      departmentId_name: {
+        departmentId: engDept.id,
+        name: 'System Administrator',
+      },
+    },
+    update: {},
+    create: {
+      name: 'System Administrator',
+      departmentId: engDept.id,
+      description: 'System owner and executive administrator',
+    },
+  });
+
+  await prisma.employeeProfile.upsert({
+    where: { userId: adminUser.id },
+    update: {
+      departmentId: engDept.id,
+      positionId: adminPos.id,
+    },
+    create: {
+      userId: adminUser.id,
+      employeeCode: 'TAR0000',
+      fullName: 'System Administrator',
+      phone: '+20 100 000 0000',
+      gender: Gender.MALE,
+      shiftType: ShiftType.RS,
+      monthlyPermissionHours: 4,
+      annualLeaveDays: 30,
+      company: 'Tawfeer',
+      branch: 'Cairo HQ',
+      departmentId: engDept.id,
+      positionId: adminPos.id,
+      joiningDate: new Date('2023-01-01'),
+      employmentType: EmploymentType.FULL_TIME,
+      status: EmployeeStatus.ACTIVE,
     },
   });
 
@@ -244,6 +318,151 @@ async function main() {
           basicSalary: 35000.0,
         },
       },
+    },
+  });
+
+  // 9. Seed UI/UX Positions & Levels
+  const uiLeadPos = await prisma.position.upsert({
+    where: {
+      departmentId_name: {
+        departmentId: uiDept.id,
+        name: 'Lead UI/UX Designer',
+      },
+    },
+    update: {},
+    create: {
+      name: 'Lead UI/UX Designer',
+      departmentId: uiDept.id,
+      description: 'Leads design sprints, design systems, and creative direction',
+    },
+  });
+
+  const uiDesignerPos = await prisma.position.upsert({
+    where: {
+      departmentId_name: {
+        departmentId: uiDept.id,
+        name: 'UI/UX Designer',
+      },
+    },
+    update: {},
+    create: {
+      name: 'UI/UX Designer',
+      departmentId: uiDept.id,
+      description: 'Designs UI interfaces, mobile screens, and design components',
+    },
+  });
+
+  // 10. Seed Demo User 1: Engineering Agent (Omar Khaled)
+  console.log('Seeding Engineering Agent (Omar Khaled - TAR0002)...');
+  const omarUser = await prisma.user.upsert({
+    where: { email: 'omar.khaled@sync-erp.local' },
+    update: { roleId: employeeRole.id },
+    create: {
+      email: 'omar.khaled@sync-erp.local',
+      passwordHash: await bcrypt.hash('Password@2026!', 12),
+      isActive: true,
+      roleId: employeeRole.id,
+    },
+  });
+
+  await prisma.employeeProfile.upsert({
+    where: { userId: omarUser.id },
+    update: {
+      departmentId: engDept.id,
+      positionId: swEngPos.id,
+    },
+    create: {
+      userId: omarUser.id,
+      employeeCode: 'TAR0002',
+      fullName: 'Omar Khaled',
+      phone: '+20 101 234 5678',
+      gender: Gender.MALE,
+      shiftType: ShiftType.RS,
+      monthlyPermissionHours: 4,
+      annualLeaveDays: 21,
+      company: 'Tawfeer',
+      branch: 'Cairo HQ',
+      departmentId: engDept.id,
+      positionId: swEngPos.id,
+      joiningDate: new Date('2024-02-01'),
+      employmentType: EmploymentType.FULL_TIME,
+      status: EmployeeStatus.ACTIVE,
+    },
+  });
+
+  // 11. Seed Demo User 2: UI Team Leader (Sara Nabil)
+  console.log('Seeding UI Team Leader (Sara Nabil - TAR0003)...');
+  const saraUser = await prisma.user.upsert({
+    where: { email: 'sara.nabil@sync-erp.local' },
+    update: { roleId: teamLeaderRole.id },
+    create: {
+      email: 'sara.nabil@sync-erp.local',
+      passwordHash: await bcrypt.hash('Password@2026!', 12),
+      isActive: true,
+      roleId: teamLeaderRole.id,
+    },
+  });
+
+  await prisma.employeeProfile.upsert({
+    where: { userId: saraUser.id },
+    update: {
+      departmentId: uiDept.id,
+      positionId: uiLeadPos.id,
+    },
+    create: {
+      userId: saraUser.id,
+      employeeCode: 'TAR0003',
+      fullName: 'Sara Nabil',
+      phone: '+20 102 345 6789',
+      gender: Gender.FEMALE,
+      shiftType: ShiftType.LS,
+      monthlyPermissionHours: 4,
+      annualLeaveDays: 30,
+      company: 'Tawfeer',
+      branch: 'Cairo HQ',
+      departmentId: uiDept.id,
+      positionId: uiLeadPos.id,
+      joiningDate: new Date('2023-06-01'),
+      employmentType: EmploymentType.FULL_TIME,
+      status: EmployeeStatus.ACTIVE,
+    },
+  });
+
+  // 12. Seed Demo User 3: UI Design Agent (Karim Tarek)
+  console.log('Seeding UI Design Agent (Karim Tarek - TAR0004)...');
+  const karimUser = await prisma.user.upsert({
+    where: { email: 'karim.tarek@sync-erp.local' },
+    update: { roleId: employeeRole.id },
+    create: {
+      email: 'karim.tarek@sync-erp.local',
+      passwordHash: await bcrypt.hash('Password@2026!', 12),
+      isActive: true,
+      roleId: employeeRole.id,
+    },
+  });
+
+  await prisma.employeeProfile.upsert({
+    where: { userId: karimUser.id },
+    update: {
+      departmentId: uiDept.id,
+      positionId: uiDesignerPos.id,
+    },
+    create: {
+      userId: karimUser.id,
+      employeeCode: 'TAR0004',
+      fullName: 'Karim Tarek',
+      phone: '+20 103 456 7890',
+      gender: Gender.MALE,
+      shiftType: ShiftType.LS,
+      monthlyPermissionHours: 4,
+      annualLeaveDays: 30,
+      company: 'Tawfeer',
+      branch: 'Cairo HQ',
+      departmentId: uiDept.id,
+      positionId: uiDesignerPos.id,
+      joiningDate: new Date('2024-03-15'),
+      employmentType: EmploymentType.FULL_TIME,
+      status: EmployeeStatus.ACTIVE,
     },
   });
 

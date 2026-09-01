@@ -3,6 +3,7 @@ import { apiClient } from '../lib/api-client';
 import {
   Employee,
   CreateEmployeeInput,
+  UpdateEmployeeInput,
   QueryEmployeesInput,
   PaginatedEmployeesResponse,
 } from '../types/employees';
@@ -68,6 +69,23 @@ export function useCreateEmployee() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: EMPLOYEES_KEY });
       queryClient.invalidateQueries({ queryKey: NEXT_CODE_KEY });
+    },
+  });
+}
+
+export function useUpdateEmployee() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: UpdateEmployeeInput }) => {
+      const response = await apiClient.patch<Employee>(
+        `/api/v1/employees/${id}`,
+        data,
+      );
+      return response.data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: EMPLOYEES_KEY });
+      queryClient.invalidateQueries({ queryKey: [...EMPLOYEES_KEY, variables.id] });
     },
   });
 }

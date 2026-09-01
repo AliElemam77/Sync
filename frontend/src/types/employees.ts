@@ -126,6 +126,45 @@ export interface CreateEmployeeInput {
   };
 }
 
+export interface UpdateEmployeeInput {
+  fullName?: string;
+  email?: string;
+  password?: string;
+  isActive?: boolean;
+  roleId?: string;
+  phone?: string;
+  dob?: string;
+  gender?: Gender;
+  shiftType?: ShiftType;
+  avatarUrl?: string;
+  company?: string;
+  branch?: string;
+  departmentId?: string;
+  positionId?: string;
+  levelId?: string;
+  joiningDate?: string;
+  employmentType?: EmploymentType;
+  status?: EmployeeStatus;
+  annualLeaveDays?: number;
+  monthlyPermissionHours?: number;
+  address?: string;
+  altPhone?: string;
+  emergencyContact?: {
+    name: string;
+    relationship?: EmergencyRelationship;
+    phone: string;
+  };
+  bankInfo?: {
+    bankName?: string;
+    accountHolder?: string;
+    accountNumber?: string;
+    iban?: string;
+    swift?: string;
+    branch?: string;
+    basicSalary?: number;
+  };
+}
+
 export interface QueryEmployeesInput {
   search?: string;
   departmentId?: string;

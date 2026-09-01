@@ -35,6 +35,12 @@ export class AuthService {
             },
           },
         },
+        employeeProfile: {
+          include: {
+            department: { select: { id: true, name: true, code: true } },
+            position: { select: { id: true, name: true } },
+          },
+        },
       },
     });
 
@@ -110,6 +116,27 @@ export class AuthService {
         },
         permissions,
         createdAt: user.createdAt,
+        employee: user.employeeProfile
+          ? {
+              id: user.employeeProfile.id,
+              employeeCode: user.employeeProfile.employeeCode,
+              fullName: user.employeeProfile.fullName,
+              avatarUrl: user.employeeProfile.avatarUrl,
+              department: user.employeeProfile.department
+                ? {
+                    id: user.employeeProfile.department.id,
+                    name: user.employeeProfile.department.name,
+                    code: user.employeeProfile.department.code,
+                  }
+                : null,
+              position: user.employeeProfile.position
+                ? {
+                    id: user.employeeProfile.position.id,
+                    name: user.employeeProfile.position.name,
+                  }
+                : null,
+            }
+          : null,
       },
     };
   }
@@ -123,6 +150,12 @@ export class AuthService {
             rolePermissions: {
               include: { permission: true },
             },
+          },
+        },
+        employeeProfile: {
+          include: {
+            department: { select: { id: true, name: true, code: true } },
+            position: { select: { id: true, name: true } },
           },
         },
       },
@@ -142,6 +175,27 @@ export class AuthService {
       },
       permissions: user.role.rolePermissions.map((rp) => rp.permission.name),
       createdAt: user.createdAt,
+      employee: user.employeeProfile
+        ? {
+            id: user.employeeProfile.id,
+            employeeCode: user.employeeProfile.employeeCode,
+            fullName: user.employeeProfile.fullName,
+            avatarUrl: user.employeeProfile.avatarUrl,
+            department: user.employeeProfile.department
+              ? {
+                  id: user.employeeProfile.department.id,
+                  name: user.employeeProfile.department.name,
+                  code: user.employeeProfile.department.code,
+                }
+              : null,
+            position: user.employeeProfile.position
+              ? {
+                  id: user.employeeProfile.position.id,
+                  name: user.employeeProfile.position.name,
+                }
+              : null,
+          }
+        : null,
     };
   }
 }

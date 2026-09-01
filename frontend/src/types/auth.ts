@@ -3,6 +3,26 @@ export interface Role {
   name: string;
 }
 
+export interface UserDepartment {
+  id: string;
+  name: string;
+  code: string;
+}
+
+export interface UserPosition {
+  id: string;
+  name: string;
+}
+
+export interface UserEmployeeProfile {
+  id: string;
+  employeeCode: string;
+  fullName: string;
+  avatarUrl?: string | null;
+  department?: UserDepartment | null;
+  position?: UserPosition | null;
+}
+
 export interface UserProfile {
   id: string;
   email: string;
@@ -10,6 +30,7 @@ export interface UserProfile {
   role: Role;
   permissions: string[];
   createdAt: string;
+  employee?: UserEmployeeProfile | null;
 }
 
 export interface LoginResponse {

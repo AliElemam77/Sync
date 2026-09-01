@@ -6,6 +6,11 @@ import { AuthModule } from './modules/auth/auth.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { OrganizationModule } from './modules/organization/organization.module';
 import { EmployeesModule } from './modules/employees/employees.module';
+import { TasksModule } from './modules/tasks/tasks.module';
+import { EventsModule } from './modules/events/events.module';
+import { AttendanceModule } from './modules/attendance/attendance.module';
+import { LeavesModule } from './modules/leaves/leaves.module';
+import { WorkPermissionsModule } from './modules/work-permissions/work-permissions.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
@@ -21,6 +26,11 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
     AuthModule,
     OrganizationModule,
     EmployeesModule,
+    TasksModule,
+    EventsModule,
+    AttendanceModule,
+    LeavesModule,
+    WorkPermissionsModule,
   ],
   providers: [
     {
