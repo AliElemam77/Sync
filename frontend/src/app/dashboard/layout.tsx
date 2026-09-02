@@ -23,6 +23,8 @@ import {
   FiInfo,
   FiCheckCircle,
   FiTrendingUp,
+  FiHardDrive,
+  FiDollarSign,
 } from 'react-icons/fi';
 import { BiBuildingHouse } from 'react-icons/bi';
 import { SocketProvider } from '../../providers/socket-provider';
@@ -197,6 +199,42 @@ export default function DashboardLayout({
         ],
         primaryActionLabel: 'إضافة قسم جديد',
         primaryActionHref: '/dashboard/organization',
+      },
+      {
+        id: 'assets',
+        label: 'الأصول والعهد التقنية',
+        category: 'تقنية المعلومات',
+        href: '/dashboard/assets',
+        icon: FiHardDrive,
+        requiredPerm: 'assets.view',
+        purposeTitle: 'إدارة الأصول والعهد والمعدات',
+        purposeDescription:
+          'متابعة وجرد أجهزة الشركة وحسابات التراخيص، وإدارة حركات تسليم واسترجاع العهد للكوادر البشرية مع سجل تاريخي دقيق.',
+        highlights: [
+          { title: 'جرد الأجهزة والبرمجيات', desc: 'حصر كامل لأجهزة اللابتوب والشاشات والتراخيص' },
+          { title: 'تسليم واسترجاع العهد', desc: 'تسجيل حركات الاستلام والتسليم وفحص الحالة' },
+          { title: 'السجل التاريخي للعهدة', desc: 'تتبع زمني دقيق لكل من استلم الجهاز وحالته' },
+        ],
+        primaryActionLabel: 'إضافة أصل جديد',
+        primaryActionHref: '/dashboard/assets',
+      },
+      {
+        id: 'accounting',
+        label: 'الإدارة المالية ودفتر الأستاذ',
+        category: 'المالية والمحاسبة',
+        href: '/dashboard/accounting',
+        icon: FiDollarSign,
+        requiredPerm: 'accounting.view',
+        purposeTitle: 'دفتر الأستاذ العام والتقارير المالية',
+        purposeDescription:
+          'متابعة الإيرادات والمصروفات بدقة متناهية، وإدارة قيود اليومية والتسويات العكسية، وتحليل صافي الأرباح.',
+        highlights: [
+          { title: 'دفتر الأستاذ العام', desc: 'تسجيل قيود الإيراد والمصروف والتصنيفات' },
+          { title: 'القيود العكسية', desc: 'إلغاء المعاملات الخاطئة بقيود تسوية تدقيقية' },
+          { title: 'تحليلات الأرباح والمصاريف', desc: 'مقارنة سنوية ورسوم بيانية للتدفقات النقدية' },
+        ],
+        primaryActionLabel: 'تسجيل قيد مالي',
+        primaryActionHref: '/dashboard/accounting',
       },
     ],
     [],

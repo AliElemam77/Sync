@@ -34,6 +34,14 @@ const INITIAL_PERMISSIONS = [
   { name: 'tasks.update', module: 'TASKS', description: 'Edit task details or advance task status' },
   { name: 'tasks.delete', module: 'TASKS', description: 'Delete tasks' },
 
+  // IT Asset Management (PHASE 09)
+  { name: 'it.manage_assets', module: 'ASSETS', description: 'Manage hardware, software licenses, and employee asset custody' },
+  { name: 'assets.view', module: 'ASSETS', description: 'View company assets and assigned equipment' },
+
+  // Accounting & Finance (PHASE 10)
+  { name: 'accounting.view', module: 'ACCOUNTING', description: 'View financial ledger, income, expenses, and summary reports' },
+  { name: 'accounting.manage', module: 'ACCOUNTING', description: 'Book financial transactions, record payroll/asset costs, and perform reversals' },
+
   // Audit Logs
   { name: 'audit.view', module: 'AUDIT', description: 'Inspect audit trail logs' },
 ];

@@ -33,6 +33,10 @@ model User {
   sentMessages             Message[]                 @relation("SentMessages")
   messageReadReceipts      MessageReadReceipt[]
 
+  // Accounting & Finance relations (PHASE 10)
+  recordedTransactions     FinancialTransaction[]    @relation("RecordedTransactions")
+  reversedTransactions     FinancialTransaction[]    @relation("ReversedTransactions")
+
   createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -288,6 +292,11 @@ model EmployeeProfile {
   // Chat & Groups relations (PHASE 06)
   conversationParticipants ConversationParticipant[]
   sentMessages             Message[]                 @relation("SentEmployeeMessages")
+
+  // IT Asset Management relations (PHASE 09)
+  assignedAssets           Asset[]                   @relation("EmployeeAssignedAssets")
+  assetAssignments         AssetAssignmentHistory[]  @relation("EmployeeAssetAssignments")
+  performedAssetActions    AssetAssignmentHistory[]  @relation("ActorAssetAssignments")
 
   createdAt                DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -679,3 +688,149 @@ model MessageReadReceipt {
   @@index([userId])
   @@map("message_read_receipts")
 }
+
+// -----------------------------------------------------------------------------
+// IT ASSET MANAGEMENT MODULE (PHASE 09)
+// -----------------------------------------------------------------------------
+
+enum AssetType {
+  HARDWARE
+  SOFTWARE
+  FURNITURE
+  OTHER
+}
+
+enum AssetStatus {
+  AVAILABLE
+  ASSIGNED
+  IN_MAINTENANCE
+  RETIRED
+}
+
+model Asset {
+  id                 String                   @id @default(uuid()) @db.Uuid
+  name               String                   @db.VarChar(150)
+  serialNumber       String                   @unique @map("serial_number") @db.VarChar(100)
+  type               AssetType                @default(HARDWARE)
+  status             AssetStatus              @default(AVAILABLE)
+
+  model              String?                  @db.VarChar(100)
+  manufacturer       String?                  @db.VarChar(100)
+  purchaseDate       DateTime?                @map("purchase_date") @db.Date
+  purchaseCost       Decimal?                 @map("purchase_cost") @db.Decimal(12, 2)
+  warrantyExpiry     DateTime?                @map("warranty_expiry") @db.Date
+  notes              String?                  @db.Text
+  imageUrl           String?                  @map("image_url") @db.Text
+
+  // Current Assignee (عهدة حالية لموظف)
+  assigneeId         String?                  @map("assignee_id") @db.Uuid
+  assignee           EmployeeProfile?         @relation("EmployeeAssignedAssets", fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  // Full Assignment & Movement History (سجل حركات العهدة)
+  assignmentHistory  AssetAssignmentHistory[]
+
+  createdAt          DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([serialNumber])
+  @@index([type])
+  @@index([status])
+  @@index([assigneeId])
+  @@map("assets")
+}
+
+model AssetAssignmentHistory {
+  id             String           @id @default(uuid()) @db.Uuid
+  assetId        String           @map("asset_id") @db.Uuid
+  asset          Asset            @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  employeeId     String           @map("employee_id") @db.Uuid
+  employee       EmployeeProfile  @relation("EmployeeAssetAssignments", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  assignedAt     DateTime         @default(now()) @map("assigned_at") @db.Timestamptz(6)
+  returnedAt     DateTime?        @map("returned_at") @db.Timestamptz(6)
+  conditionNotes String?          @map("condition_notes") @db.Text
+
+  // Performed By (المسؤول أو المدير الذي قام بالتسليم/الاستلام)
+  assignedById   String?          @map("assigned_by_id") @db.Uuid
+  assignedBy     EmployeeProfile? @relation("ActorAssetAssignments", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([assetId])
+  @@index([employeeId])
+  @@index([assignedAt])
+  @@index([returnedAt])
+  @@map("asset_assignment_history")
+}
+
+// -----------------------------------------------------------------------------
+// ACCOUNTING & FINANCE MODULE (PHASE 10)
+// -----------------------------------------------------------------------------
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+enum TransactionCategory {
+  PAYROLL
+  ASSET_PURCHASE
+  SUBSCRIPTION
+  CLIENT_PAYMENT
+  OPERATIONAL_EXPENSE
+  TAX_AND_GOVERNMENT
+  INVESTMENT
+  MISC
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  CASH
+  CREDIT_CARD
+  CHEQUE
+  ONLINE_GATEWAY
+  OTHER
+}
+
+model FinancialTransaction {
+  id              String              @id @default(uuid()) @db.Uuid
+  transactionDate DateTime            @default(now()) @map("transaction_date") @db.Timestamptz(6)
+  amount          Decimal             @db.Decimal(14, 2)
+  type            TransactionType
+  category        TransactionCategory
+  paymentMethod   PaymentMethod       @default(BANK_TRANSFER) @map("payment_method")
+  description     String              @db.VarChar(255)
+
+  // Reference for cross-module reconciliation (e.g. Asset UUID, Payroll record, Invoice ID)
+  referenceId     String?             @map("reference_id") @db.VarChar(100)
+  referenceType   String?             @map("reference_type") @db.VarChar(50)
+  
+  // Attachments (Receipt, tax invoice, bank slip)
+  attachmentUrl   String?             @map("attachment_url") @db.Text
+
+  // Immutability & Reversal Audit (Strict Accounting Standard)
+  isReversed      Boolean             @default(false) @map("is_reversed")
+  reversedAt      DateTime?           @map("reversed_at") @db.Timestamptz(6)
+  reversalReason  String?             @map("reversal_reason") @db.Text
+  reversedById    String?             @map("reversed_by_id") @db.Uuid
+  reversedBy      User?               @relation("ReversedTransactions", fields: [reversedById], references: [id], onDelete: SetNull)
+
+  // Audit trail: Who booked this entry
+  recordedById    String              @map("recorded_by_id") @db.Uuid
+  recordedBy      User                @relation("RecordedTransactions", fields: [recordedById], references: [id], onDelete: Restrict)
+
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([transactionDate])
+  @@index([type])
+  @@index([category])
+  @@index([recordedById])
+  @@index([referenceId])
+  @@index([isReversed])
+  @@map("financial_transactions")
+}
+
+
