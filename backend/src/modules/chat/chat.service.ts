@@ -181,7 +181,7 @@ export class ChatService {
   /**
    * Fetch paginated messages history for a conversation
    */
-  async getMessages(conversationId: string, userId: string, page = 1, limit = 50) {
+  async getMessages(conversationId: string, userId: string, page = 1, limit = 20) {
     const conv = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
       include: { participants: true },

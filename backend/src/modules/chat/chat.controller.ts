@@ -50,7 +50,7 @@ export class ChatController {
     @Param('id') conversationId: string,
     @CurrentUser() user: any,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
   ) {
     return this.chatService.getMessages(conversationId, user.id, page, limit);
   }

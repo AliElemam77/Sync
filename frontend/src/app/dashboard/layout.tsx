@@ -265,26 +265,59 @@ export default function DashboardLayout({
         dir="rtl"
         className="h-screen w-full bg-background text-foreground flex font-sans antialiased transition-colors duration-200 relative overflow-hidden"
       >
-        {/* Ambient Aurora Glowing Orbs & Background Pattern */}
-        <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+        {/* Ambient Mesh Gradient Canvas (Apple Liquid Glass Optical Foundation) */}
+        <div className="fixed inset-0 pointer-events-none overflow-hidden z-0 select-none">
+          {/* Custom Luxury Isometric Grid Texture */}
+          <svg className="absolute inset-0 w-full h-full text-foreground opacity-[0.08] dark:opacity-[0.04] animate-pattern-glow" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id="luxury-pattern-grid" width="48" height="48" patternUnits="userSpaceOnUse">
+                <path d="M 48 0 L 0 0 0 48" fill="none" stroke="currentColor" strokeWidth="0.8" strokeDasharray="2,6" />
+                <circle cx="24" cy="24" r="1.5" fill="currentColor" />
+                <path d="M 24 20 L 24 28 M 20 24 L 28 24" stroke="currentColor" strokeWidth="0.8" />
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#luxury-pattern-grid)" />
+          </svg>
+
+          {/* Orb 1: Glowing Gold Lime & Warm Amber (Top-Start) */}
           <div
-            className="absolute inset-0 bg-repeat opacity-[0.06] dark:opacity-[0.09] mix-blend-overlay dark:mix-blend-screen"
+            className="absolute -top-[12%] start-[8%] w-[820px] h-[640px] rounded-full blur-[75px] opacity-80 dark:opacity-45 animate-aurora-1"
             style={{
-              backgroundImage: "url('https://i.ibb.co/TxVtpNz0/download-36-webp.webp')",
-              backgroundSize: '280px 280px',
+              background: 'radial-gradient(circle, #D4AF37 0%, #D8D365 40%, rgba(230, 240, 130, 0.3) 65%, transparent 80%)',
             }}
           />
-          <div className="absolute -top-[15%] start-[25%] w-[650px] h-[500px] rounded-full bg-brand-gold/10 dark:bg-brand-gold/[0.08] blur-[130px]" />
-          <div className="absolute top-[35%] end-[-10%] w-[600px] h-[600px] rounded-full bg-brand-taupe/15 dark:bg-brand-taupe/[0.12] blur-[140px]" />
-          <div className="absolute -bottom-[20%] start-[-5%] w-[550px] h-[550px] rounded-full bg-brand-champagne/10 dark:bg-brand-champagne/[0.06] blur-[130px]" />
+
+          {/* Orb 2: Deep Warm Cognac & Taupe (Center-End) */}
+          <div
+            className="absolute top-[22%] end-[-6%] w-[760px] h-[760px] rounded-full blur-[80px] opacity-75 dark:opacity-40 animate-aurora-2"
+            style={{
+              background: 'radial-gradient(circle, #8C7B65 0%, #C49B38 40%, rgba(96, 91, 81, 0.3) 65%, transparent 80%)',
+            }}
+          />
+
+          {/* Orb 3: Luminous Champagne Amber (Bottom-Start) */}
+          <div
+            className="absolute -bottom-[15%] start-[-5%] w-[720px] h-[720px] rounded-full blur-[75px] opacity-80 dark:opacity-40 animate-aurora-3"
+            style={{
+              background: 'radial-gradient(circle, #E6C25E 0%, #D8D365 45%, rgba(216, 211, 101, 0.25) 65%, transparent 80%)',
+            }}
+          />
+
+          {/* Orb 4: Mid Ambient Pulse Light (Center Core) */}
+          <div
+            className="absolute top-[45%] start-[30%] w-[620px] h-[620px] rounded-full blur-[90px] opacity-65 dark:opacity-30 animate-aurora-1"
+            style={{
+              background: 'radial-gradient(circle, #D4AF37 0%, rgba(216, 211, 101, 0.4) 45%, transparent 70%)',
+            }}
+          />
         </div>
 
         {/* ================================================================= */}
-        {/* DESKTOP DUAL-SIDEBAR CONTAINER                                    */}
+        {/* DESKTOP DUAL-SIDEBAR CONTAINER (FLOATING LIQUID GLASS)             */}
         {/* ================================================================= */}
         <aside className="hidden md:flex shrink-0 z-30 h-full select-none relative">
           {/* TIER 1: NARROW ICON RAIL (Minimalist Vertical Bar) */}
-          <div className="w-[74px] h-full bg-card/60 backdrop-blur-2xl border-e border-white/[0.06] dark:border-white/[0.07] flex flex-col items-center justify-between py-5 px-2.5 z-20 shadow-2xl">
+          <div className="w-[74px] h-full bg-white/30 dark:bg-black/40 backdrop-blur-2xl border-e border-white/40 dark:border-white/10 flex flex-col items-center justify-between py-5 px-2.5 z-20 shadow-2xl">
             {/* Top: Circular Avatar with Sparkle / Online Status */}
             <div className="flex flex-col items-center gap-6">
               <div className="relative group cursor-pointer" onClick={() => router.push('/dashboard')}>
@@ -368,9 +401,9 @@ export default function DashboardLayout({
               </div>
             </div>
 
-            {/* TIER 2: EXPLANATORY PAGE PURPOSE & INSIGHT PANEL */}
+            {/* TIER 2: EXPLANATORY PAGE PURPOSE & INSIGHT PANEL (FROSTED GLASS) */}
             {isSubPanelOpen && (
-              <div className="w-72 h-full bg-card/60 backdrop-blur-2xl border-e border-white/[0.06] dark:border-white/[0.07] flex flex-col justify-between p-5 z-10 animate-in slide-in-from-right duration-200 shadow-2xl overflow-y-auto no-scrollbar">
+              <div className="w-72 h-full bg-white/40 dark:bg-black/45 backdrop-blur-2xl border-e border-white/40 dark:border-white/10 flex flex-col justify-between p-5 z-10 animate-in slide-in-from-right duration-200 shadow-2xl overflow-y-auto no-scrollbar">
                 <div className="space-y-5">
                   {/* Top Module Header */}
                   <div className="space-y-1.5 border-b border-border/30 pb-4">
@@ -444,7 +477,7 @@ export default function DashboardLayout({
           </aside>
 
           {/* ================================================================= */}
-          {/* MOBILE DRAWER (Slide-over)                                        */}
+          {/* MOBILE DRAWER (Slide-over Liquid Glass)                           */}
           {/* ================================================================= */}
           {isMobileMenuOpen && (
             <div className="fixed inset-0 z-50 md:hidden flex">
@@ -453,7 +486,7 @@ export default function DashboardLayout({
                 className="fixed inset-0 bg-black/60 backdrop-blur-md transition-opacity"
               />
 
-              <div className="relative w-72 max-w-[80vw] bg-card/90 backdrop-blur-2xl border-e border-white/[0.08] h-full flex flex-col p-4 shadow-2xl z-10 animate-in slide-in-from-right duration-200">
+              <div className="relative w-72 max-w-[80vw] bg-white/75 dark:bg-black/80 backdrop-blur-2xl border-e border-white/40 dark:border-white/10 h-full flex flex-col p-4 shadow-2xl z-10 animate-in slide-in-from-right duration-200">
                 <div className="flex items-center justify-between pb-4 border-b border-border/30">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-2xl bg-gradient-to-tr from-brand-taupe to-brand-gold dark:from-brand-gold dark:to-brand-champagne flex items-center justify-center font-black text-white dark:text-brand-stone-950 text-lg shadow-md">
@@ -513,7 +546,7 @@ export default function DashboardLayout({
           {/* ================================================================= */}
           <div className="flex-1 flex flex-col h-full min-w-0 bg-transparent overflow-hidden">
             {/* Top Navbar */}
-            <header className="h-16 shrink-0 border-b border-white/[0.06] dark:border-white/[0.07] bg-card/30 backdrop-blur-2xl px-4 md:px-8 flex items-center justify-between z-20 transition-colors">
+            <header className="h-16 shrink-0 border-b border-white/40 dark:border-white/10 bg-white/30 dark:bg-black/35 backdrop-blur-2xl px-4 md:px-8 flex items-center justify-between z-20 transition-colors shadow-xs">
               <div className="flex items-center gap-3">
                 {/* Mobile Menu Button */}
                 <button

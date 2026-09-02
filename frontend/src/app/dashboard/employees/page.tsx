@@ -123,7 +123,7 @@ export default function EmployeesListPage() {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-card p-4 rounded-3xl shadow-luxury dark:shadow-luxury-dark">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 glass-card p-4 rounded-3xl">
         <div className="sm:col-span-2 relative">
           <FiSearch className="absolute start-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground-subtle" />
           <input
@@ -134,7 +134,7 @@ export default function EmployeesListPage() {
               setPage(1);
             }}
             placeholder="بحث بالاسم، كود الموظف (TAR...)، البريد، أو الهاتف..."
-            className="w-full rounded-2xl border border-border bg-surface ps-10 pe-4 py-2.5 text-xs text-foreground placeholder-foreground-subtle focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all"
+            className="w-full rounded-2xl border border-white/40 dark:border-white/10 bg-white/40 dark:bg-black/30 ps-10 pe-4 py-2.5 text-xs text-foreground placeholder-foreground-subtle focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all"
           />
         </div>
 
@@ -145,7 +145,7 @@ export default function EmployeesListPage() {
               setDepartmentId(e.target.value);
               setPage(1);
             }}
-            className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all appearance-none cursor-pointer"
+            className="w-full rounded-2xl border border-white/40 dark:border-white/10 bg-white/40 dark:bg-black/30 px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all appearance-none cursor-pointer"
           >
             <option value="">جميع الأقسام والوحدات</option>
             {orgTree?.map((dept) => (
@@ -167,7 +167,7 @@ export default function EmployeesListPage() {
       )}
 
       {/* Employees Table Card */}
-      <div className="rounded-3xl bg-card shadow-luxury dark:shadow-luxury-dark overflow-hidden">
+      <div className="rounded-3xl glass-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-start text-xs text-foreground-muted">
             <thead className="border-b border-border/30 bg-surface-raised/40 text-[11px] font-bold text-foreground">

@@ -1133,8 +1133,11 @@ function CreateLeaveModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in">
-      <div className="w-full max-w-md rounded-3xl bg-card p-6 shadow-2xl space-y-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in">
+      <div className="relative overflow-hidden w-full max-w-md rounded-3xl border border-white/40 dark:border-white/10 bg-white/85 dark:bg-black/90 backdrop-blur-2xl p-6 shadow-2xl space-y-4">
+        {/* Top Specular Rim Highlight */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/80 dark:via-white/20 to-transparent z-10" />
+
         <div className="flex items-center justify-between border-b border-border/30 pb-3">
           <h2 className="text-sm font-black text-foreground">تقديم طلب إجازة رسمية</h2>
           <button onClick={onClose} className="p-1 rounded-xl text-foreground-muted hover:text-foreground">
@@ -1281,8 +1284,11 @@ function CreatePermissionModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in">
-      <div className="w-full max-w-md rounded-3xl bg-card p-6 shadow-2xl space-y-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in">
+      <div className="relative overflow-hidden w-full max-w-md rounded-3xl border border-white/40 dark:border-white/10 bg-white/85 dark:bg-black/90 backdrop-blur-2xl p-6 shadow-2xl space-y-4">
+        {/* Top Specular Rim Highlight */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/80 dark:via-white/20 to-transparent z-10" />
+
         <div className="flex items-center justify-between border-b border-border/30 pb-3">
           <h2 className="text-sm font-black text-foreground">تقديم طلب إذن عمل ساعي</h2>
           <button onClick={onClose} className="p-1 rounded-xl text-foreground-muted hover:text-foreground">
@@ -1396,8 +1402,11 @@ function RejectModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in">
-      <div className="w-full max-w-md rounded-3xl bg-card p-6 shadow-2xl space-y-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in">
+      <div className="relative overflow-hidden w-full max-w-md rounded-3xl border border-white/40 dark:border-white/10 bg-white/85 dark:bg-black/90 backdrop-blur-2xl p-6 shadow-2xl space-y-4">
+        {/* Top Specular Rim Highlight */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/80 dark:via-white/20 to-transparent z-10" />
+
         <div className="flex items-center justify-between border-b border-border/30 pb-3">
           <h2 className="text-sm font-black text-foreground flex items-center gap-2">
             <FiAlertCircle className="h-4 w-4 text-rose-500" />

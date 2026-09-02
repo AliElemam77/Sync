@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery, InfiniteData } from '@tanstack/react-query';
 import { apiClient } from '../lib/api-client';
 import { getSocket } from '../lib/socket';
 import {
@@ -14,6 +14,87 @@ import {
 export const CHAT_CONVERSATIONS_KEY = ['chat', 'conversations'];
 export const CHAT_MESSAGES_KEY = (id: string) => ['chat', 'messages', id];
 export const CHAT_CONVERSATION_KEY = (id: string) => ['chat', 'conversation', id];
+
+// =============================================================================
+// CACHE MUTATION HELPERS (Handles both InfiniteData and Standard format)
+// =============================================================================
+
+function appendMessageToCache(
+  queryClient: any,
+  conversationId: string,
+  newMessage: Message,
+) {
+  queryClient.setQueryData(
+    CHAT_MESSAGES_KEY(conversationId),
+    (old: any) => {
+      if (!old) return old;
+
+      // Handle InfiniteData format from useInfiniteQuery
+      if (old.pages && Array.isArray(old.pages)) {
+        const exists = old.pages.some((page: MessagesResponse) =>
+          page.messages.some((m) => m.id === newMessage.id),
+        );
+        if (exists) return old;
+
+        const newPages = [...old.pages];
+        const page0 = newPages[0] || { messages: [], total: 0, page: 1, totalPages: 1 };
+        newPages[0] = {
+          ...page0,
+          messages: [...page0.messages, newMessage],
+          total: (page0.total || 0) + 1,
+        };
+        return {
+          ...old,
+          pages: newPages,
+        };
+      }
+
+      // Handle single MessagesResponse format
+      if (old.messages && Array.isArray(old.messages)) {
+        if (old.messages.some((m: Message) => m.id === newMessage.id)) return old;
+        return {
+          ...old,
+          messages: [...old.messages, newMessage],
+          total: (old.total || 0) + 1,
+        };
+      }
+
+      return old;
+    },
+  );
+}
+
+function updateMessageInCache(
+  queryClient: any,
+  conversationId: string,
+  updater: (msg: Message) => Message,
+) {
+  queryClient.setQueryData(
+    CHAT_MESSAGES_KEY(conversationId),
+    (old: any) => {
+      if (!old) return old;
+
+      if (old.pages && Array.isArray(old.pages)) {
+        return {
+          ...old,
+          pages: old.pages.map((page: MessagesResponse) => ({
+            ...page,
+            messages: page.messages.map((m) => updater(m)),
+          })),
+        };
+      }
+
+      if (old.messages && Array.isArray(old.messages)) {
+        return {
+          ...old,
+          messages: old.messages.map((m: Message) => updater(m)),
+        };
+      }
+
+      return old;
+    },
+  );
+}
 
 // =============================================================================
 // QUERY HOOKS
@@ -42,16 +123,36 @@ export function useConversationDetails(conversationId: string | null) {
   });
 }
 
+export function useInfiniteMessages(conversationId: string | null) {
+  return useInfiniteQuery<MessagesResponse>({
+    queryKey: CHAT_MESSAGES_KEY(conversationId || ''),
+    queryFn: async ({ pageParam = 1 }) => {
+      if (!conversationId) return { messages: [], total: 0, page: 1, totalPages: 1 };
+      const res = await apiClient.get<MessagesResponse>(
+        `/api/v1/chat/conversations/${conversationId}/messages?page=${pageParam}&limit=20`,
+      );
+      return res.data;
+    },
+    getNextPageParam: (lastPage) => {
+      if (!lastPage || lastPage.page >= lastPage.totalPages) return undefined;
+      return lastPage.page + 1;
+    },
+    initialPageParam: 1,
+    enabled: Boolean(conversationId),
+    staleTime: Infinity,
+  });
+}
+
 export function useMessages(conversationId: string | null) {
   return useQuery({
     queryKey: CHAT_MESSAGES_KEY(conversationId || ''),
     queryFn: async () => {
       if (!conversationId) return { messages: [], total: 0, page: 1, totalPages: 1 };
-      const res = await apiClient.get<MessagesResponse>(`/api/v1/chat/conversations/${conversationId}/messages?limit=100`);
+      const res = await apiClient.get<MessagesResponse>(`/api/v1/chat/conversations/${conversationId}/messages?limit=20`);
       return res.data;
     },
     enabled: Boolean(conversationId),
-    staleTime: Infinity, // Keep cached; socket updates messages dynamically
+    staleTime: Infinity,
   });
 }
 
@@ -68,19 +169,8 @@ export function useSendMessage() {
       return res.data;
     },
     onSuccess: (newMessage) => {
-      // 1. Instantly append message to active conversation cache if not already present
-      queryClient.setQueryData<MessagesResponse>(
-        CHAT_MESSAGES_KEY(newMessage.conversationId),
-        (old) => {
-          if (!old) return { messages: [newMessage], total: 1, page: 1, totalPages: 1 };
-          if (old.messages.some((m) => m.id === newMessage.id)) return old;
-          return {
-            ...old,
-            messages: [...old.messages, newMessage],
-            total: old.total + 1,
-          };
-        },
-      );
+      // 1. Instantly append message to active conversation cache
+      appendMessageToCache(queryClient, newMessage.conversationId, newMessage);
 
       // 2. Update last message snippet on conversations list
       queryClient.setQueryData<ConversationSummary[]>(CHAT_CONVERSATIONS_KEY, (old) => {
@@ -179,17 +269,8 @@ export function useToggleReaction() {
     },
     onSuccess: (result) => {
       if (result.data?.reactions) {
-        queryClient.setQueryData<MessagesResponse>(
-          CHAT_MESSAGES_KEY(result.conversationId),
-          (old) => {
-            if (!old) return old;
-            return {
-              ...old,
-              messages: old.messages.map((m) =>
-                m.id === result.messageId ? { ...m, reactions: result.data.reactions } : m,
-              ),
-            };
-          },
+        updateMessageInCache(queryClient, result.conversationId, (m) =>
+          m.id === result.messageId ? { ...m, reactions: result.data.reactions } : m,
         );
       }
     },
@@ -205,17 +286,8 @@ export function useEditMessage() {
       return { message: res.data, conversationId, messageId };
     },
     onSuccess: (result) => {
-      queryClient.setQueryData<MessagesResponse>(
-        CHAT_MESSAGES_KEY(result.conversationId),
-        (old) => {
-          if (!old) return old;
-          return {
-            ...old,
-            messages: old.messages.map((m) =>
-              m.id === result.messageId ? { ...m, content: result.message.content, isEdited: true } : m,
-            ),
-          };
-        },
+      updateMessageInCache(queryClient, result.conversationId, (m) =>
+        m.id === result.messageId ? { ...m, content: result.message.content, isEdited: true } : m,
       );
     },
   });
@@ -230,17 +302,8 @@ export function useDeleteMessage() {
       return { data: res.data, conversationId, messageId };
     },
     onSuccess: (result) => {
-      queryClient.setQueryData<MessagesResponse>(
-        CHAT_MESSAGES_KEY(result.conversationId),
-        (old) => {
-          if (!old) return old;
-          return {
-            ...old,
-            messages: old.messages.map((m) =>
-              m.id === result.messageId ? { ...m, isDeleted: true, content: 'تم حذف هذه الرسالة' } : m,
-            ),
-          };
-        },
+      updateMessageInCache(queryClient, result.conversationId, (m) =>
+        m.id === result.messageId ? { ...m, isDeleted: true, content: 'تم حذف هذه الرسالة' } : m,
       );
     },
   });
@@ -264,19 +327,7 @@ export function useChatSocket(activeConversationId: string | null) {
 
     // 1. Receive live message
     const handleReceiveMessage = (newMessage: Message) => {
-      // Append to active messages cache
-      queryClient.setQueryData<MessagesResponse>(
-        CHAT_MESSAGES_KEY(newMessage.conversationId),
-        (old) => {
-          if (!old) return { messages: [newMessage], total: 1, page: 1, totalPages: 1 };
-          if (old.messages.some((m) => m.id === newMessage.id)) return old;
-          return {
-            ...old,
-            messages: [...old.messages, newMessage],
-            total: old.total + 1,
-          };
-        },
-      );
+      appendMessageToCache(queryClient, newMessage.conversationId, newMessage);
 
       // Update conversations list snippet & unread count
       queryClient.setQueryData<ConversationSummary[]>(CHAT_CONVERSATIONS_KEY, (old) => {
@@ -334,49 +385,22 @@ export function useChatSocket(activeConversationId: string | null) {
 
     // 4. Reaction updated in real-time
     const handleReactionUpdated = (data: { conversationId: string; messageId: string; reactions: any[] }) => {
-      queryClient.setQueryData<MessagesResponse>(
-        CHAT_MESSAGES_KEY(data.conversationId),
-        (old) => {
-          if (!old) return old;
-          return {
-            ...old,
-            messages: old.messages.map((m) =>
-              m.id === data.messageId ? { ...m, reactions: data.reactions } : m,
-            ),
-          };
-        },
+      updateMessageInCache(queryClient, data.conversationId, (m) =>
+        m.id === data.messageId ? { ...m, reactions: data.reactions } : m,
       );
     };
 
     // 5. Message edited in real-time
     const handleMessageEdited = (data: { conversationId: string; message: Message }) => {
-      queryClient.setQueryData<MessagesResponse>(
-        CHAT_MESSAGES_KEY(data.conversationId),
-        (old) => {
-          if (!old) return old;
-          return {
-            ...old,
-            messages: old.messages.map((m) =>
-              m.id === data.message.id ? { ...m, content: data.message.content, isEdited: true } : m,
-            ),
-          };
-        },
+      updateMessageInCache(queryClient, data.conversationId, (m) =>
+        m.id === data.message.id ? { ...m, content: data.message.content, isEdited: true } : m,
       );
     };
 
     // 6. Message deleted in real-time
     const handleMessageDeleted = (data: { conversationId: string; messageId: string }) => {
-      queryClient.setQueryData<MessagesResponse>(
-        CHAT_MESSAGES_KEY(data.conversationId),
-        (old) => {
-          if (!old) return old;
-          return {
-            ...old,
-            messages: old.messages.map((m) =>
-              m.id === data.messageId ? { ...m, isDeleted: true, content: 'تم حذف هذه الرسالة' } : m,
-            ),
-          };
-        },
+      updateMessageInCache(queryClient, data.conversationId, (m) =>
+        m.id === data.messageId ? { ...m, isDeleted: true, content: 'تم حذف هذه الرسالة' } : m,
       );
     };
 
@@ -389,7 +413,6 @@ export function useChatSocket(activeConversationId: string | null) {
     }) => {
       if (data.conversationId === activeConversationId) {
         if (data.isTyping) {
-          // Clear any existing timeout for this user
           setTypingUsers((prev) => {
             if (prev[data.userId]?.timer) {
               clearTimeout(prev[data.userId].timer);

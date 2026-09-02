@@ -346,42 +346,45 @@ export class TasksService {
 
     const targetStatus = dto.status;
 
-    // 1. Rule: Setting to DONE requires Creator or Admin
-    if (targetStatus === TaskStatus.DONE) {
-      if (!isCreator && !isAdmin) {
-        throw new ForbiddenException(
-          'Only the task requester (Creator) or an Administrator can mark this task as DONE (Accepted).',
-        );
+    // If status is changing, enforce state transition rules
+    if (task.status !== targetStatus) {
+      // 1. Rule: Setting to DONE requires Creator or Admin
+      if (targetStatus === TaskStatus.DONE) {
+        if (!isCreator && !isAdmin) {
+          throw new ForbiddenException(
+            'Only the task requester (Creator) or an Administrator can mark this task as DONE (Accepted).',
+          );
+        }
       }
-    }
 
-    // 2. Rule: Setting to NEEDS_REVISION requires Creator or Admin + Mandatory Comment
-    else if (targetStatus === TaskStatus.NEEDS_REVISION) {
-      if (!isCreator && !isAdmin) {
-        throw new ForbiddenException(
-          'Only the task requester (Creator) or an Administrator can push a task back to NEEDS_REVISION.',
-        );
+      // 2. Rule: Setting to NEEDS_REVISION requires Creator or Admin + Mandatory Comment
+      else if (targetStatus === TaskStatus.NEEDS_REVISION) {
+        if (!isCreator && !isAdmin) {
+          throw new ForbiddenException(
+            'Only the task requester (Creator) or an Administrator can push a task back to NEEDS_REVISION.',
+          );
+        }
+        if (!dto.comment || !dto.comment.trim()) {
+          throw new BadRequestException(
+            'A mandatory explanation comment is required when pushing a task back to NEEDS_REVISION.',
+          );
+        }
       }
-      if (!dto.comment || !dto.comment.trim()) {
-        throw new BadRequestException(
-          'A mandatory explanation comment is required when pushing a task back to NEEDS_REVISION.',
-        );
-      }
-    }
 
-    // 3. Rule: Setting to WAITING_FOR_CLIENT requires Target Team Leader, Creator, or Admin
-    else if (targetStatus === TaskStatus.WAITING_FOR_CLIENT) {
-      if (!isTargetTeamLeader && !isCreator && !isAdmin) {
-        throw new ForbiddenException(
-          'Only the target department Team Leader or task Creator can place a task in WAITING_FOR_CLIENT status.',
-        );
+      // 3. Rule: Setting to WAITING_FOR_CLIENT requires Target Team Leader, Creator, or Admin
+      else if (targetStatus === TaskStatus.WAITING_FOR_CLIENT) {
+        if (!isTargetTeamLeader && !isCreator && !isAdmin) {
+          throw new ForbiddenException(
+            'Only the target department Team Leader or task Creator can place a task in WAITING_FOR_CLIENT status.',
+          );
+        }
       }
-    }
 
-    // 4. Rule: Setting to TODO, IN_PROGRESS, REVIEW allowed for Assignee, Team Leader, Creator, or Admin
-    else if ([TaskStatus.TODO, TaskStatus.IN_PROGRESS, TaskStatus.REVIEW].includes(targetStatus)) {
-      if (!isAssignee && !isTargetTeamLeader && !isCreator && !isAdmin) {
-        throw new ForbiddenException('You do not have permission to transition the status of this task.');
+      // 4. Rule: Setting to TODO, IN_PROGRESS, REVIEW allowed for Assignee, Team Leader, Creator, or Admin
+      else if ([TaskStatus.TODO, TaskStatus.IN_PROGRESS, TaskStatus.REVIEW].includes(targetStatus)) {
+        if (!isAssignee && !isTargetTeamLeader && !isCreator && !isAdmin) {
+          throw new ForbiddenException('You do not have permission to transition the status of this task.');
+        }
       }
     }
 

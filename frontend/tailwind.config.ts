@@ -15,6 +15,9 @@ const config: Config = {
       },
       colors: {
         brand: {
+          linen: '#EFECE3',
+          sky: '#8FABD4',
+          ocean: '#4A70A9',
           taupe: '#605B51',
           gold: '#D8D365',
           champagne: '#E6F082',

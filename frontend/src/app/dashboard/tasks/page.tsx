@@ -7,7 +7,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
   useTasks,
-  useDepartmentBacklog,
   useTask,
   useCreateTask,
   useUpdateTask,
@@ -175,7 +174,6 @@ export default function TasksKanbanPage() {
   // Modals & Panels State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const [isBacklogDrawerOpen, setIsBacklogDrawerOpen] = useState(false);
   const [revisionModalTask, setRevisionModalTask] = useState<Task | null>(null);
   const [revisionAttachmentUrls, setRevisionAttachmentUrls] = useState<string[]>([]);
   const [isUploadingRevisionImg, setIsUploadingRevisionImg] = useState(false);
@@ -209,7 +207,6 @@ export default function TasksKanbanPage() {
     priority: (selectedPriority as TaskPriority) || undefined,
   });
 
-  const { data: backlogTasks = [] } = useDepartmentBacklog();
   const { data: orgTree = [] } = useOrganizationTree();
 
   const createTaskMutation = useCreateTask();
@@ -249,34 +246,76 @@ export default function TasksKanbanPage() {
       }
     });
 
+    // Sort tasks in each column by order ASC, then by createdAt DESC
+    (Object.keys(grouped) as TaskStatus[]).forEach((status) => {
+      grouped[status].sort((a, b) => {
+        const orderA = a.order ?? 0;
+        const orderB = b.order ?? 0;
+        if (orderA !== orderB) return orderA - orderB;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+    });
+
     return grouped;
   }, [tasks, filterMode, currentEmployee]);
 
-  // Drag and Drop Handler
+  // Drag and Drop Handler (Supports column transitions and in-column reordering)
   const handleDragEnd = async (result: DropResult) => {
     const { destination, source, draggableId } = result;
     if (!destination) return;
     if (destination.droppableId === source.droppableId && destination.index === source.index) return;
 
-    const newStatus = destination.droppableId as TaskStatus;
+    const sourceStatus = source.droppableId as TaskStatus;
+    const destStatus = destination.droppableId as TaskStatus;
     const task = tasks.find((t) => t.id === draggableId);
     if (!task) return;
 
-    // Trigger Revision Modal if moving to NEEDS_REVISION
-    if (newStatus === 'NEEDS_REVISION') {
+    // Trigger Revision Modal if moving to NEEDS_REVISION from another column
+    if (destStatus === 'NEEDS_REVISION' && sourceStatus !== 'NEEDS_REVISION') {
       setRevisionModalTask(task);
       resetRevisionForm();
       setRevisionAttachmentUrls([]);
       return;
     }
 
+    // Determine destination column items
+    const destColumnItems = [...(tasksByColumn[destStatus] || [])];
+    if (sourceStatus === destStatus) {
+      const [moved] = destColumnItems.splice(source.index, 1);
+      destColumnItems.splice(destination.index, 0, moved);
+    } else {
+      destColumnItems.splice(destination.index, 0, { ...task, status: destStatus });
+    }
+
+    // Calculate new clean order value
+    let newOrder = 0;
+    if (destColumnItems.length <= 1) {
+      newOrder = 0;
+    } else if (destination.index === 0) {
+      const nextOrder = destColumnItems[1]?.order ?? 10;
+      newOrder = nextOrder - 10;
+    } else if (destination.index === destColumnItems.length - 1) {
+      const prevOrder = destColumnItems[destColumnItems.length - 2]?.order ?? 0;
+      newOrder = prevOrder + 10;
+    } else {
+      const prevOrder = destColumnItems[destination.index - 1]?.order ?? 0;
+      const nextOrder = destColumnItems[destination.index + 1]?.order ?? (prevOrder + 20);
+      newOrder = Math.round((prevOrder + nextOrder) / 2);
+      if (newOrder === prevOrder || newOrder === nextOrder) {
+        newOrder = prevOrder + 1;
+      }
+    }
+
     try {
       await updateStatusMutation.mutateAsync({
         id: draggableId,
-        data: { status: newStatus },
+        data: {
+          status: destStatus,
+          order: newOrder,
+        },
       });
     } catch (err: any) {
-      setErrorMessage(err?.response?.data?.message || 'فشل تحديث حالة المهمة.');
+      setErrorMessage(err?.response?.data?.message || 'فشل تحديث أو إعادة ترتيب المهمة.');
     }
   };
 
@@ -334,16 +373,6 @@ export default function TasksKanbanPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          {isTeamLeaderOrAdmin && backlogTasks.length > 0 && (
-            <button
-              onClick={() => setIsBacklogDrawerOpen(true)}
-              className="inline-flex items-center gap-2 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 px-4 py-2.5 text-xs font-black hover:bg-amber-500/20 active:scale-95 transition-all"
-            >
-              <FiInbox className="h-4 w-4" />
-              <span>صندوق مهام القسم ({backlogTasks.length})</span>
-            </button>
-          )}
-
           {canCreate && (
             <button
               onClick={() => setIsCreateModalOpen(true)}
@@ -503,7 +532,7 @@ export default function TasksKanbanPage() {
               return (
                 <div
                   key={column.id}
-                  className="flex flex-col rounded-3xl border border-card-border bg-card/80 dark:bg-card/70 backdrop-blur-xl overflow-hidden shadow-xs"
+                  className="flex flex-col rounded-3xl border border-white/40 dark:border-white/10 bg-white/35 dark:bg-black/40 backdrop-blur-2xl overflow-hidden shadow-xl"
                 >
                   {/* Column Header */}
                   <div className={`p-3.5 border-b border-border/20 ${column.headerBg} flex items-center justify-between`}>
@@ -531,7 +560,7 @@ export default function TasksKanbanPage() {
                         }`}
                       >
                         {columnTasks.length === 0 ? (
-                          <div className="h-32 flex items-center justify-center border-2 border-dashed border-border rounded-2xl text-[11px] text-foreground-subtle italic">
+                          <div className="h-32 flex items-center justify-center border-2 border-dashed border-border/50 rounded-2xl text-[11px] text-foreground-subtle italic">
                             فارغ
                           </div>
                         ) : (
@@ -543,9 +572,9 @@ export default function TasksKanbanPage() {
                                   {...dragProvided.draggableProps}
                                   {...dragProvided.dragHandleProps}
                                   onClick={() => setSelectedTaskId(task.id)}
-                                  className={`group relative rounded-2xl border border-border bg-surface hover:bg-surface-hover p-3.5 shadow-xs hover:border-primary/50 hover:shadow-md cursor-pointer transition-all ${
+                                  className={`group relative rounded-2xl border border-white/40 dark:border-white/10 bg-white/50 dark:bg-black/45 hover:bg-white/70 dark:hover:bg-black/65 p-3.5 shadow-md hover:border-primary/50 hover:shadow-xl cursor-pointer transition-all ${
                                     dragSnapshot.isDragging
-                                      ? 'border-primary shadow-2xl scale-102 bg-surface-raised z-50'
+                                      ? 'border-primary shadow-2xl scale-102 bg-white/90 dark:bg-black/90 z-50 ring-2 ring-primary/40'
                                       : ''
                                   }`}
                                 >
@@ -715,9 +744,11 @@ export default function TasksKanbanPage() {
 
       {/* REVISION EXPLANATION MODAL */}
       {revisionModalTask && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="w-full max-w-md rounded-3xl border border-rose-500/30 bg-card p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-border pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in">
+          <div className="relative overflow-hidden w-full max-w-md rounded-3xl border border-rose-500/30 bg-white/85 dark:bg-black/90 backdrop-blur-2xl p-6 shadow-2xl space-y-4">
+            {/* Top Specular Rim Highlight */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-rose-400/60 to-transparent" />
+            <div className="flex items-center justify-between border-b border-border/40 pb-3">
               <h3 className="text-sm font-black text-foreground flex items-center gap-2">
                 <FiAlertCircle className="h-4 w-4 text-rose-500" />
                 <span>طلب تعديلات وإعادة المهمة</span>
@@ -835,21 +866,6 @@ export default function TasksKanbanPage() {
         </div>
       )}
 
-      {/* DEPARTMENT BACKLOG DRAWER */}
-      {isBacklogDrawerOpen && isTeamLeaderOrAdmin && (
-        <DepartmentBacklogDrawer
-          backlogTasks={backlogTasks}
-          employees={employees}
-          currentEmployee={currentEmployee}
-          onClose={() => setIsBacklogDrawerOpen(false)}
-          onAssignTask={async (taskId, assigneeId) => {
-            await updateTaskMutation.mutateAsync({
-              id: taskId,
-              data: { assigneeId },
-            });
-          }}
-        />
-      )}
     </div>
   );
 }
@@ -967,9 +983,12 @@ function CreateTaskModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
-      <div className="w-full max-w-lg max-h-[92vh] flex flex-col rounded-3xl border border-card-border bg-card shadow-2xl overflow-hidden">
-        <div className="p-5 border-b border-border flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in">
+      <div className="relative overflow-hidden w-full max-w-lg max-h-[92vh] flex flex-col rounded-3xl border border-white/40 dark:border-white/10 bg-white/85 dark:bg-black/90 backdrop-blur-2xl shadow-2xl">
+        {/* Top Specular Rim Highlight */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/80 dark:via-white/20 to-transparent z-10" />
+
+        <div className="p-5 border-b border-border/40 flex items-center justify-between">
           <h2 className="text-base font-black text-foreground flex items-center gap-2">
             <FiPlus className="h-4 w-4 text-primary" />
             <span>إنشاء مهمة عمل جديدة</span>
@@ -1343,10 +1362,13 @@ function TaskDetailsModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-      <div className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-3xl border border-card-border bg-card shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in">
+      <div className="relative overflow-hidden w-full max-w-2xl max-h-[90vh] flex flex-col rounded-3xl border border-white/40 dark:border-white/10 bg-white/85 dark:bg-black/90 backdrop-blur-2xl shadow-2xl">
+        {/* Top Specular Rim Highlight */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/80 dark:via-white/20 to-transparent z-10" />
+
         {/* Header */}
-        <div className="p-5 border-b border-border flex items-center justify-between bg-surface-raised/40">
+        <div className="p-5 border-b border-border/40 flex items-center justify-between bg-surface-raised/40">
           <div>
             <div className="flex items-center gap-2 text-[10px] text-foreground-muted mb-1 font-bold">
               <span>الحالة:</span>
@@ -1663,98 +1685,6 @@ function TaskDetailsModal({
           >
             إغلاق
           </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// -----------------------------------------------------------------------------
-// DEPARTMENT BACKLOG DRAWER
-// -----------------------------------------------------------------------------
-
-interface DepartmentBacklogDrawerProps {
-  backlogTasks: Task[];
-  employees: any[];
-  currentEmployee?: any;
-  onClose: () => void;
-  onAssignTask: (taskId: string, assigneeId: string) => Promise<void>;
-}
-
-function DepartmentBacklogDrawer({
-  backlogTasks,
-  employees,
-  currentEmployee,
-  onClose,
-  onAssignTask,
-}: DepartmentBacklogDrawerProps) {
-  const teamMembers = useMemo(() => {
-    if (!currentEmployee) return employees;
-    return employees.filter((e) => e.departmentId === currentEmployee.departmentId);
-  }, [employees, currentEmployee]);
-
-  return (
-    <div className="fixed inset-0 z-50 flex justify-start bg-black/70 backdrop-blur-sm animate-in fade-in">
-      <div className="w-full max-w-md h-full bg-card border-s border-border p-6 flex flex-col space-y-4 shadow-2xl">
-        <div className="flex items-center justify-between border-b border-border pb-4">
-          <div>
-            <h3 className="text-base font-black text-foreground flex items-center gap-2">
-              <FiInbox className="h-4 w-4 text-amber-500" />
-              <span>صندوق مهام القسم (Backlog)</span>
-            </h3>
-            <p className="text-xs text-foreground-muted">
-              المهام المحولة لقسمك بانتظار التوزيع والتسكين على أعضاء الفريق.
-            </p>
-          </div>
-          <button onClick={onClose} className="text-foreground-muted hover:text-foreground p-1">
-            <FiX className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto space-y-3">
-          {backlogTasks.length === 0 ? (
-            <div className="py-20 text-center text-xs text-foreground-subtle italic">
-              لا توجد مهام معلقة في صندوق القسم حالياً.
-            </div>
-          ) : (
-            backlogTasks.map((t) => (
-              <div
-                key={t.id}
-                className="rounded-2xl border border-border bg-surface p-4 space-y-2.5 shadow-xs"
-              >
-                <div className="flex items-center justify-between text-[10px]">
-                  <span className={`px-2 py-0.5 rounded-md font-bold border ${PRIORITY_BADGES[t.priority].bg} ${PRIORITY_BADGES[t.priority].text} ${PRIORITY_BADGES[t.priority].border}`}>
-                    {PRIORITY_BADGES[t.priority].label}
-                  </span>
-                  <span className="text-primary font-mono font-bold">من: {t.creator?.fullName}</span>
-                </div>
-
-                <h4 className="text-xs font-black text-foreground">{t.title}</h4>
-                {t.description && <p className="text-[11px] text-foreground-muted line-clamp-2">{t.description}</p>}
-
-                {/* Team Leader Distribution Selector */}
-                <div className="pt-2 border-t border-border flex items-center justify-between gap-2">
-                  <span className="text-[10px] text-foreground-muted font-bold shrink-0">إسناد إلى:</span>
-                  <select
-                    defaultValue=""
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        onAssignTask(t.id, e.target.value);
-                      }
-                    }}
-                    className="rounded-xl border border-border bg-surface-raised px-2.5 py-1 text-xs text-foreground focus:outline-none"
-                  >
-                    <option value="" disabled>اختر عضو الفريق...</option>
-                    {teamMembers.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.fullName} ({m.employeeCode})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            ))
-          )}
         </div>
       </div>
     </div>

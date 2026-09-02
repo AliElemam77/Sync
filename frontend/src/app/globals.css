@@ -9,11 +9,11 @@
     /* LIGHT MODE THEME TOKENS - Warm Alabaster & Champagne Frost Glass         */
     /* Palette: #605B51 (Warm Stone), #D8D365 (Gold Lime), #E6F082 (Champagne)   */
     /* ========================================================================= */
-    --background: #FBFBFA;
-    --background-subtle: #F5F4EE;
-    --surface: #F3F2EB;
-    --surface-raised: #ECEAE1;
-    --surface-hover: #E3E0D4;
+    --background: #F4F1EA;
+    --background-subtle: #ECE8DE;
+    --surface: rgba(255, 255, 255, 0.58);
+    --surface-raised: rgba(255, 255, 255, 0.78);
+    --surface-hover: rgba(255, 255, 255, 0.92);
 
     --foreground: #22201C;
     --foreground-muted: #605B51;
@@ -30,16 +30,16 @@
     --accent: #E6F082;
     --accent-foreground: #38350F;
 
-    --border: rgba(96, 91, 81, 0.04);
-    --border-subtle: rgba(96, 91, 81, 0.02);
-    --ring: rgba(216, 211, 101, 0.3);
+    --border: rgba(255, 255, 255, 0.60);
+    --border-subtle: rgba(96, 91, 81, 0.08);
+    --ring: rgba(216, 211, 101, 0.4);
 
-    --card: rgba(255, 255, 255, 0.85);
+    --card: rgba(255, 255, 255, 0.42);
     --card-foreground: #22201C;
-    --card-border: rgba(96, 91, 81, 0.04);
+    --card-border: rgba(255, 255, 255, 0.70);
 
-    --skeleton: rgba(96, 91, 81, 0.03);
-    --skeleton-highlight: rgba(216, 211, 101, 0.1);
+    --skeleton: rgba(96, 91, 81, 0.04);
+    --skeleton-highlight: rgba(216, 211, 101, 0.15);
   }
 
   .dark {
@@ -49,9 +49,9 @@
     /* ========================================================================= */
     --background: #0E0E0C;
     --background-subtle: #141411;
-    --surface: rgba(255, 255, 255, 0.03);
-    --surface-raised: rgba(255, 255, 255, 0.05);
-    --surface-hover: rgba(255, 255, 255, 0.08);
+    --surface: rgba(255, 255, 255, 0.05);
+    --surface-raised: rgba(255, 255, 255, 0.08);
+    --surface-hover: rgba(255, 255, 255, 0.12);
 
     --foreground: #F8F8F2;
     --foreground-muted: #A8A398;
@@ -68,16 +68,16 @@
     --accent: #1C1C17;
     --accent-foreground: #E6F082;
 
-    --border: rgba(255, 255, 255, 0.03);
-    --border-subtle: rgba(255, 255, 255, 0.015);
-    --ring: rgba(216, 211, 101, 0.25);
+    --border: rgba(255, 255, 255, 0.08);
+    --border-subtle: rgba(255, 255, 255, 0.04);
+    --ring: rgba(216, 211, 101, 0.3);
 
-    --card: rgba(20, 21, 17, 0.65);
+    --card: rgba(18, 19, 15, 0.42);
     --card-foreground: #F8F8F2;
-    --card-border: rgba(255, 255, 255, 0.03);
+    --card-border: rgba(255, 255, 255, 0.10);
 
-    --skeleton: rgba(255, 255, 255, 0.02);
-    --skeleton-highlight: rgba(216, 211, 101, 0.08);
+    --skeleton: rgba(255, 255, 255, 0.03);
+    --skeleton-highlight: rgba(216, 211, 101, 0.1);
   }
 }
 
@@ -118,14 +118,14 @@ body {
 .dark body {
   background-color: #0E0E0C;
   background-image: 
-    radial-gradient(ellipse 80% 50% at 50% -15%, rgba(216, 211, 101, 0.09), transparent 60%),
-    radial-gradient(circle 600px at 95% 40%, rgba(96, 91, 81, 0.18), transparent 70%),
-    radial-gradient(circle 500px at 5% 85%, rgba(230, 240, 130, 0.06), transparent 60%);
+    radial-gradient(ellipse 80% 50% at 50% -15%, rgba(216, 211, 101, 0.16), transparent 60%),
+    radial-gradient(circle 600px at 95% 40%, rgba(96, 91, 81, 0.22), transparent 70%),
+    radial-gradient(circle 500px at 5% 85%, rgba(230, 240, 130, 0.12), transparent 60%);
   background-attachment: fixed;
 }
 
 /* ========================================================================= */
-/* LUXURY GLASSMORPHISM UTILITIES                                            */
+/* LUXURY LIQUID GLASSMORPHISM UTILITIES                                     */
 /* ========================================================================= */
 
 .glass-card {
@@ -133,32 +133,37 @@ body {
   backdrop-filter: blur(28px) saturate(190%);
   -webkit-backdrop-filter: blur(28px) saturate(190%);
   border: 1px solid var(--card-border);
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.06), 0 20px 40px -15px rgba(0, 0, 0, 0.4);
+  box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.8), 0 20px 45px -15px rgba(96, 91, 81, 0.08);
 }
 
 .dark .glass-card {
-  background: rgba(20, 21, 17, 0.62);
-  border: 1px solid rgba(255, 255, 255, 0.03);
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.07), 0 20px 45px -12px rgba(0, 0, 0, 0.65);
+  background: rgba(18, 19, 15, 0.45);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.14), 0 25px 50px -12px rgba(0, 0, 0, 0.85);
 }
 
 .dark .glass-card:hover {
-  background: rgba(25, 26, 21, 0.75);
-  border-color: rgba(216, 211, 101, 0.2);
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.12), 0 25px 55px -12px rgba(0, 0, 0, 0.8), 0 0 30px -5px rgba(216, 211, 101, 0.1);
+  background: rgba(24, 25, 20, 0.60);
+  border-color: rgba(216, 211, 101, 0.3);
+  box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.20), 0 30px 60px -12px rgba(0, 0, 0, 0.9), 0 0 30px -5px rgba(216, 211, 101, 0.15);
 }
 
 .glass-pill {
   background: var(--surface);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(20px) saturate(170%);
+  -webkit-backdrop-filter: blur(20px) saturate(170%);
   border: 1px solid var(--border);
+  box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.6);
 }
 
 .dark .glass-pill {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.035);
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px) saturate(170%);
+  -webkit-backdrop-filter: blur(20px) saturate(170%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
 }
 
 .dark .glass-pill:hover {
@@ -205,5 +210,67 @@ body {
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* ========================================================================= */
+/* LUMINOUS GLOW & AURORA BREATHING ANIMATIONS                              */
+/* ========================================================================= */
+
+@keyframes aurora-drift-1 {
+  0%, 100% {
+    transform: translate(0px, 0px) scale(1);
+    opacity: 0.12;
+  }
+  50% {
+    transform: translate(35px, -20px) scale(1.15);
+    opacity: 0.22;
+  }
+}
+
+@keyframes aurora-drift-2 {
+  0%, 100% {
+    transform: translate(0px, 0px) scale(1);
+    opacity: 0.15;
+  }
+  50% {
+    transform: translate(-30px, 25px) scale(1.2);
+    opacity: 0.25;
+  }
+}
+
+@keyframes aurora-drift-3 {
+  0%, 100% {
+    transform: translate(0px, 0px) scale(1);
+    opacity: 0.1;
+  }
+  50% {
+    transform: translate(25px, 30px) scale(1.15);
+    opacity: 0.2;
+  }
+}
+
+@keyframes pattern-luminous-pulse {
+  0%, 100% {
+    opacity: 0.08;
+  }
+  50% {
+    opacity: 0.16;
+  }
+}
+
+.animate-aurora-1 {
+  animation: aurora-drift-1 12s ease-in-out infinite;
+}
+
+.animate-aurora-2 {
+  animation: aurora-drift-2 16s ease-in-out infinite alternate;
+}
+
+.animate-aurora-3 {
+  animation: aurora-drift-3 14s ease-in-out infinite alternate;
+}
+
+.animate-pattern-glow {
+  animation: pattern-luminous-pulse 6s ease-in-out infinite;
 }
 

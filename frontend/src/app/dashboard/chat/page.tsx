@@ -14,6 +14,7 @@ import {
   FiInfo,
   FiChevronRight,
   FiChevronLeft,
+  FiChevronDown,
   FiShield,
   FiUserPlus,
   FiX,
@@ -32,7 +33,7 @@ import { useOrganizationTree } from '../../../hooks/use-organization';
 import {
   useConversations,
   useConversationDetails,
-  useMessages,
+  useInfiniteMessages,
   useSendMessage,
   useEditMessage,
   useDeleteMessage,
@@ -271,13 +272,22 @@ export default function ChatPage() {
   const [groupDepartmentId, setGroupDepartmentId] = useState('');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const isNearBottomRef = useRef<boolean>(true);
+  const [showScrollBottomBtn, setShowScrollBottomBtn] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
 
   // Queries
   const { data: conversations = [], isLoading: isConversationsLoading } = useConversations();
   const { data: activeConversation } = useConversationDetails(activeConvId);
-  const { data: messagesData, isLoading: isMessagesLoading } = useMessages(activeConvId);
+  const {
+    data: messagesInfiniteData,
+    isLoading: isMessagesLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteMessages(activeConvId);
   const { data: employeesData } = useEmployees({ page: 1, limit: 100 });
   const { data: departments = [] } = useOrganizationTree();
 
@@ -310,21 +320,77 @@ export default function ChatPage() {
     }
   }, [activeConvId]);
 
-  // Auto-scroll
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  // Smart Auto-scroll
+  const scrollToBottom = useCallback((behavior: 'auto' | 'smooth' = 'smooth') => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior,
+      });
+    } else {
+      messagesEndRef.current?.scrollIntoView({ behavior });
+    }
+    isNearBottomRef.current = true;
+    setShowScrollBottomBtn(false);
+  }, []);
+
+  // Listen to user scroll position & load earlier 20 messages on scroll up
+  const handleMessagesScroll = () => {
+    if (!messagesContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+
+    // Trigger loading older 20 messages when user reaches near the top (< 80px)
+    if (scrollTop < 80 && hasNextPage && !isFetchingNextPage) {
+      const prevScrollHeight = scrollHeight;
+      fetchNextPage().then(() => {
+        requestAnimationFrame(() => {
+          if (messagesContainerRef.current) {
+            const newScrollHeight = messagesContainerRef.current.scrollHeight;
+            messagesContainerRef.current.scrollTop = newScrollHeight - prevScrollHeight;
+          }
+        });
+      });
+    }
+
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    const isNear = distanceFromBottom < 120;
+    isNearBottomRef.current = isNear;
+    setShowScrollBottomBtn(!isNear);
   };
 
+  // Scroll to bottom immediately when active conversation changes
   useEffect(() => {
-    scrollToBottom();
-  }, [messagesData?.messages, optimisticMessages, typingUsers]);
+    if (activeConvId) {
+      isNearBottomRef.current = true;
+      setShowScrollBottomBtn(false);
+      const timer = setTimeout(() => {
+        scrollToBottom('auto');
+      }, 60);
+      return () => clearTimeout(timer);
+    }
+  }, [activeConvId, scrollToBottom]);
+
+  // Flatten all loaded pages in chronological order (Page 1 is newest 20, Page 2 is older 20, etc.)
+  const serverMessages = useMemo(() => {
+    if (!messagesInfiniteData?.pages) return [];
+    return messagesInfiniteData.pages
+      .slice()
+      .reverse()
+      .flatMap((page) => page.messages);
+  }, [messagesInfiniteData?.pages]);
 
   // Merge Server Messages with Active Local Optimistic Messages
   const combinedMessages = useMemo(() => {
-    const serverMsgs = messagesData?.messages || [];
     const activeOptimistic = optimisticMessages.filter((m) => m.conversationId === activeConvId);
-    return [...serverMsgs, ...activeOptimistic];
-  }, [messagesData?.messages, optimisticMessages, activeConvId]);
+    return [...serverMessages, ...activeOptimistic];
+  }, [serverMessages, optimisticMessages, activeConvId]);
+
+  // Only auto-scroll on new message if the user is already near the bottom
+  useEffect(() => {
+    if (isNearBottomRef.current) {
+      scrollToBottom('smooth');
+    }
+  }, [combinedMessages.length, typingUsers.length, scrollToBottom]);
 
   // Filtered Conversations List
   const filteredConversations = useMemo(() => {
@@ -695,7 +761,7 @@ export default function ChatPage() {
         {/* =================================================================== */}
         {/* LEFT SIDEBAR: CONVERSATIONS & CHANNELS LIST */}
         {/* =================================================================== */}
-        <aside className="w-full md:w-80 lg:w-96 border-e border-border/15 bg-card/90 backdrop-blur-2xl flex flex-col shrink-0 z-10">
+        <aside className="w-full md:w-80 lg:w-96 border-e border-white/40 dark:border-white/10 bg-white/30 dark:bg-black/35 backdrop-blur-2xl flex flex-col shrink-0 z-10">
           {/* Top Header */}
           <div className="p-4 border-b border-border/15 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -849,14 +915,20 @@ export default function ChatPage() {
           </div>
         </aside>
 
-        {/* =================================================================== */}
-        {/* CENTER / ACTIVE CHAT STREAM */}
-        {/* =================================================================== */}
-        <main className="flex-1 flex flex-col bg-background/50 relative overflow-hidden">
+        <main className="flex-1 flex flex-col bg-transparent relative overflow-hidden">
+          {/* WhatsApp / Telegram Ambient Pattern Wallpaper (Fixed Full-Height Coverage) */}
+          <div
+            className="absolute inset-0 pointer-events-none opacity-[0.06] dark:opacity-[0.045] bg-repeat z-0"
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23605B51' fill-opacity='1' fill-rule='evenodd'%3E%3Cpath d='M11 14.01V7a1 1 0 0 1 2 0v7.01A5 5 0 0 1 18 19v2a1 1 0 0 1-2 0v-2a3 3 0 0 0-3-3h-2a3 3 0 0 0-3 3v2a1 1 0 0 1-2 0v-2a5 5 0 0 1 5-4.99zM35 4a3 3 0 0 1 3 3v2a3 3 0 0 1-3 3h-2a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3h2zm0 2h-2a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1zm25 10a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM9 48a3 3 0 0 1 3 3v4a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-4a3 3 0 0 1 3-3h2zm0 2H7a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-4a1 1 0 0 0-1-1zm48 20a3 3 0 0 1 3 3v2a3 3 0 0 1-3 3h-2a3 3 0 0 1-3-3v-2a3 3 0 0 1 3-3h2zm0 2h-2a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1zM65 42a5 5 0 0 1 5 5v2a1 1 0 0 1-2 0v-2a3 3 0 0 0-3-3h-2a3 3 0 0 0-3 3v2a1 1 0 0 1-2 0v-2a5 5 0 0 1 5-5h2zM33 60a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4z'/%3E%3C/g%3E%3C/svg%3E")`,
+              backgroundSize: '120px 120px',
+            }}
+          />
+
           {activeConversation ? (
             <>
               {/* Header */}
-              <header className="p-3.5 sm:p-4 border-b border-border/15 bg-card/80 backdrop-blur-2xl flex items-center justify-between shrink-0 z-10">
+              <header className="p-3.5 sm:p-4 border-b border-white/40 dark:border-white/10 bg-white/35 dark:bg-black/40 backdrop-blur-2xl flex items-center justify-between shrink-0 z-10 shadow-xs">
                 <div className="flex items-center gap-3">
                   <div className="h-11 w-11 rounded-2xl bg-surface-raised border border-white/[0.04] flex items-center justify-center font-black text-foreground overflow-hidden shadow-inner">
                     {activeConversation.avatarUrl ? (
@@ -915,17 +987,12 @@ export default function ChatPage() {
                 </div>
               </header>
 
-              {/* Messages Stream Container with WhatsApp Wallpaper */}
-              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 relative">
-                {/* WhatsApp / Telegram Ambient Pattern Wallpaper */}
-                <div
-                  className="absolute inset-0 pointer-events-none opacity-[0.025] dark:opacity-[0.035] bg-repeat z-0"
-                  style={{
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23D8D365' fill-opacity='1' fill-rule='evenodd'%3E%3Cpath d='M11 14.01V7a1 1 0 0 1 2 0v7.01A5 5 0 0 1 18 19v2a1 1 0 0 1-2 0v-2a3 3 0 0 0-3-3h-2a3 3 0 0 0-3 3v2a1 1 0 0 1-2 0v-2a5 5 0 0 1 5-4.99zM35 4a3 3 0 0 1 3 3v2a3 3 0 0 1-3 3h-2a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3h2zm0 2h-2a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1zm25 10a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM9 48a3 3 0 0 1 3 3v4a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-4a3 3 0 0 1 3-3h2zm0 2H7a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-4a1 1 0 0 0-1-1zm48 20a3 3 0 0 1 3 3v2a3 3 0 0 1-3 3h-2a3 3 0 0 1-3-3v-2a3 3 0 0 1 3-3h2zm0 2h-2a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1zM65 42a5 5 0 0 1 5 5v2a1 1 0 0 1-2 0v-2a3 3 0 0 0-3-3h-2a3 3 0 0 0-3 3v2a1 1 0 0 1-2 0v-2a5 5 0 0 1 5-5h2zM33 60a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4z'/%3E%3C/g%3E%3C/svg%3E")`,
-                    backgroundSize: '120px 120px',
-                  }}
-                />
-
+              {/* Messages Stream Container */}
+              <div
+                ref={messagesContainerRef}
+                onScroll={handleMessagesScroll}
+                className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 relative z-10"
+              >
                 <div className="relative z-10 space-y-4">
                   {isMessagesLoading ? (
                     <div className="flex flex-col items-center justify-center h-full text-foreground-muted text-xs">
@@ -943,7 +1010,39 @@ export default function ChatPage() {
                       </p>
                     </div>
                   ) : (
-                    combinedMessages.map((msg, index) => {
+                    <>
+                      {/* Older Messages Loading Indicator */}
+                      {hasNextPage && (
+                        <div className="flex justify-center py-2">
+                          {isFetchingNextPage ? (
+                            <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-surface-raised border border-white/[0.06] text-primary text-xs font-bold shadow-xs">
+                              <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                              <span>جاري تحميل الرسائل السابقة...</span>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!messagesContainerRef.current) return;
+                                const prevScrollHeight = messagesContainerRef.current.scrollHeight;
+                                fetchNextPage().then(() => {
+                                  requestAnimationFrame(() => {
+                                    if (messagesContainerRef.current) {
+                                      const newScrollHeight = messagesContainerRef.current.scrollHeight;
+                                      messagesContainerRef.current.scrollTop = newScrollHeight - prevScrollHeight;
+                                    }
+                                  });
+                                });
+                              }}
+                              className="px-3.5 py-1 rounded-full bg-surface-raised hover:bg-surface-hover border border-white/[0.06] text-foreground-muted hover:text-foreground text-[11px] font-bold transition-all shadow-xs"
+                            >
+                              تحميل الرسائل السابقة (20 رسالة)
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {combinedMessages.map((msg, index) => {
                       const isMe = msg.senderId === user?.id;
 
                       const prevMsg = index > 0 ? combinedMessages[index - 1] : null;
@@ -1217,7 +1316,8 @@ export default function ChatPage() {
                           </div>
                         </div>
                       );
-                    })
+                    })}
+                    </>
                   )}
 
                   {/* Live Typing indicator */}
@@ -1236,15 +1336,28 @@ export default function ChatPage() {
                 </div>
               </div>
 
+              {/* Floating Scroll-to-Bottom Button */}
+              {showScrollBottomBtn && (
+                <button
+                  type="button"
+                  onClick={() => scrollToBottom('smooth')}
+                  className="absolute bottom-20 start-6 z-30 px-3.5 py-2 rounded-full bg-card/95 backdrop-blur-xl border border-white/20 text-foreground shadow-2xl hover:scale-105 hover:bg-surface-raised active:scale-95 transition-all flex items-center gap-2 text-xs font-black animate-in slide-in-from-bottom-3 duration-200"
+                  title="الانتقال إلى أحدث الرسائل"
+                >
+                  <FiChevronDown className="h-4 w-4 text-primary animate-bounce" />
+                  <span>أحدث الرسائل</span>
+                </button>
+              )}
+
               {/* Message Composer Bar */}
-              <footer className="p-3 sm:p-4 border-t border-border/15 bg-card/90 backdrop-blur-2xl z-10">
+              <footer className="p-3 sm:p-4 border-t border-white/30 dark:border-white/10 bg-white/40 dark:bg-black/50 backdrop-blur-2xl z-10">
                 {/* Active Editing Banner */}
                 {editingMessage && (
-                  <div className="flex items-center justify-between mb-2 p-2.5 rounded-2xl bg-surface border border-border/20 border-s-4 border-s-primary animate-in slide-in-from-bottom-2 duration-150">
+                  <div className="flex items-center justify-between mb-2.5 p-2.5 rounded-2xl bg-white/60 dark:bg-white/[0.05] border border-brand-gold/40 backdrop-blur-xl border-s-4 border-s-brand-gold animate-in slide-in-from-bottom-2 duration-150">
                     <div className="flex items-center gap-2.5 overflow-hidden">
-                      <FiEdit2 className="h-4 w-4 text-primary shrink-0" />
+                      <FiEdit2 className="h-4 w-4 text-brand-gold shrink-0" />
                       <div className="truncate">
-                        <span className="font-extrabold text-[11px] text-primary block">
+                        <span className="font-extrabold text-[11px] text-brand-gold block">
                           تعديل الرسالة:
                         </span>
                         <p className="text-[11px] text-foreground-muted truncate">
@@ -1258,16 +1371,16 @@ export default function ChatPage() {
                         setEditingMessage(null);
                         setMessageText('');
                       }}
-                      className="p-1 text-foreground-muted hover:text-foreground rounded-lg"
+                      className="p-1.5 text-foreground-muted hover:text-foreground hover:bg-surface-hover rounded-xl transition-colors"
                     >
-                      <FiX className="h-4 w-4" />
+                      <FiX className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 )}
 
                 {/* Active Reply Banner */}
                 {replyingToMessage && !editingMessage && (
-                  <div className="flex items-center justify-between mb-2 p-2.5 rounded-2xl bg-surface border border-border/20 border-s-4 border-s-primary animate-in slide-in-from-bottom-2 duration-150">
+                  <div className="flex items-center justify-between mb-2.5 p-2.5 rounded-2xl bg-white/60 dark:bg-white/[0.05] border border-primary/30 backdrop-blur-xl border-s-4 border-s-primary animate-in slide-in-from-bottom-2 duration-150">
                     <div className="flex items-center gap-2.5 overflow-hidden">
                       <FiCornerDownRight className="h-4 w-4 text-primary shrink-0" />
                       <div className="truncate">
@@ -1282,27 +1395,27 @@ export default function ChatPage() {
                     <button
                       type="button"
                       onClick={() => setReplyingToMessage(null)}
-                      className="p-1 text-foreground-muted hover:text-foreground rounded-lg"
+                      className="p-1.5 text-foreground-muted hover:text-foreground hover:bg-surface-hover rounded-xl transition-colors"
                     >
-                      <FiX className="h-4 w-4" />
+                      <FiX className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 )}
 
                 {/* Local Selected Images Preview Bar */}
                 {selectedLocalFiles.length > 0 && (
-                  <div className="flex items-center gap-3 mb-3 p-3 rounded-2xl bg-surface border border-border/20 overflow-x-auto">
+                  <div className="flex items-center gap-3 mb-2.5 p-3 rounded-2xl bg-white/60 dark:bg-white/[0.05] border border-white/40 dark:border-white/10 backdrop-blur-xl overflow-x-auto">
                     <span className="text-[11px] font-bold text-primary shrink-0">
                       تم اختيار ({selectedLocalFiles.length}) صور:
                     </span>
                     <div className="flex items-center gap-2">
                       {selectedLocalFiles.map((item, idx) => (
-                        <div key={idx} className="relative h-14 w-14 rounded-xl border border-border/20 overflow-hidden shrink-0 group">
+                        <div key={idx} className="relative h-14 w-14 rounded-xl border border-white/40 dark:border-white/10 overflow-hidden shrink-0 group shadow-xs">
                           <img src={item.localUrl} alt="Local preview" className="h-full w-full object-cover" />
                           <button
                             type="button"
                             onClick={() => removeSelectedFile(idx)}
-                            className="absolute top-0.5 right-0.5 p-0.5 bg-rose-500 text-white rounded-full hover:bg-rose-600 transition-colors"
+                            className="absolute top-0.5 right-0.5 p-0.5 bg-rose-500 text-white rounded-full hover:bg-rose-600 transition-colors shadow-sm"
                           >
                             <FiX className="h-3 w-3" />
                           </button>
@@ -1312,7 +1425,8 @@ export default function ChatPage() {
                   </div>
                 )}
 
-                <form onSubmit={handleSendMessage} className="flex items-end gap-2.5">
+                {/* UNIFIED LIQUID GLASS COMPOSER CAPSULE */}
+                <form onSubmit={handleSendMessage} className="relative">
                   <input
                     type="file"
                     ref={fileInputRef}
@@ -1322,46 +1436,56 @@ export default function ChatPage() {
                     className="hidden"
                   />
 
-                  {/* Multi-Photo Attachment Button */}
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="p-3 rounded-2xl border border-border/20 bg-surface text-foreground-muted hover:text-primary hover:border-primary/40 hover:bg-surface-hover transition-all flex items-center gap-1.5"
-                    title="إرفاق صور ومعرض (Gallery)"
-                  >
-                    <FiImage className="h-5 w-5" />
-                  </button>
+                  <div className="flex items-end gap-2 p-1.5 rounded-3xl bg-white/60 dark:bg-white/[0.04] border border-white/60 dark:border-white/10 backdrop-blur-2xl shadow-lg shadow-black/5 dark:shadow-black/20 focus-within:border-brand-gold/60 focus-within:ring-2 focus-within:ring-brand-gold/20 transition-all duration-300">
+                    {/* Attachment Gallery Button */}
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="h-10 w-10 rounded-2xl flex items-center justify-center text-foreground-muted hover:text-brand-gold dark:hover:text-brand-gold hover:bg-white/80 dark:hover:bg-white/10 transition-all shrink-0 self-center active:scale-95"
+                      title="إرفاق صور ومعرض (Gallery)"
+                    >
+                      <FiImage className="h-5 w-5" />
+                    </button>
 
-                  {/* Textarea Input */}
-                  <div className="flex-1 relative">
-                    <textarea
-                      ref={composerInputRef}
-                      rows={1}
-                      value={messageText}
-                      onChange={(e) => {
-                        setMessageText(e.target.value);
-                        emitTyping(e.target.value.length > 0);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSendMessage();
-                        }
-                      }}
-                      placeholder={editingMessage ? 'تعديل نص الرسالة...' : 'اكتب رسالتك هنا... (اضغط Enter للإرسال)'}
-                      className="w-full max-h-32 rounded-2xl border border-border/20 bg-surface p-3 text-xs text-foreground placeholder-foreground-subtle focus:border-primary focus:outline-none resize-none"
-                    />
+                    {/* Integrated Textarea Input */}
+                    <div className="flex-1 min-w-0 py-1">
+                      <textarea
+                        ref={composerInputRef}
+                        rows={1}
+                        value={messageText}
+                        onChange={(e) => {
+                          setMessageText(e.target.value);
+                          emitTyping(e.target.value.length > 0);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSendMessage();
+                          }
+                        }}
+                        placeholder={editingMessage ? 'تعديل نص الرسالة...' : 'اكتب رسالتك هنا... (اضغط Enter للإرسال)'}
+                        className="w-full max-h-32 bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-xs text-foreground placeholder-foreground-subtle/70 resize-none px-2 py-1 leading-relaxed"
+                      />
+                    </div>
+
+                    {/* Send / Save Button */}
+                    <button
+                      type="submit"
+                      disabled={!messageText.trim() && selectedLocalFiles.length === 0}
+                      className={`h-10 w-10 rounded-2xl flex items-center justify-center transition-all shrink-0 self-center shadow-md active:scale-90 ${
+                        messageText.trim() || selectedLocalFiles.length > 0
+                          ? 'bg-gradient-to-tr from-brand-gold to-brand-champagne text-brand-stone-950 hover:scale-105 shadow-brand-gold/30 cursor-pointer'
+                          : 'bg-white/20 dark:bg-white/[0.04] text-foreground-subtle/30 cursor-not-allowed shadow-none'
+                      }`}
+                      title={editingMessage ? 'حفظ التعديل' : 'إرسال'}
+                    >
+                      {editingMessage ? (
+                        <FiCheck className="h-4 w-4" />
+                      ) : (
+                        <FiSend className="h-4 w-4" />
+                      )}
+                    </button>
                   </div>
-
-                  {/* Send / Update Button */}
-                  <button
-                    type="submit"
-                    disabled={!messageText.trim() && selectedLocalFiles.length === 0}
-                    className="p-3.5 rounded-2xl btn-glow-primary text-primary-foreground shadow-md transition-all hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
-                    title={editingMessage ? 'حفظ التعديل' : 'إرسال'}
-                  >
-                    <FiSend className="h-4 w-4" />
-                  </button>
                 </form>
               </footer>
             </>
