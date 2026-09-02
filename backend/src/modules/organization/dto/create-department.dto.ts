@@ -18,4 +18,8 @@ export class CreateDepartmentDto {
   @IsOptional()
   @MaxLength(255)
   description?: string;
+
+  @IsString()
+  @IsOptional()
+  headId?: string;
 }

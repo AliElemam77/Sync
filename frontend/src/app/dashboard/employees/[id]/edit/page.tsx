@@ -163,6 +163,7 @@ export default function EditEmployeePage() {
 
   const departmentId = watch('departmentId');
   const positionId = watch('positionId');
+  const [managedDeptIds, setManagedDeptIds] = useState<string[]>([]);
 
   // Initialize form when employee data loads
   useEffect(() => {
@@ -200,6 +201,12 @@ export default function EditEmployeePage() {
         bankBranch: employee.bankInfo?.branch || '',
         basicSalary: employee.bankInfo?.basicSalary ? String(employee.bankInfo.basicSalary) : '',
       });
+
+      if (employee.managedDepartments && employee.managedDepartments.length > 0) {
+        setManagedDeptIds(employee.managedDepartments.map((d) => d.id));
+      } else if (employee.departmentId) {
+        setManagedDeptIds([employee.departmentId]);
+      }
     }
   }, [employee, reset]);
 
@@ -209,6 +216,11 @@ export default function EditEmployeePage() {
   const selectedPosition = availablePositions.find((p) => p.id === positionId);
   const availableLevels = selectedPosition?.levels || [];
 
+  const isHeadPosition =
+    selectedPosition?.name?.toLowerCase().includes('head') ||
+    selectedPosition?.name?.includes('رئيس') ||
+    selectedPosition?.name?.includes('مدير إدارة');
+
   const handleDepartmentChange = (deptId: string) => {
     setValue('departmentId', deptId);
     const dept = orgTree?.find((d) => d.id === deptId);
@@ -217,6 +229,10 @@ export default function EditEmployeePage() {
 
     setValue('positionId', firstPos ? firstPos.id : '');
     setValue('levelId', firstLvl ? firstLvl.id : '');
+
+    if (managedDeptIds.length <= 1) {
+      setManagedDeptIds([deptId]);
+    }
   };
 
   const handlePositionChange = (posId: string) => {
@@ -224,6 +240,15 @@ export default function EditEmployeePage() {
     const pos = availablePositions.find((p) => p.id === posId);
     const firstLvl = pos?.levels?.[0];
     setValue('levelId', firstLvl ? firstLvl.id : '');
+
+    const isNewHead =
+      pos?.name?.toLowerCase().includes('head') ||
+      pos?.name?.includes('رئيس') ||
+      pos?.name?.includes('مدير إدارة');
+
+    if (isNewHead && managedDeptIds.length === 0 && departmentId) {
+      setManagedDeptIds([departmentId]);
+    }
   };
 
   const onSubmit = async (data: EditEmployeeFormData) => {
@@ -274,6 +299,7 @@ export default function EditEmployeePage() {
                   basicSalary: data.basicSalary ? parseFloat(data.basicSalary) : undefined,
                 }
               : undefined,
+          managedDepartmentIds: isHeadPosition ? managedDeptIds : [],
         },
       });
 
@@ -546,6 +572,53 @@ export default function EditEmployeePage() {
               </select>
             </div>
           </div>
+
+          {/* Multi-Department Selector for Heads */}
+          {isHeadPosition && (
+            <div className="p-4 rounded-2xl bg-brand-gold/10 border border-brand-gold/30 space-y-2.5 animate-in fade-in">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-black text-brand-gold flex items-center gap-1.5">
+                  <FiCheckCircle className="h-4 w-4" />
+                  <span>الأقسام المدارة تحت إشراف رئيس القسم (Multi-Department Management)</span>
+                </label>
+                <span className="text-[11px] text-foreground-muted font-bold font-mono">
+                  تم تحديد {managedDeptIds.length} قسم
+                </span>
+              </div>
+              <p className="text-[11px] text-foreground-muted leading-relaxed">
+                بصفتك تعدل بيانات رئيس قسم (Head)، حدد كافة الأقسام التي يديرها ويترأسها (مثل: SEO + UI/UX + Marketing):
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+                {orgTree?.map((dept) => {
+                  const isSelected = managedDeptIds.includes(dept.id);
+                  return (
+                    <button
+                      key={dept.id}
+                      type="button"
+                      onClick={() => {
+                        setManagedDeptIds((prev) =>
+                          isSelected
+                            ? prev.filter((id) => id !== dept.id)
+                            : [...prev, dept.id],
+                        );
+                      }}
+                      className={`p-2.5 rounded-xl border text-right text-xs font-bold transition-all flex items-center justify-between ${
+                        isSelected
+                          ? 'bg-brand-gold/20 text-brand-gold border-brand-gold shadow-xs'
+                          : 'bg-surface/80 text-foreground border-border/40 hover:bg-surface'
+                      }`}
+                    >
+                      <div>
+                        <div className="font-extrabold">{dept.name}</div>
+                        <div className="text-[10px] font-mono text-foreground-muted">{dept.code}</div>
+                      </div>
+                      {isSelected && <FiCheckCircle className="h-4 w-4 text-brand-gold shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-1">
             <div>

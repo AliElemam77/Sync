@@ -272,6 +272,15 @@ export default function OrganizationPage() {
                         <span>{dept.positions?.length || 0} مسميات وظيفية</span>
                         <span>•</span>
                         <span>{dept._count?.employees || 0} موظف مسكن</span>
+                        {dept.head && (
+                          <>
+                            <span>•</span>
+                            <span className="text-brand-gold font-bold flex items-center gap-1 font-sans">
+                              <span>رئيس القسم:</span>
+                              <span className="underline">{dept.head.fullName}</span>
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>

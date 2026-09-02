@@ -25,6 +25,17 @@ export interface Department {
   code: string;
   description?: string | null;
   isActive: boolean;
+  headId?: string | null;
+  head?: {
+    id: string;
+    fullName: string;
+    employeeCode: string;
+    avatarUrl?: string | null;
+    position?: {
+      id: string;
+      name: string;
+    };
+  } | null;
   positions: Position[];
   _count?: {
     employees?: number;
@@ -38,6 +49,14 @@ export interface CreateDepartmentInput {
   name: string;
   code: string;
   description?: string;
+  headId?: string | null;
+}
+
+export interface UpdateDepartmentInput {
+  name?: string;
+  description?: string;
+  isActive?: boolean;
+  headId?: string | null;
 }
 
 export interface CreatePositionInput {

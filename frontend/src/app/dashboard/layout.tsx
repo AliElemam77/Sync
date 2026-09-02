@@ -236,6 +236,24 @@ export default function DashboardLayout({
         primaryActionLabel: 'تسجيل قيد مالي',
         primaryActionHref: '/dashboard/accounting',
       },
+      {
+        id: 'management',
+        label: 'مركز القيادة والتدقيق',
+        category: 'الإدارة العليا',
+        href: '/dashboard/management',
+        icon: FiCommand,
+        requiredPerm: 'audit.view',
+        purposeTitle: 'مركز القيادة وسجل التدقيق العام',
+        purposeDescription:
+          'رؤية شاملة وشريط زمني فوري لكافة حركات الإضافة والتعديل والحذف، وصندوق موحد للطلبات والموافقات الإدارية العاجلة.',
+        highlights: [
+          { title: 'صندوق الموافقات الموحد', desc: 'اعتماد ورفض الإجازات والأذونات وتاسكات المراجعة' },
+          { title: 'شريط الأنشطة الزمني', desc: 'تتبع زمني فوري لكافة التغييرات والعمليات المنفذة' },
+          { title: 'مؤشرات القيادة الحية', desc: 'متابعة مباشرة للكوادر، والمهام، والتدفقات المالية' },
+        ],
+        primaryActionLabel: 'استعراض مركز القيادة',
+        primaryActionHref: '/dashboard/management',
+      },
     ],
     [],
   );
@@ -271,6 +289,12 @@ export default function DashboardLayout({
       }
     } else if (pathname.startsWith('/dashboard/organization')) {
       setActiveSectionId('organization');
+    } else if (pathname.startsWith('/dashboard/assets')) {
+      setActiveSectionId('assets');
+    } else if (pathname.startsWith('/dashboard/accounting')) {
+      setActiveSectionId('accounting');
+    } else if (pathname.startsWith('/dashboard/management')) {
+      setActiveSectionId('management');
     }
     setIsMobileMenuOpen(false);
   }, [pathname, user]);

@@ -158,8 +158,17 @@ export class EmployeesService {
           level: { select: { id: true, name: true, rank: true } },
           emergencyContact: true,
           bankInfo: true,
+          managedDepartments: { select: { id: true, name: true, code: true } },
         },
       });
+
+      // Link managed departments if this employee is assigned as Head of multiple departments
+      if (dto.managedDepartmentIds && dto.managedDepartmentIds.length > 0) {
+        await tx.department.updateMany({
+          where: { id: { in: dto.managedDepartmentIds } },
+          data: { headId: employeeProfile.id },
+        });
+      }
 
       return this.maskSensitiveData(employeeProfile, currentUser);
     });
@@ -224,20 +233,19 @@ export class EmployeesService {
             posName.includes('رئيس') ||
             posName.includes('مدير إدارة');
 
-          if (actorEmployee?.departmentId) {
+          if (actorEmployee?.id) {
             if (isHead) {
-              // A Head oversees their department and related department hierarchy
-              const prefix = deptCode.split('_')[0];
-              const relatedDepts = await this.prisma.department.findMany({
+              // A Head oversees their home department PLUS all departments they manage as headId
+              const managedDepts = await this.prisma.department.findMany({
                 where: {
                   OR: [
+                    { headId: actorEmployee.id },
                     { id: actorEmployee.departmentId },
-                    ...(prefix ? [{ code: { startsWith: prefix } }] : []),
                   ],
                 },
                 select: { id: true },
               });
-              scopedDepartmentIds = relatedDepts.map((d) => d.id);
+              scopedDepartmentIds = managedDepts.map((d) => d.id);
             } else {
               // Team Leaders and Agents see their own department (team members / colleagues)
               scopedDepartmentIds = [actorEmployee.departmentId];
@@ -289,6 +297,7 @@ export class EmployeesService {
           level: { select: { id: true, name: true, rank: true } },
           emergencyContact: true,
           bankInfo: true,
+          managedDepartments: { select: { id: true, name: true, code: true } },
         },
       }),
     ]);
@@ -319,6 +328,7 @@ export class EmployeesService {
         emergencyContact: true,
         bankInfo: true,
         documents: true,
+        managedDepartments: { select: { id: true, name: true, code: true } },
       },
     });
 
@@ -440,8 +450,45 @@ export class EmployeesService {
         level: { select: { id: true, name: true, rank: true } },
         emergencyContact: true,
         bankInfo: true,
+        managedDepartments: { select: { id: true, name: true, code: true } },
       },
     });
+
+    // Handle Multi-Department Management assignment updates
+    if (dto.managedDepartmentIds !== undefined) {
+      // 1. Clear any departments previously managed by this employee that are not in the new list
+      await this.prisma.department.updateMany({
+        where: {
+          headId: id,
+          id: { notIn: dto.managedDepartmentIds },
+        },
+        data: { headId: null },
+      });
+
+      // 2. Set headId for newly selected departments
+      if (dto.managedDepartmentIds.length > 0) {
+        await this.prisma.department.updateMany({
+          where: { id: { in: dto.managedDepartmentIds } },
+          data: { headId: id },
+        });
+      }
+
+      // Re-fetch to return accurate managedDepartments
+      const refreshed = await this.prisma.employeeProfile.findUnique({
+        where: { id },
+        include: {
+          user: { select: { id: true, email: true, isActive: true } },
+          department: { select: { id: true, name: true, code: true } },
+          position: { select: { id: true, name: true } },
+          level: { select: { id: true, name: true, rank: true } },
+          emergencyContact: true,
+          bankInfo: true,
+          managedDepartments: { select: { id: true, name: true, code: true } },
+        },
+      });
+
+      return this.maskSensitiveData(refreshed!, currentUser);
+    }
 
     return this.maskSensitiveData(updated, currentUser);
   }

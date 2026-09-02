@@ -14,4 +14,8 @@ export class UpdateDepartmentDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @IsString()
+  @IsOptional()
+  headId?: string | null;
 }

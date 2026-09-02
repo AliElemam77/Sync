@@ -130,6 +130,22 @@ export default function EmployeeProfilePage() {
               {employee.phone}
             </span>
           </p>
+
+          {employee.managedDepartments && employee.managedDepartments.length > 0 && (
+            <div className="flex flex-wrap items-center justify-center md:justify-start gap-1.5 pt-1.5">
+              <span className="text-[11px] font-black text-brand-gold">
+                رئيس الأقسام:
+              </span>
+              {employee.managedDepartments.map((dept) => (
+                <span
+                  key={dept.id}
+                  className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-brand-gold/15 text-brand-gold border border-brand-gold/30"
+                >
+                  {dept.name} ({dept.code})
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Quick Custody Stat */}

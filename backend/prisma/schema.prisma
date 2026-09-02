@@ -139,6 +139,10 @@ model Department {
   description String?           @db.VarChar(255)
   isActive    Boolean           @default(true) @map("is_active")
 
+  // Department Head (PHASE 11: Multi-Department Heads)
+  headId      String?           @map("head_id") @db.Uuid
+  head        EmployeeProfile?  @relation("DepartmentHead", fields: [headId], references: [id], onDelete: SetNull)
+
   positions   Position[]
   employees   EmployeeProfile[]
 
@@ -152,6 +156,7 @@ model Department {
   updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@index([code])
+  @@index([headId])
   @@map("departments")
 }
 
@@ -297,6 +302,9 @@ model EmployeeProfile {
   assignedAssets           Asset[]                   @relation("EmployeeAssignedAssets")
   assetAssignments         AssetAssignmentHistory[]  @relation("EmployeeAssetAssignments")
   performedAssetActions    AssetAssignmentHistory[]  @relation("ActorAssetAssignments")
+
+  // Multi-Department Head oversight (PHASE 11)
+  managedDepartments       Department[]              @relation("DepartmentHead")
 
   createdAt                DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)

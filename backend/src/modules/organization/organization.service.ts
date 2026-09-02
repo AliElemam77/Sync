@@ -44,8 +44,17 @@ export class OrganizationService {
     return this.prisma.department.findMany({
       orderBy: { name: 'asc' },
       include: {
+        head: {
+          select: {
+            id: true,
+            fullName: true,
+            employeeCode: true,
+            avatarUrl: true,
+            position: { select: { id: true, name: true } },
+          },
+        },
         _count: {
-          select: { positions: true },
+          select: { positions: true, employees: true },
         },
       },
     });
@@ -55,6 +64,15 @@ export class OrganizationService {
     const department = await this.prisma.department.findUnique({
       where: { id },
       include: {
+        head: {
+          select: {
+            id: true,
+            fullName: true,
+            employeeCode: true,
+            avatarUrl: true,
+            position: { select: { id: true, name: true } },
+          },
+        },
         positions: {
           include: {
             levels: { orderBy: { rank: 'asc' } },
@@ -86,6 +104,17 @@ export class OrganizationService {
         name: dto.name.trim(),
         code: dto.code.toUpperCase().trim(),
         description: dto.description?.trim() || null,
+        headId: dto.headId || null,
+      },
+      include: {
+        head: {
+          select: {
+            id: true,
+            fullName: true,
+            employeeCode: true,
+            avatarUrl: true,
+          },
+        },
       },
     });
   }
@@ -99,6 +128,17 @@ export class OrganizationService {
         ...(dto.name && { name: dto.name.trim() }),
         ...(dto.description !== undefined && { description: dto.description?.trim() || null }),
         ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+        ...(dto.headId !== undefined && { headId: dto.headId || null }),
+      },
+      include: {
+        head: {
+          select: {
+            id: true,
+            fullName: true,
+            employeeCode: true,
+            avatarUrl: true,
+          },
+        },
       },
     });
   }

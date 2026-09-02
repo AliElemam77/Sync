@@ -152,4 +152,9 @@ export class CreateEmployeeDto {
   @Type(() => BankInfoDto)
   @IsOptional()
   bankInfo?: BankInfoDto;
+
+  // 6. Multi-Department Management (For Heads)
+  @IsUUID('4', { each: true, message: 'كل قسم يجب أن يكون UUID صحيح' })
+  @IsOptional()
+  managedDepartmentIds?: string[];
 }

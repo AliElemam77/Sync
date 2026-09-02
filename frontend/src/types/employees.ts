@@ -87,6 +87,11 @@ export interface Employee {
   emergencyContact?: EmergencyContact | null;
   bankInfo?: BankInfo | null;
   documents?: EmployeeDocument[];
+  managedDepartments?: Array<{
+    id: string;
+    name: string;
+    code: string;
+  }>;
   createdAt: string;
   updatedAt: string;
 }
@@ -105,6 +110,7 @@ export interface CreateEmployeeInput {
   departmentId: string;
   positionId: string;
   levelId?: string;
+  managedDepartmentIds?: string[];
   joiningDate?: string;
   employmentType?: EmploymentType;
   status?: EmployeeStatus;
@@ -142,6 +148,7 @@ export interface UpdateEmployeeInput {
   departmentId?: string;
   positionId?: string;
   levelId?: string;
+  managedDepartmentIds?: string[];
   joiningDate?: string;
   employmentType?: EmploymentType;
   status?: EmployeeStatus;
