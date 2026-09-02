@@ -13,9 +13,9 @@ export class SendMessageDto {
   @IsNotEmpty({ message: 'معرف المحادثة مطلوب' })
   conversationId: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty({ message: 'محتوى الرسالة لا يمكن أن يكون فارغاً' })
-  content: string;
+  content?: string;
 
   @IsOptional()
   @IsEnum(MessageType, { message: 'نوع الرسالة غير صالح' })

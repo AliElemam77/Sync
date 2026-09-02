@@ -5,30 +5,26 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
-  Clock,
-  Calendar,
-  CalendarDays,
-  CheckCircle2,
-  XCircle,
-  PlayCircle,
-  StopCircle,
-  AlertTriangle,
-  Send,
-  Plus,
-  Filter,
-  User,
-  Users,
-  Building2,
-  History,
-  Check,
-  X,
-  Sparkles,
-  ArrowRight,
-  TrendingUp,
-  FileText,
-  Shield,
-  Layers,
-} from 'lucide-react';
+  FiClock,
+  FiCalendar,
+  FiCheckCircle,
+  FiXCircle,
+  FiPlay,
+  FiSquare,
+  FiAlertCircle,
+  FiSend,
+  FiPlus,
+  FiFilter,
+  FiUser,
+  FiUsers,
+  FiCheck,
+  FiX,
+  FiFileText,
+  FiShield,
+  FiLayers,
+  FiBell,
+} from 'react-icons/fi';
+import { BiBuildingHouse } from 'react-icons/bi';
 import { useAuth } from '../../../hooks/use-auth';
 import {
   useTodayAttendance,
@@ -46,6 +42,8 @@ import {
 } from '../../../hooks/use-attendance';
 import { useEmployees } from '../../../hooks/use-employees';
 import { useOrganizationTree } from '../../../hooks/use-organization';
+import { Card } from '../../../components/ui/card';
+import { EmptyState } from '../../../components/ui/empty-state';
 import {
   LeaveType,
   RequestStatus,
@@ -60,9 +58,9 @@ import {
 const createLeaveSchema = z
   .object({
     type: z.enum(['ANNUAL', 'SICK', 'UNPAID', 'MATERNITY']),
-    startDate: z.string().min(1, 'Start date is required'),
-    endDate: z.string().min(1, 'End date is required'),
-    totalDaysRequested: z.number().min(1, 'At least 1 day is required'),
+    startDate: z.string().min(1, 'تاريخ البداية مطلوب'),
+    endDate: z.string().min(1, 'تاريخ النهاية مطلوب'),
+    totalDaysRequested: z.number().min(1, 'يوم واحد على الأقل مطلوب'),
     reason: z.string().optional(),
   })
   .refine(
@@ -71,7 +69,7 @@ const createLeaveSchema = z
       return new Date(data.startDate) <= new Date(data.endDate);
     },
     {
-      message: 'Start date cannot be after end date',
+      message: 'تاريخ البداية لا يمكن أن يكون بعد تاريخ النهاية',
       path: ['endDate'],
     },
   );
@@ -80,11 +78,11 @@ type CreateLeaveFormData = z.infer<typeof createLeaveSchema>;
 
 const createPermissionSchema = z
   .object({
-    date: z.string().min(1, 'Date is required'),
-    startTime: z.string().min(1, 'Start time is required (من الساعة)'),
-    endTime: z.string().min(1, 'End time is required (إلى الساعة)'),
-    hoursRequested: z.number().min(1, 'Minimum 1 hour').max(8, 'Maximum 8 hours'),
-    reason: z.string().min(3, 'Please provide a clear reason for the permission'),
+    date: z.string().min(1, 'تاريخ الإذن مطلوب'),
+    startTime: z.string().min(1, 'وقت البداية مطلوب (من الساعة)'),
+    endTime: z.string().min(1, 'وقت النهاية مطلوب (إلى الساعة)'),
+    hoursRequested: z.number().min(1, 'ساعة واحدة على الأقل').max(8, 'الحد الأقصى 8 ساعات'),
+    reason: z.string().min(3, 'يرجى كتابة سبب واضح لطلب الإذن'),
   })
   .refine(
     (data) => {
@@ -92,7 +90,7 @@ const createPermissionSchema = z
       return data.startTime < data.endTime;
     },
     {
-      message: 'Start time must be before end time',
+      message: 'وقت البداية يجب أن يسبق وقت النهاية',
       path: ['endTime'],
     },
   );
@@ -100,7 +98,7 @@ const createPermissionSchema = z
 type CreatePermissionFormData = z.infer<typeof createPermissionSchema>;
 
 const rejectSchema = z.object({
-  rejectionReason: z.string().min(3, 'Rejection reason must be at least 3 characters'),
+  rejectionReason: z.string().min(3, 'سبب الرفض يجب أن يكون 3 أحرف على الأقل'),
 });
 
 type RejectFormData = z.infer<typeof rejectSchema>;
@@ -131,12 +129,67 @@ function formatDurationDetailed(minutes: number): string {
   return `${hourName}${fraction} (${hours}h${mins > 0 ? ` ${mins}m` : ''})`;
 }
 
-function getDelayPenalty(delayMinutes: number, hasCheckOut: boolean = true) {
+function calculateMorningDelay(checkInTimeStr: string | null | undefined): { delayMinutes: number; isLate: boolean; label: string } {
+  if (!checkInTimeStr) return { delayMinutes: 0, isLate: false, label: '—' };
+  const d = new Date(checkInTimeStr);
+  const checkInMinutes = d.getHours() * 60 + d.getMinutes();
+  const shiftStartMinutes = 9 * 60; // 09:00 AM
+  const graceEndMinutes = shiftStartMinutes + 15; // 09:15 AM
+
+  if (checkInMinutes > graceEndMinutes) {
+    const delayMins = checkInMinutes - shiftStartMinutes;
+    return {
+      delayMinutes: delayMins,
+      isLate: true,
+      label: `تأخير صباحي: ${formatDurationDetailed(delayMins)}`,
+    };
+  }
+
+  return {
+    delayMinutes: 0,
+    isLate: false,
+    label: 'في الموعد (ضمن فترة السماح)',
+  };
+}
+
+function getDelayPenalty(
+  delayMinutes: number,
+  hasCheckOut: boolean = true,
+  recordDateStr?: string,
+  shiftType: string = 'RS',
+) {
   if (!hasCheckOut) {
+    const isToday = recordDateStr
+      ? new Date(recordDateStr).toDateString() === new Date().toDateString()
+      : true;
+
+    if (isToday) {
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      // Shift end is 17:00 (5:00 PM for RS) or 18:00 (6:00 PM for LS)
+      // Grace period after shift ends before applying missing checkout penalty is 1 HOUR (18:00 for RS, 19:00 for LS)
+      const shiftEndMinutes = shiftType === 'LS' ? 18 * 60 : 17 * 60;
+      const cutoffMinutes = shiftEndMinutes + 60; // +1 hour grace
+
+      if (currentMinutes < cutoffMinutes) {
+        return {
+          penaltyLabel: 'الوردية جارية (بانتظار الانصراف)',
+          deductionDays: 0,
+          badgeColor: 'bg-primary/10 text-primary border-primary/20 font-bold',
+        };
+      }
+
+      return {
+        penaltyLabel: 'نسيان بصمة الخروج (بعد انتهاء الدوام بساعة)',
+        deductionDays: 1.0,
+        badgeColor: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30 font-bold',
+      };
+    }
+
     return {
       penaltyLabel: 'خصم يوم كامل (نسيان بصمة الخروج)',
       deductionDays: 1.0,
-      badgeColor: 'bg-rose-500/20 text-rose-300 border-rose-500/40 font-bold',
+      badgeColor: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30 font-bold',
     };
   }
 
@@ -144,24 +197,25 @@ function getDelayPenalty(delayMinutes: number, hasCheckOut: boolean = true) {
     return {
       penaltyLabel: 'فترة سماح (بدون خصم)',
       deductionDays: 0,
-      badgeColor: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20 font-medium',
+      badgeColor: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-bold',
     };
   } else if (delayMinutes <= 30) {
     return {
       penaltyLabel: 'خصم ربع يوم (-0.25d)',
       deductionDays: 0.25,
-      badgeColor: 'bg-amber-500/15 text-amber-300 border-amber-500/30 font-medium',
+      badgeColor: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 font-bold',
     };
   } else if (delayMinutes <= 60) {
     return {
       penaltyLabel: 'خصم نصف يوم (-0.50d)',
       deductionDays: 0.5,
-      badgeColor: 'bg-orange-500/20 text-orange-300 border-orange-500/30 font-medium',
+      badgeColor: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/30 font-bold',
     };
   } else {
     return {
       penaltyLabel: 'خصم يوم عمل كامل (-1.00d)',
-      badgeColor: 'bg-rose-600/20 text-rose-300 border-rose-500/40 font-bold',
+      deductionDays: 1.0,
+      badgeColor: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30 font-bold',
     };
   }
 }
@@ -220,7 +274,8 @@ export default function AttendancePage() {
     departmentId: selectedDeptId || undefined,
   });
 
-  const { data: employees = [] } = useEmployees();
+  const { data: employeesResponse } = useEmployees({ limit: 100 });
+  const employees = employeesResponse?.data || [];
   const { data: departments = [] } = useOrganizationTree();
 
   // Mutations
@@ -274,11 +329,11 @@ export default function AttendancePage() {
     try {
       setFeedback(null);
       await checkInMutation.mutateAsync();
-      setFeedback({ type: 'SUCCESS', message: 'Checked in successfully! Have a productive day.' });
+      setFeedback({ type: 'SUCCESS', message: 'تم إثبات حضورك بنجاح! نتمنى لك يوماً موفقاً ومثمراً.' });
     } catch (err: any) {
       setFeedback({
         type: 'ERROR',
-        message: err.response?.data?.message || 'Failed to check in. Please try again.',
+        message: err.response?.data?.message || 'فشل تسجيل الحضور. يرجى المحاولة مرة أخرى.',
       });
     }
   };
@@ -302,838 +357,717 @@ export default function AttendancePage() {
     } catch (err: any) {
       setFeedback({
         type: 'ERROR',
-        message: err.response?.data?.message || 'فشل تسجيل الانصراف. الرجاء المحاولة مرة أخرى.',
-      });
-    }
-  };
-
-  const handleApproveLeave = async (leave: LeaveRequest) => {
-    try {
-      setFeedback(null);
-      await approveLeaveMutation.mutateAsync(leave.id);
-      setFeedback({
-        type: 'SUCCESS',
-        message: `Approved leave for ${leave.employee?.fullName || 'employee'}. Balances safely updated.`,
-      });
-    } catch (err: any) {
-      setFeedback({
-        type: 'ERROR',
-        message: err.response?.data?.message || 'Failed to approve leave.',
-      });
-    }
-  };
-
-  const handleApprovePermission = async (perm: PermissionRequest) => {
-    try {
-      setFeedback(null);
-      await approvePermissionMutation.mutateAsync(perm.id);
-      setFeedback({
-        type: 'SUCCESS',
-        message: `Approved ${perm.hoursRequested}h permission for ${perm.employee?.fullName || 'employee'}.`,
-      });
-    } catch (err: any) {
-      setFeedback({
-        type: 'ERROR',
-        message: err.response?.data?.message || 'Failed to approve permission request.',
+        message: err.response?.data?.message || 'فشل تسجيل الانصراف.',
       });
     }
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300 pb-12">
-      {/* --------------------------------------------------------------------- */}
-      {/* HEADER SECTION */}
-      {/* --------------------------------------------------------------------- */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800 pb-5">
+    <div className="space-y-6 animate-in fade-in duration-300">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/20 pb-5">
         <div>
-          <div className="flex items-center space-x-2 text-xs text-slate-400 mb-1">
-            <span>Workforce Operations</span>
+          <div className="flex items-center space-x-2 text-xs text-foreground-muted mb-1">
+            <span>إدارة شؤون العاملين</span>
             <span>/</span>
-            <span className="text-white font-medium">Time Tracking & Entitlements</span>
+            <span className="text-foreground font-medium">سجل الحضور والإجازات والأذونات</span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-            <span>Attendance, Leaves & Permissions</span>
-            <span className="text-xs bg-indigo-500/10 text-indigo-400 px-2.5 py-0.5 rounded-full border border-indigo-500/20 font-mono">
-              PHASE 05
+          <h1 className="text-2xl font-black tracking-tight text-foreground flex items-center gap-3">
+            <span>سجل الحضور الذكي والورديات</span>
+            <span className="text-xs font-mono font-bold bg-primary/10 text-primary px-2.5 py-0.5 rounded-full border border-primary/20">
+              {todayStatus?.employee?.shiftType === 'LS' ? 'الوردية المسائية (LS)' : 'الوردية الصباحية (RS)'}
             </span>
           </h1>
         </div>
 
-        {!isSuperAdmin && (
-          <div className="flex items-center space-x-3 self-start sm:self-auto">
-            <button
-              onClick={() => setIsLeaveModalOpen(true)}
-              className="inline-flex items-center space-x-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3.5 py-2.5 text-xs font-semibold text-indigo-300 hover:bg-indigo-500/20 hover:text-white transition-all shadow-sm"
-            >
-              <CalendarDays className="h-4 w-4 text-indigo-400" />
-              <span>Request Leave</span>
-            </button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            onClick={() => setIsPermissionModalOpen(true)}
+            className="inline-flex items-center gap-2 rounded-2xl bg-surface border border-border hover:bg-surface-hover px-4 py-2.5 text-xs font-bold text-foreground active:scale-95 transition-all"
+          >
+            <FiClock className="h-4 w-4 text-primary" />
+            <span>طلب إذن ساعي</span>
+          </button>
 
-            <button
-              onClick={() => setIsPermissionModalOpen(true)}
-              className="inline-flex items-center space-x-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3.5 py-2.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20 hover:text-white transition-all shadow-sm"
-            >
-              <Clock className="h-4 w-4 text-cyan-400" />
-              <span>Request Permission</span>
-            </button>
-          </div>
-        )}
+          <button
+            onClick={() => setIsLeaveModalOpen(true)}
+            className="inline-flex items-center gap-2 rounded-2xl bg-primary hover:bg-primary-hover px-5 py-2.5 text-xs font-black text-primary-foreground shadow-md shadow-primary/25 active:scale-95 transition-all"
+          >
+            <FiPlus className="h-4 w-4" />
+            <span>طلب إجازة جديدة</span>
+          </button>
+        </div>
       </div>
 
-      {/* --------------------------------------------------------------------- */}
-      {/* FEEDBACK BANNER */}
-      {/* --------------------------------------------------------------------- */}
+      {/* Feedback Banner */}
       {feedback && (
         <div
-          className={`rounded-xl p-4 text-xs flex items-center justify-between border ${
+          className={`rounded-2xl p-4 text-xs flex items-center justify-between border ${
             feedback.type === 'SUCCESS'
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-              : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+              : 'bg-rose-500/10 border-rose-500/30 text-rose-500 dark:text-rose-400'
           }`}
         >
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-2">
             {feedback.type === 'SUCCESS' ? (
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+              <FiCheckCircle className="h-4 w-4 shrink-0" />
             ) : (
-              <AlertTriangle className="h-4 w-4 shrink-0 text-rose-400" />
+              <FiAlertCircle className="h-4 w-4 shrink-0" />
             )}
-            <span className="font-medium">{feedback.message}</span>
+            <span className="font-bold">{feedback.message}</span>
           </div>
-          <button onClick={() => setFeedback(null)} className="text-slate-400 hover:text-white p-1">
-            <X className="h-4 w-4" />
+          <button onClick={() => setFeedback(null)} className="p-1 hover:opacity-75">
+            <FiX className="h-4 w-4" />
           </button>
         </div>
       )}
 
-      {/* --------------------------------------------------------------------- */}
-      {/* TOP SECTION: EXECUTIVE METRICS (FOR SUPER ADMIN) VS SELF-SERVICE PUNCH (EMPLOYEES) */}
-      {/* --------------------------------------------------------------------- */}
-      {isSuperAdmin ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {/* Card 1: Today's Active Attendance */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/80 backdrop-blur-xl p-5 shadow-xl relative overflow-hidden">
-            <div className="flex items-center justify-between">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-                <Users className="h-5 w-5" />
-              </div>
-              <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                Live Today
-              </span>
-            </div>
-            <div className="mt-4">
-              <div className="text-3xl font-extrabold text-white">
-                {attendanceLogs.filter((l) => l.status === 'PRESENT').length}
-              </div>
-              <p className="text-xs text-slate-400 mt-1 font-medium">Employees On Duty / Present</p>
-            </div>
-          </div>
-
-          {/* Card 2: Pending Leaves */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/80 backdrop-blur-xl p-5 shadow-xl relative overflow-hidden">
-            <div className="flex items-center justify-between">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
-                <CalendarDays className="h-5 w-5" />
-              </div>
-              <span className="text-[10px] font-mono font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
-                Pending
-              </span>
-            </div>
-            <div className="mt-4">
-              <div className="text-3xl font-extrabold text-white">{pendingLeaves.length}</div>
-              <p className="text-xs text-slate-400 mt-1 font-medium">Pending Leave Requests</p>
-            </div>
-          </div>
-
-          {/* Card 3: Pending Permissions */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/80 backdrop-blur-xl p-5 shadow-xl relative overflow-hidden">
-            <div className="flex items-center justify-between">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
-                <Clock className="h-5 w-5" />
-              </div>
-              <span className="text-[10px] font-mono font-bold text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
-                Pending
-              </span>
-            </div>
-            <div className="mt-4">
-              <div className="text-3xl font-extrabold text-white">{pendingPermissions.length}</div>
-              <p className="text-xs text-slate-400 mt-1 font-medium">Pending Permission Requests</p>
-            </div>
-          </div>
-
-          {/* Card 4: Total Departments */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/80 backdrop-blur-xl p-5 shadow-xl relative overflow-hidden">
-            <div className="flex items-center justify-between">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
-                <Building2 className="h-5 w-5" />
-              </div>
-              <span className="text-[10px] font-mono font-bold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
-                Organization
-              </span>
-            </div>
-            <div className="mt-4">
-              <div className="text-3xl font-extrabold text-white">{departments.length}</div>
-              <p className="text-xs text-slate-400 mt-1 font-medium">Active Departments</p>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          {/* Check In / Out Live Timer Card */}
-          <div className="lg:col-span-1 rounded-2xl border border-slate-800 bg-slate-900/80 backdrop-blur-xl p-5 flex flex-col justify-between shadow-xl relative overflow-hidden group">
-            <div className="absolute top-0 right-0 h-28 w-28 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-indigo-500/20 transition-all" />
-
+      {/* ===================================================================== */}
+      {/* TODAY'S ATTENDANCE & PUNCH HERO CARD                                  */}
+      {/* ===================================================================== */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Punch Timer & Interactive Card (2 Cols) */}
+        <div className="lg:col-span-2 rounded-3xl border border-card-border bg-gradient-to-r from-card/90 via-card/70 to-surface-raised p-6 backdrop-blur-xl shadow-xs space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/20 pb-4">
             <div>
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5 text-indigo-400" />
-                  <span>Today&apos;s Live Shift</span>
-                </span>
-
-                <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                    todayStatus?.hasCheckedOut
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                      : todayStatus?.hasCheckedIn
-                      ? 'bg-amber-500/10 text-amber-400 border-amber-500/20 animate-pulse'
-                      : 'bg-slate-800 text-slate-400 border-slate-700'
-                  }`}
-                >
-                  {todayStatus?.hasCheckedOut
-                    ? 'Shift Completed'
-                    : todayStatus?.hasCheckedIn
-                    ? 'On Duty'
-                    : 'Not Checked In'}
-                </span>
-              </div>
-
-              {/* Digital Timer Display */}
-              <div className="my-3 text-center py-4 bg-slate-950/60 rounded-xl border border-slate-800/80">
-                <div className="text-3xl sm:text-4xl font-mono font-extrabold text-white tracking-widest">
-                  {todayStatus?.hasCheckedOut
-                    ? 'COMPLETED'
-                    : todayStatus?.hasCheckedIn
-                    ? formatTimer(elapsedSeconds)
-                    : '00:00:00'}
-                </div>
-                <p className="text-[11px] text-slate-400 mt-1">
-                  {todayStatus?.approvedPermissionHours ? (
-                    <span className="text-cyan-300 font-semibold">
-                      الهدف اليومي: {(todayStatus?.employee?.shiftType === 'LS' ? 9 : 8) - todayStatus.approvedPermissionHours} ساعات (مخصوم منها {todayStatus.approvedPermissionHours}h إذن معتمد)
-                    </span>
-                  ) : todayStatus?.employee?.shiftType === 'LS' ? (
-                    'Long Shift (LS): 9 Hours Target'
-                  ) : (
-                    'Regular Shift (RS): 8 Hours Target'
-                  )}
-                </p>
-              </div>
-
-              {/* Approved Permission Notice Banner */}
-              {!!todayStatus?.approvedPermissionHours && (
-                <div className="rounded-xl bg-cyan-500/10 border border-cyan-500/20 p-2.5 flex items-center justify-between text-xs text-cyan-300 mb-1">
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
-                    <span className="font-medium">لديك إذن رسمي معتمد اليوم</span>
-                  </div>
-                  <span className="font-bold font-mono text-white bg-cyan-500/20 px-2 py-0.5 rounded">
-                    {todayStatus.approvedPermissionHours} ساعة
+              <span className="text-xs font-bold text-foreground-muted">حالة حضورك اليوم</span>
+              <h2 className="text-lg font-black text-foreground">
+                {todayStatus?.record?.checkInTime && !todayStatus?.record?.checkOutTime ? (
+                  <span className="text-emerald-500 flex items-center gap-2">
+                    <span className="h-3 w-3 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>الوردية نشطة وقيد الاحتساب</span>
                   </span>
-                </div>
-              )}
-            </div>
-
-            {/* Action Punch Buttons */}
-            <div className="mt-4 pt-4 border-t border-slate-800/80">
-              {!todayStatus?.hasCheckedIn ? (
-                <button
-                  onClick={handleCheckIn}
-                  disabled={checkInMutation.isPending}
-                  className="w-full inline-flex items-center justify-center space-x-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-600/30 hover:from-emerald-500 hover:to-teal-500 active:scale-[0.98] transition-all disabled:opacity-50"
-                >
-                  <PlayCircle className="h-5 w-5" />
-                  <span>Check In Now</span>
-                </button>
-              ) : !todayStatus?.hasCheckedOut ? (
-                <button
-                  onClick={handleCheckOut}
-                  disabled={checkOutMutation.isPending}
-                  className="w-full inline-flex items-center justify-center space-x-2 rounded-xl bg-gradient-to-r from-amber-600 to-rose-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-rose-600/30 hover:from-amber-500 hover:to-rose-500 active:scale-[0.98] transition-all disabled:opacity-50"
-                >
-                  <StopCircle className="h-5 w-5" />
-                  <span>Check Out & End Shift</span>
-                </button>
-              ) : (
-                <div className="flex items-center justify-center space-x-2 py-2 text-xs font-semibold text-emerald-400 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
-                  <CheckCircle2 className="h-4 w-4" />
-                  <span>Punches Recorded for Today</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Remaining Annual Leave Entitlement Card */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/80 backdrop-blur-xl p-5 flex flex-col justify-between shadow-xl relative overflow-hidden">
-            <div className="flex items-center justify-between">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
-                <CalendarDays className="h-5 w-5" />
-              </div>
-              <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-800 px-2 py-0.5 rounded">
-                Annual Balance
-              </span>
-            </div>
-
-            <div className="my-4">
-              <div className="flex items-baseline space-x-2">
-                <span className="text-4xl font-extrabold text-white">
-                  {todayStatus?.employee?.annualLeaveDays ?? 21}
-                </span>
-                <span className="text-sm font-semibold text-slate-400">Days Remaining</span>
-              </div>
-              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                Standard annual paid time off. Approving leaves automatically deducts from this safe atomic balance.
-              </p>
-            </div>
-
-            <button
-              onClick={() => setIsLeaveModalOpen(true)}
-              className="w-full inline-flex items-center justify-center space-x-1.5 rounded-xl border border-slate-700 bg-slate-800/80 px-4 py-2.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 hover:text-white transition-all"
-            >
-              <Plus className="h-3.5 w-3.5 text-indigo-400" />
-              <span>Submit Leave Request</span>
-            </button>
-          </div>
-
-          {/* Remaining Monthly Permission Hours Card */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/80 backdrop-blur-xl p-5 flex flex-col justify-between shadow-xl relative overflow-hidden">
-            <div className="flex items-center justify-between">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
-                <Clock className="h-5 w-5" />
-              </div>
-              <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-800 px-2 py-0.5 rounded">
-                Monthly Balance
-              </span>
-            </div>
-
-            <div className="my-4">
-              <div className="flex items-baseline space-x-2">
-                <span className="text-4xl font-extrabold text-white">
-                  {todayStatus?.employee?.monthlyPermissionHours ?? 4}
-                </span>
-                <span className="text-sm font-semibold text-slate-400">Hours Remaining</span>
-              </div>
-              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                Short-term monthly exit permissions. Fully calculated and deducted upon approval.
-              </p>
-            </div>
-
-            <button
-              onClick={() => setIsPermissionModalOpen(true)}
-              className="w-full inline-flex items-center justify-center space-x-1.5 rounded-xl border border-slate-700 bg-slate-800/80 px-4 py-2.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 hover:text-white transition-all"
-            >
-              <Plus className="h-3.5 w-3.5 text-cyan-400" />
-              <span>Submit Permission Request</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* --------------------------------------------------------------------- */}
-      {/* MAIN DATA TABLES & TABS (APPROVALS, LEAVES, PERMISSIONS, LOGS) */}
-      {/* --------------------------------------------------------------------- */}
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/80 backdrop-blur-xl shadow-xl overflow-hidden">
-        {/* Navigation Tabs Header */}
-        <div className="border-b border-slate-800 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/90">
-          <div className="flex items-center space-x-2 overflow-x-auto">
-            {isHR && (
-              <button
-                onClick={() => setActiveTab('APPROVALS')}
-                className={`inline-flex items-center space-x-2 rounded-xl px-4 py-2 text-xs font-bold transition-all shrink-0 ${
-                  activeTab === 'APPROVALS'
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                }`}
-              >
-                <Shield className="h-3.5 w-3.5" />
-                <span>Pending Approvals</span>
-                {totalPendingCount > 0 && (
-                  <span className="rounded-full bg-amber-500 px-1.5 py-0.2 text-[9px] font-extrabold text-black">
-                    {totalPendingCount}
+                ) : todayStatus?.record?.checkOutTime ? (
+                  <span className="text-foreground-muted flex items-center gap-2">
+                    <FiCheckCircle className="h-4 w-4 text-primary" />
+                    <span>تم إنهاء وردية اليوم بنجاح</span>
+                  </span>
+                ) : (
+                  <span className="text-amber-500 flex items-center gap-2">
+                    <FiClock className="h-4 w-4" />
+                    <span>لم يتم تسجيل الحضور بعد</span>
                   </span>
                 )}
-              </button>
+              </h2>
+            </div>
+
+            {/* Live Timer Clock */}
+            {todayStatus?.record?.checkInTime && !todayStatus?.record?.checkOutTime && (
+              <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-surface border border-border shadow-inner">
+                <FiClock className="h-4 w-4 text-primary animate-spin [animation-duration:12s]" />
+                <span className="font-mono text-base font-black text-foreground tracking-wider">
+                  {formatTimer(elapsedSeconds)}
+                </span>
+              </div>
             )}
+          </div>
 
+          {/* Shift End Alarm Banner */}
+          {todayStatus?.record?.checkInTime && !todayStatus?.record?.checkOutTime && (() => {
+            const shiftType = todayStatus?.employee?.shiftType || 'RS';
+            const shiftEndHour = shiftType === 'LS' ? 18 : 17; // 18:00 (6 PM) or 17:00 (5 PM)
+            const now = new Date();
+            const currentHour = now.getHours();
+            const isShiftEnded = currentHour >= shiftEndHour;
+
+            if (isShiftEnded) {
+              const shiftEndLabel = shiftType === 'LS' ? '06:00 م' : '05:00 م';
+              const graceEndLabel = shiftType === 'LS' ? '07:00 م' : '06:00 م';
+
+              return (
+                <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs text-amber-600 dark:text-amber-400 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-pulse shadow-md">
+                  <div className="flex items-center gap-2.5">
+                    <FiBell className="h-5 w-5 shrink-0 text-amber-500 animate-bounce" />
+                    <div>
+                      <span className="font-black text-sm block">⏰ حان الآن موعد انتهاء ورديتك الرسمية ({shiftEndLabel})!</span>
+                      <span className="text-[11px] opacity-90 block pt-0.5">
+                        يرجى تسجيل بصمة الانصراف لتوثيق ساعات عملك (مهلة إضافية لمدة ساعة حتى {graceEndLabel} بدون خصم نسيان الانصراف).
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleCheckOut}
+                    disabled={checkOutMutation.isPending}
+                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-xs shadow-md active:scale-95 transition-all shrink-0"
+                  >
+                    تسجيل الانصراف الآن
+                  </button>
+                </div>
+              );
+            }
+            return null;
+          })()}
+
+          {/* Action Buttons: Check In / Check Out */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <button
-              onClick={() => setActiveTab('LEAVES')}
-              className={`inline-flex items-center space-x-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-all shrink-0 ${
-                activeTab === 'LEAVES'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              onClick={handleCheckIn}
+              disabled={!!todayStatus?.record?.checkInTime || checkInMutation.isPending}
+              className={`flex items-center justify-center gap-3 p-4 rounded-2xl text-xs font-black transition-all shadow-xs ${
+                todayStatus?.record?.checkInTime
+                  ? 'bg-surface-raised/40 text-foreground-muted cursor-not-allowed opacity-60'
+                  : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-md active:scale-95'
               }`}
             >
-              <CalendarDays className="h-3.5 w-3.5" />
-              <span>Leaves Hub</span>
+              <FiPlay className="h-5 w-5" />
+              <div>
+                <div className="text-sm">إثبات الحضور (Check In)</div>
+                {todayStatus?.record?.checkInTime && (
+                  <div className="text-[10px] font-mono font-normal">
+                    تم التسجيل: {new Date(todayStatus.record.checkInTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                )}
+              </div>
             </button>
 
             <button
-              onClick={() => setActiveTab('PERMISSIONS')}
-              className={`inline-flex items-center space-x-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-all shrink-0 ${
-                activeTab === 'PERMISSIONS'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              onClick={handleCheckOut}
+              disabled={
+                !todayStatus?.record?.checkInTime ||
+                !!todayStatus?.record?.checkOutTime ||
+                checkOutMutation.isPending
+              }
+              className={`flex items-center justify-center gap-3 p-4 rounded-2xl text-xs font-black transition-all shadow-xs ${
+                !todayStatus?.record?.checkInTime || !!todayStatus?.record?.checkOutTime
+                  ? 'bg-surface-raised/40 text-foreground-muted cursor-not-allowed opacity-60'
+                  : 'bg-rose-500 hover:bg-rose-600 text-white shadow-md active:scale-95'
               }`}
             >
-              <Clock className="h-3.5 w-3.5" />
-              <span>Permissions Hub</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('LOGS')}
-              className={`inline-flex items-center space-x-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-all shrink-0 ${
-                activeTab === 'LOGS'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
-              }`}
-            >
-              <History className="h-3.5 w-3.5" />
-              <span>Attendance History</span>
+              <FiSquare className="h-5 w-5" />
+              <div>
+                <div className="text-sm">إثبات الانصراف (Check Out)</div>
+                {todayStatus?.record?.checkOutTime && (
+                  <div className="text-[10px] font-mono font-normal">
+                    تم الخروج: {new Date(todayStatus.record.checkOutTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                )}
+              </div>
             </button>
           </div>
 
-          {/* Department Filter (HR / Admin Only) */}
-          {isHR && (
-            <div className="flex items-center space-x-2 shrink-0">
-              <select
-                value={selectedDeptId}
-                onChange={(e) => setSelectedDeptId(e.target.value)}
-                className="rounded-lg border border-slate-700 bg-slate-800/90 px-3 py-1.5 text-xs text-white focus:border-indigo-500 focus:outline-none"
-              >
-                <option value="">All Departments</option>
-                {departments.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name} ({d.code})
-                  </option>
-                ))}
-              </select>
+          {/* Shift Details and Tolerance Strip */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 text-[11px] text-foreground-muted border-t border-border/30">
+            <div>
+              <span className="block text-[10px] text-foreground-subtle font-bold">بداية الوردية</span>
+              <span className="text-foreground font-mono font-bold">09:00 ص</span>
             </div>
-          )}
+            <div>
+              <span className="block text-[10px] text-foreground-subtle font-bold">فترة السماح</span>
+              <span className="text-emerald-500 font-bold">15 دقيقة (حتى 09:15)</span>
+            </div>
+            <div>
+              <span className="block text-[10px] text-foreground-subtle font-bold">نهاية الوردية</span>
+              <span className="text-foreground font-mono font-bold">
+                {todayStatus?.employee?.shiftType === 'LS' ? '06:00 م' : '05:00 م'}
+              </span>
+            </div>
+            <div>
+              <span className="block text-[10px] text-foreground-subtle font-bold">إجمالي الساعات</span>
+              <span className="text-foreground font-mono font-bold">
+                {todayStatus?.employee?.shiftType === 'LS' ? '9 ساعات (LS)' : '8 ساعات (RS)'}
+              </span>
+            </div>
+          </div>
         </div>
 
-        {/* ------------------------------------------------------------------- */}
-        {/* TAB 1: PENDING APPROVALS (MANAGER / HR VIEW) */}
-        {/* ------------------------------------------------------------------- */}
-        {activeTab === 'APPROVALS' && (
-          <div className="divide-y divide-slate-800">
-            {totalPendingCount === 0 ? (
-              <div className="py-20 text-center text-xs text-slate-500 italic space-y-2">
-                <Sparkles className="h-8 w-8 text-indigo-400/50 mx-auto" />
-                <p className="font-semibold text-slate-400">All caught up!</p>
-                <p className="text-[11px] text-slate-600">No pending leave or permission requests in your queue.</p>
+        {/* Leave and Permission Balances (1 Col) */}
+        <div className="rounded-3xl border border-card-border bg-card/80 dark:bg-card/70 p-6 backdrop-blur-xl shadow-xs space-y-4 flex flex-col justify-between">
+          <div>
+            <h3 className="text-sm font-black text-foreground flex items-center gap-2 border-b border-border/20 pb-3">
+              <FiShield className="h-4 w-4 text-primary" />
+              <span>الأرصدة المعتمدة للموظف</span>
+            </h3>
+
+            <div className="space-y-3 mt-4">
+              <div className="p-3.5 rounded-2xl bg-surface border border-border flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold text-foreground">رصيد الإجازات السنوية</span>
+                  <p className="text-[10px] text-foreground-muted">المتبقي من رصيد الإجازات الاعتيادية</p>
+                </div>
+                <div className="text-xl font-black font-mono text-primary">
+                  {todayStatus?.employee?.annualLeaveDays ?? 21} <span className="text-xs">يوم</span>
+                </div>
               </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-300">
-                  <thead className="border-b border-slate-800 bg-slate-900/50 text-[10px] font-bold uppercase text-slate-400 tracking-wider">
+
+              <div className="p-3.5 rounded-2xl bg-surface border border-border flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold text-foreground">الأذونات الشهرية</span>
+                  <p className="text-[10px] text-foreground-muted">المسموح به للشهر الحالي</p>
+                </div>
+                <div className="text-xl font-black font-mono text-amber-500">
+                  {todayStatus?.employee?.monthlyPermissionHours ?? 4} <span className="text-xs">ساعات</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="text-[10px] text-foreground-subtle text-center">
+            تجدد الأرصدة تلقائياً وفقاً للائحة الموارد البشرية والسياسة المؤسسية.
+          </div>
+        </div>
+      </div>
+
+      {/* ===================================================================== */}
+      {/* 4 TABS NAVIGATION STRIP                                                */}
+      {/* ===================================================================== */}
+      <div className="flex border-b border-border gap-2 overflow-x-auto pb-1">
+        {isHR && (
+          <button
+            onClick={() => setActiveTab('APPROVALS')}
+            className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-black transition-all relative ${
+              activeTab === 'APPROVALS'
+                ? 'bg-primary text-primary-foreground shadow-md'
+                : 'text-foreground-muted hover:text-foreground hover:bg-surface-hover'
+            }`}
+          >
+            <FiCheckCircle className="h-4 w-4" />
+            <span>طلبات الاعتماد والموافقة</span>
+            {totalPendingCount > 0 && (
+              <span className="rounded-full bg-rose-500 text-white px-2 py-0.2 text-[10px] font-mono">
+                {totalPendingCount}
+              </span>
+            )}
+          </button>
+        )}
+
+        <button
+          onClick={() => setActiveTab('LEAVES')}
+          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-black transition-all ${
+            activeTab === 'LEAVES'
+              ? 'bg-primary text-primary-foreground shadow-md'
+              : 'text-foreground-muted hover:text-foreground hover:bg-surface-hover'
+          }`}
+        >
+          <FiCalendar className="h-4 w-4" />
+          <span>سجل الإجازات</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('PERMISSIONS')}
+          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-black transition-all ${
+            activeTab === 'PERMISSIONS'
+              ? 'bg-primary text-primary-foreground shadow-md'
+              : 'text-foreground-muted hover:text-foreground hover:bg-surface-hover'
+          }`}
+        >
+          <FiClock className="h-4 w-4" />
+          <span>سجل الأذونات</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('LOGS')}
+          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-black transition-all ${
+            activeTab === 'LOGS'
+              ? 'bg-primary text-primary-foreground shadow-md'
+              : 'text-foreground-muted hover:text-foreground hover:bg-surface-hover'
+          }`}
+        >
+          <FiFileText className="h-4 w-4" />
+          <span>سجل البصمات اليومي</span>
+        </button>
+      </div>
+
+      {/* ===================================================================== */}
+      {/* TAB 1: APPROVALS (FOR MANAGERS / HR)                                  */}
+      {/* ===================================================================== */}
+      {activeTab === 'APPROVALS' && isHR && (
+        <div className="space-y-6 animate-in fade-in">
+          {/* Pending Leaves Table */}
+          <div className="rounded-3xl border border-card-border bg-card/80 dark:bg-card/70 backdrop-blur-xl overflow-hidden shadow-xs">
+            <div className="p-4 border-b border-border bg-surface-raised/40 flex items-center justify-between">
+              <h3 className="text-xs font-black text-foreground flex items-center gap-2">
+                <FiCalendar className="h-4 w-4 text-primary" />
+                <span>طلبات الإجازات المعلقة بانتظار الموافقة ({pendingLeaves.length})</span>
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-start text-xs text-foreground-muted">
+                <thead className="border-b border-border bg-surface text-[11px] font-bold text-foreground">
+                  <tr>
+                    <th className="px-5 py-3 text-start">الموظف</th>
+                    <th className="px-5 py-3 text-start">النوع</th>
+                    <th className="px-5 py-3 text-start">الفترة</th>
+                    <th className="px-5 py-3 text-start">المدة</th>
+                    <th className="px-5 py-3 text-start">السبب</th>
+                    <th className="px-5 py-3 text-end">القرار</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/20">
+                  {pendingLeaves.length === 0 ? (
                     <tr>
-                      <th className="py-3 px-4">Type</th>
-                      <th className="py-3 px-4">Employee</th>
-                      <th className="py-3 px-4">Requested Range / Hours</th>
-                      <th className="py-3 px-4">Reason</th>
-                      <th className="py-3 px-4 text-right">Decision Actions</th>
+                      <td colSpan={6} className="py-12 text-center text-foreground-subtle italic">
+                        لا توجد طلبات إجازة معلقة حالياً.
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60">
-                    {/* Pending Leaves */}
-                    {pendingLeaves.map((leave) => (
-                      <tr key={leave.id} className="hover:bg-slate-800/40 transition-colors">
-                        <td className="py-3.5 px-4 font-semibold text-white">
-                          <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-2.5 py-0.5 text-[10px] font-bold text-indigo-400 border border-indigo-500/20">
-                            <CalendarDays className="h-3 w-3" />
-                            <span>{leave.type} LEAVE</span>
+                  ) : (
+                    pendingLeaves.map((leave) => (
+                      <tr key={leave.id} className="hover:bg-surface-hover/60 transition-colors">
+                        <td className="px-5 py-3.5 font-bold text-foreground">
+                          {leave.employee?.fullName}
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <span className="rounded-lg bg-primary/10 border border-primary/20 px-2 py-0.5 text-[10px] font-bold text-primary">
+                            {leave.type}
                           </span>
                         </td>
-                        <td className="py-3.5 px-4">
-                          <div className="font-bold text-white">{leave.employee?.fullName}</div>
-                          <div className="text-[10px] font-mono text-slate-400">
-                            {leave.employee?.employeeCode} • {leave.employee?.department?.code}
-                          </div>
+                        <td className="px-5 py-3.5 font-mono text-foreground-muted">
+                          {new Date(leave.startDate).toLocaleDateString('ar-EG')} → {new Date(leave.endDate).toLocaleDateString('ar-EG')}
                         </td>
-                        <td className="py-3.5 px-4">
-                          <div className="font-semibold text-slate-200">
-                            {new Date(leave.startDate).toLocaleDateString()} - {new Date(leave.endDate).toLocaleDateString()}
-                          </div>
-                          <div className="text-[10px] text-indigo-400 font-mono">
-                            {leave.totalDaysRequested} Day(s) requested (Bal: {leave.employee?.annualLeaveDays}d)
-                          </div>
+                        <td className="px-5 py-3.5 font-bold text-foreground">
+                          {leave.totalDaysRequested} يوم
                         </td>
-                        <td className="py-3.5 px-4 max-w-xs text-slate-300 italic truncate">
-                          {leave.reason || 'No description provided.'}
+                        <td className="px-5 py-3.5 text-foreground-subtle max-w-xs truncate">
+                          {leave.reason || 'بدون سبب مدون'}
                         </td>
-                        <td className="py-3.5 px-4 text-right space-x-2">
+                        <td className="px-5 py-3.5 text-end space-x-2">
                           <button
-                            onClick={() => handleApproveLeave(leave)}
-                            disabled={approveLeaveMutation.isPending}
-                            className="inline-flex items-center space-x-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 transition-colors disabled:opacity-50"
+                            onClick={() => approveLeaveMutation.mutateAsync(leave.id)}
+                            className="inline-flex items-center gap-1 rounded-xl bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 text-[11px] font-black text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 ml-2"
                           >
-                            <Check className="h-3.5 w-3.5" />
-                            <span>Approve</span>
+                            <FiCheck className="h-3.5 w-3.5" />
+                            <span>موافقة</span>
                           </button>
                           <button
                             onClick={() =>
                               setRejectingItem({
                                 id: leave.id,
                                 kind: 'LEAVE',
-                                title: `${leave.type} Leave for ${leave.employee?.fullName}`,
+                                title: `إجازة ${leave.employee?.fullName}`,
                               })
                             }
-                            className="inline-flex items-center space-x-1 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-400 hover:bg-rose-500/20 transition-colors"
+                            className="inline-flex items-center gap-1 rounded-xl bg-rose-500/10 border border-rose-500/30 px-3 py-1.5 text-[11px] font-black text-rose-500 hover:bg-rose-500/20"
                           >
-                            <X className="h-3.5 w-3.5" />
-                            <span>Reject</span>
+                            <FiX className="h-3.5 w-3.5" />
+                            <span>رفض</span>
                           </button>
                         </td>
                       </tr>
-                    ))}
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-                    {/* Pending Permissions */}
-                    {pendingPermissions.map((perm) => (
-                      <tr key={perm.id} className="hover:bg-slate-800/40 transition-colors">
-                        <td className="py-3.5 px-4 font-semibold text-white">
-                          <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/10 px-2.5 py-0.5 text-[10px] font-bold text-cyan-400 border border-cyan-500/20">
-                            <Clock className="h-3 w-3" />
-                            <span>PERMISSION</span>
-                          </span>
+          {/* Pending Permissions Table */}
+          <div className="rounded-3xl border border-card-border bg-card/80 dark:bg-card/70 backdrop-blur-xl overflow-hidden shadow-xs">
+            <div className="p-4 border-b border-border bg-surface-raised/40 flex items-center justify-between">
+              <h3 className="text-xs font-black text-foreground flex items-center gap-2">
+                <FiClock className="h-4 w-4 text-primary" />
+                <span>طلبات الأذونات المعلقة بانتظار الموافقة ({pendingPermissions.length})</span>
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-start text-xs text-foreground-muted">
+                <thead className="border-b border-border bg-surface text-[11px] font-bold text-foreground">
+                  <tr>
+                    <th className="px-5 py-3 text-start">الموظف</th>
+                    <th className="px-5 py-3 text-start">التاريخ</th>
+                    <th className="px-5 py-3 text-start">الوقت</th>
+                    <th className="px-5 py-3 text-start">الساعات</th>
+                    <th className="px-5 py-3 text-start">السبب</th>
+                    <th className="px-5 py-3 text-end">القرار</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/20">
+                  {pendingPermissions.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-12 text-center text-foreground-subtle italic">
+                        لا توجد طلبات أذونات معلقة حالياً.
+                      </td>
+                    </tr>
+                  ) : (
+                    pendingPermissions.map((perm) => (
+                      <tr key={perm.id} className="hover:bg-surface-hover/60 transition-colors">
+                        <td className="px-5 py-3.5 font-bold text-foreground">
+                          {perm.employee?.fullName}
                         </td>
-                        <td className="py-3.5 px-4">
-                          <div className="font-bold text-white">{perm.employee?.fullName}</div>
-                          <div className="text-[10px] font-mono text-slate-400">
-                            {perm.employee?.employeeCode} • {perm.employee?.department?.code}
-                          </div>
+                        <td className="px-5 py-3.5 font-mono text-foreground-muted">
+                          {new Date(perm.date).toLocaleDateString('ar-EG')}
                         </td>
-                        <td className="py-3.5 px-4">
-                          <div className="font-semibold text-slate-200">
-                            {new Date(perm.date).toLocaleDateString()}
-                          </div>
-                          <div className="text-[10px] text-cyan-400 font-mono">
-                            {perm.startTime && perm.endTime ? `من ${perm.startTime} إلى ${perm.endTime} • ` : ''}
-                            {perm.hoursRequested} Hour(s) requested (Bal: {perm.employee?.monthlyPermissionHours}h)
-                          </div>
+                        <td className="px-5 py-3.5 font-mono text-foreground-muted">
+                          {perm.startTime} → {perm.endTime}
                         </td>
-                        <td className="py-3.5 px-4 max-w-xs text-slate-300 italic truncate">
+                        <td className="px-5 py-3.5 font-bold text-foreground">
+                          {perm.hoursRequested} ساعات
+                        </td>
+                        <td className="px-5 py-3.5 text-foreground-subtle max-w-xs truncate">
                           {perm.reason}
                         </td>
-                        <td className="py-3.5 px-4 text-right space-x-2">
+                        <td className="px-5 py-3.5 text-end space-x-2">
                           <button
-                            onClick={() => handleApprovePermission(perm)}
-                            disabled={approvePermissionMutation.isPending}
-                            className="inline-flex items-center space-x-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 transition-colors disabled:opacity-50"
+                            onClick={() => approvePermissionMutation.mutateAsync(perm.id)}
+                            className="inline-flex items-center gap-1 rounded-xl bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 text-[11px] font-black text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 ml-2"
                           >
-                            <Check className="h-3.5 w-3.5" />
-                            <span>Approve</span>
+                            <FiCheck className="h-3.5 w-3.5" />
+                            <span>موافقة</span>
                           </button>
                           <button
                             onClick={() =>
                               setRejectingItem({
                                 id: perm.id,
                                 kind: 'PERMISSION',
-                                title: `Permission for ${perm.employee?.fullName}`,
+                                title: `إذن ${perm.employee?.fullName}`,
                               })
                             }
-                            className="inline-flex items-center space-x-1 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-400 hover:bg-rose-500/20 transition-colors"
+                            className="inline-flex items-center gap-1 rounded-xl bg-rose-500/10 border border-rose-500/30 px-3 py-1.5 text-[11px] font-black text-rose-500 hover:bg-rose-500/20"
                           >
-                            <X className="h-3.5 w-3.5" />
-                            <span>Reject</span>
+                            <FiX className="h-3.5 w-3.5" />
+                            <span>رفض</span>
                           </button>
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* ------------------------------------------------------------------- */}
-        {/* TAB 2: LEAVES LIST */}
-        {/* ------------------------------------------------------------------- */}
-        {activeTab === 'LEAVES' && (
-          <div>
-            {leaves.length === 0 ? (
-              <div className="py-16 text-center text-xs text-slate-500 italic">
-                No leave requests found.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-300">
-                  <thead className="border-b border-slate-800 bg-slate-900/50 text-[10px] font-bold uppercase text-slate-400 tracking-wider">
-                    <tr>
-                      <th className="py-3 px-4">Employee</th>
-                      <th className="py-3 px-4">Type</th>
-                      <th className="py-3 px-4">Period</th>
-                      <th className="py-3 px-4">Total Days</th>
-                      <th className="py-3 px-4">Status</th>
-                      <th className="py-3 px-4">Reason / Notes</th>
+      {/* ===================================================================== */}
+      {/* TAB 2: LEAVES DIRECTORY                                               */}
+      {/* ===================================================================== */}
+      {activeTab === 'LEAVES' && (
+        <div className="rounded-3xl border border-card-border bg-card/80 dark:bg-card/70 backdrop-blur-xl overflow-hidden shadow-xs animate-in fade-in">
+          <div className="overflow-x-auto">
+            <table className="w-full text-start text-xs text-foreground-muted">
+              <thead className="border-b border-border bg-surface-raised/70 text-[11px] font-bold text-foreground">
+                <tr>
+                  <th className="px-5 py-3.5 text-start">الموظف</th>
+                  <th className="px-5 py-3.5 text-start">النوع</th>
+                  <th className="px-5 py-3.5 text-start">الفترة</th>
+                  <th className="px-5 py-3.5 text-start">المدة</th>
+                  <th className="px-5 py-3.5 text-start">الحالة</th>
+                  <th className="px-5 py-3.5 text-start">السبب</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/20">
+                {leaves.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-16 text-center text-foreground-subtle italic">
+                      لا توجد إجازات مسجلة.
+                    </td>
+                  </tr>
+                ) : (
+                  leaves.map((leave) => (
+                    <tr key={leave.id} className="hover:bg-surface-hover/60 transition-colors">
+                      <td className="px-5 py-4 font-bold text-foreground">{leave.employee?.fullName}</td>
+                      <td className="px-5 py-4">
+                        <span className="rounded-lg bg-primary/10 border border-primary/20 px-2 py-0.5 text-[10px] font-bold text-primary">
+                          {leave.type}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 font-mono text-foreground-muted">
+                        {new Date(leave.startDate).toLocaleDateString('ar-EG')} → {new Date(leave.endDate).toLocaleDateString('ar-EG')}
+                      </td>
+                      <td className="px-5 py-4 font-bold text-foreground">{leave.totalDaysRequested} يوم</td>
+                      <td className="px-5 py-4">
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                            leave.status === 'APPROVED'
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                              : leave.status === 'REJECTED'
+                              ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                              : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                          }`}
+                        >
+                          {leave.status === 'APPROVED'
+                            ? 'معتمدة'
+                            : leave.status === 'REJECTED'
+                            ? 'مرفوضة'
+                            : 'قيد المراجعة'}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-foreground-subtle max-w-xs truncate">{leave.reason || '—'}</td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60">
-                    {leaves.map((leave) => (
-                      <tr key={leave.id} className="hover:bg-slate-800/40 transition-colors">
-                        <td className="py-3 px-4">
-                          <div className="font-bold text-white">{leave.employee?.fullName}</div>
-                          <div className="text-[10px] font-mono text-slate-400">{leave.employee?.employeeCode}</div>
-                        </td>
-                        <td className="py-3 px-4 font-semibold text-indigo-400">{leave.type}</td>
-                        <td className="py-3 px-4">
-                          {new Date(leave.startDate).toLocaleDateString()} - {new Date(leave.endDate).toLocaleDateString()}
-                        </td>
-                        <td className="py-3 px-4 font-mono font-bold text-white">{leave.totalDaysRequested} d</td>
-                        <td className="py-3 px-4">
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold border ${
-                              leave.status === 'APPROVED'
-                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                : leave.status === 'REJECTED'
-                                ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
-                                : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                            }`}
-                          >
-                            {leave.status === 'APPROVED' ? (
-                              <CheckCircle2 className="h-3 w-3" />
-                            ) : leave.status === 'REJECTED' ? (
-                              <XCircle className="h-3 w-3" />
-                            ) : (
-                              <Clock className="h-3 w-3" />
-                            )}
-                            <span>{leave.status}</span>
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-slate-400 italic max-w-xs truncate">
-                          {leave.status === 'REJECTED' && leave.rejectionReason
-                            ? `Rejected: ${leave.rejectionReason}`
-                            : leave.reason || '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* ------------------------------------------------------------------- */}
-        {/* TAB 3: PERMISSIONS LIST */}
-        {/* ------------------------------------------------------------------- */}
-        {activeTab === 'PERMISSIONS' && (
-          <div>
-            {permissions.length === 0 ? (
-              <div className="py-16 text-center text-xs text-slate-500 italic">
-                No permission requests found.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-300">
-                  <thead className="border-b border-slate-800 bg-slate-900/50 text-[10px] font-bold uppercase text-slate-400 tracking-wider">
-                    <tr>
-                      <th className="py-3 px-4">Employee</th>
-                      <th className="py-3 px-4">Date</th>
-                      <th className="py-3 px-4">Duration</th>
-                      <th className="py-3 px-4">Status</th>
-                      <th className="py-3 px-4">Reason / Notes</th>
+      {/* ===================================================================== */}
+      {/* TAB 3: PERMISSIONS DIRECTORY                                          */}
+      {/* ===================================================================== */}
+      {activeTab === 'PERMISSIONS' && (
+        <div className="rounded-3xl border border-card-border bg-card/80 dark:bg-card/70 backdrop-blur-xl overflow-hidden shadow-xs animate-in fade-in">
+          <div className="overflow-x-auto">
+            <table className="w-full text-start text-xs text-foreground-muted">
+              <thead className="border-b border-border bg-surface-raised/70 text-[11px] font-bold text-foreground">
+                <tr>
+                  <th className="px-5 py-3.5 text-start">الموظف</th>
+                  <th className="px-5 py-3.5 text-start">التاريخ</th>
+                  <th className="px-5 py-3.5 text-start">الفترة الزمنية</th>
+                  <th className="px-5 py-3.5 text-start">عدد الساعات</th>
+                  <th className="px-5 py-3.5 text-start">الحالة</th>
+                  <th className="px-5 py-3.5 text-start">السبب</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/20">
+                {permissions.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-16 text-center text-foreground-subtle italic">
+                      لا توجد طلبات أذونات مسجلة.
+                    </td>
+                  </tr>
+                ) : (
+                  permissions.map((perm) => (
+                    <tr key={perm.id} className="hover:bg-surface-hover/60 transition-colors">
+                      <td className="px-5 py-4 font-bold text-foreground">{perm.employee?.fullName}</td>
+                      <td className="px-5 py-4 font-mono text-foreground-muted">
+                        {new Date(perm.date).toLocaleDateString('ar-EG')}
+                      </td>
+                      <td className="px-5 py-4 font-mono text-foreground-muted">
+                        {perm.startTime} → {perm.endTime}
+                      </td>
+                      <td className="px-5 py-4 font-bold text-foreground">{perm.hoursRequested} ساعات</td>
+                      <td className="px-5 py-4">
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                            perm.status === 'APPROVED'
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                              : perm.status === 'REJECTED'
+                              ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                              : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                          }`}
+                        >
+                          {perm.status === 'APPROVED'
+                            ? 'معتمد'
+                            : perm.status === 'REJECTED'
+                            ? 'مرفوض'
+                            : 'قيد المراجعة'}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-foreground-subtle max-w-xs truncate">{perm.reason || '—'}</td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60">
-                    {permissions.map((perm) => (
-                      <tr key={perm.id} className="hover:bg-slate-800/40 transition-colors">
-                        <td className="py-3 px-4">
-                          <div className="font-bold text-white">{perm.employee?.fullName}</div>
-                          <div className="text-[10px] font-mono text-slate-400">{perm.employee?.employeeCode}</div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="font-mono font-bold text-cyan-400">{perm.hoursRequested} Hour(s)</div>
-                          {perm.startTime && perm.endTime && (
-                            <div className="text-[10px] text-slate-400 font-mono">
-                              من {perm.startTime} إلى {perm.endTime}
-                            </div>
-                          )}
-                        </td>
-                        <td className="py-3 px-4">
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold border ${
-                              perm.status === 'APPROVED'
-                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                : perm.status === 'REJECTED'
-                                ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
-                                : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                            }`}
-                          >
-                            {perm.status === 'APPROVED' ? (
-                              <CheckCircle2 className="h-3 w-3" />
-                            ) : perm.status === 'REJECTED' ? (
-                              <XCircle className="h-3 w-3" />
-                            ) : (
-                              <Clock className="h-3 w-3" />
-                            )}
-                            <span>{perm.status}</span>
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-slate-400 italic max-w-xs truncate">
-                          {perm.status === 'REJECTED' && perm.rejectionReason
-                            ? `Rejected: ${perm.rejectionReason}`
-                            : perm.reason}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* ------------------------------------------------------------------- */}
-        {/* TAB 4: ATTENDANCE HISTORY LOGS */}
-        {/* ------------------------------------------------------------------- */}
-        {activeTab === 'LOGS' && (
-          <div>
-            {attendanceLogs.length === 0 ? (
-              <div className="py-16 text-center text-xs text-slate-500 italic">
-                No attendance logs found.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-300">
-                  <thead className="border-b border-slate-800 bg-slate-900/50 text-[10px] font-bold uppercase text-slate-400 tracking-wider">
-                    <tr>
-                      <th className="py-3 px-4">Date</th>
-                      <th className="py-3 px-4">Employee</th>
-                      <th className="py-3 px-4">Shift Type</th>
-                      <th className="py-3 px-4">Check In</th>
-                      <th className="py-3 px-4">Check Out</th>
-                      <th className="py-3 px-4">Status</th>
-                      <th className="py-3 px-4 text-right">Metrics (Overtime / Delay)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60">
-                    {attendanceLogs.map((log) => (
-                      <tr key={log.id} className="hover:bg-slate-800/40 transition-colors">
-                        <td className="py-3 px-4 font-mono font-bold text-white">
-                          {new Date(log.date).toLocaleDateString()}
+      {/* ===================================================================== */}
+      {/* TAB 4: ATTENDANCE LOGS & AUDIT                                        */}
+      {/* ===================================================================== */}
+      {activeTab === 'LOGS' && (
+        <div className="rounded-3xl bg-card shadow-luxury dark:shadow-luxury-dark overflow-hidden animate-in fade-in">
+          <div className="overflow-x-auto">
+            <table className="w-full text-start text-xs text-foreground-muted">
+              <thead className="border-b border-border/30 bg-surface-raised/40 text-[11px] font-bold text-foreground">
+                <tr>
+                  <th className="px-5 py-3.5 text-start">الموظف</th>
+                  <th className="px-5 py-3.5 text-start">التاريخ</th>
+                  <th className="px-5 py-3.5 text-start">وقت الحضور</th>
+                  <th className="px-5 py-3.5 text-start">وقت الانصراف</th>
+                  <th className="px-5 py-3.5 text-start">حالة الحضور والتأخير</th>
+                  <th className="px-5 py-3.5 text-start">موقف اللائحة والخصم</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/20">
+                {attendanceLogs.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-16 text-center text-foreground-subtle italic">
+                      لا توجد سجلات حضور مسجلة.
+                    </td>
+                  </tr>
+                ) : (
+                  attendanceLogs.map((log) => {
+                    const morningDelay = calculateMorningDelay(log.checkInTime);
+                    const effectiveDelay = log.delayMinutes || morningDelay.delayMinutes;
+                    const penalty = getDelayPenalty(
+                      effectiveDelay,
+                      !!log.checkOutTime,
+                      log.date,
+                      log.employee?.shiftType || 'RS',
+                    );
+
+                    return (
+                      <tr key={log.id} className="hover:bg-surface/50 transition-colors">
+                        <td className="px-5 py-4 font-bold text-foreground">{log.employee?.fullName}</td>
+                        <td className="px-5 py-4 font-mono text-foreground-muted">
+                          {new Date(log.date).toLocaleDateString('ar-EG')}
                         </td>
-                        <td className="py-3 px-4">
-                          <div className="font-semibold text-white">{log.employee?.fullName}</div>
-                          <div className="text-[10px] font-mono text-slate-400">{log.employee?.employeeCode}</div>
+                        <td className="px-5 py-4 font-mono text-emerald-500 font-bold">
+                          {log.checkInTime ? new Date(log.checkInTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '—'}
                         </td>
-                        <td className="py-3 px-4">
-                          <span className="font-mono text-[10px] text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded">
-                            {log.employee?.shiftType === 'LS' ? 'LS (9h)' : 'RS (8h)'}
-                          </span>
+                        <td className="px-5 py-4 font-mono text-foreground-muted">
+                          {log.checkOutTime ? new Date(log.checkOutTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '—'}
                         </td>
-                        <td className="py-3 px-4 font-mono text-emerald-400">
-                          {new Date(log.checkInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </td>
-                        <td className="py-3 px-4 font-mono text-slate-300">
-                          {log.checkOutTime
-                            ? new Date(log.checkOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                            : 'In Progress'}
-                        </td>
-                        <td className="py-3 px-4">
-                          <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-slate-300 border border-slate-700">
-                            {log.status}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          {log.overtimeMinutes > 0 ? (
-                            <div className="flex flex-col items-end">
-                              <span className="text-emerald-400 font-bold font-mono text-[11px]">
-                                +{formatDurationDetailed(log.overtimeMinutes)} إضافي
-                              </span>
-                              <span className="text-[9px] text-emerald-500/80">وقت عمل إضافي</span>
-                            </div>
-                          ) : log.delayMinutes > 0 ? (
-                            (() => {
-                              const penalty = getDelayPenalty(log.delayMinutes, !!log.checkOutTime);
-                              return (
-                                <div className="flex flex-col items-end gap-1">
-                                  <span className="text-rose-400 font-semibold font-mono text-[11px]">
-                                    {formatDurationDetailed(log.delayMinutes)} تأخير
-                                  </span>
-                                  <span className={`inline-block px-2 py-0.5 rounded text-[10px] border ${penalty.badgeColor}`}>
-                                    {penalty.penaltyLabel}
-                                  </span>
-                                </div>
-                              );
-                            })()
-                          ) : !log.checkOutTime ? (
-                            <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                              الوردية قيد العمل
+                        <td className="px-5 py-4">
+                          {morningDelay.isLate ? (
+                            <span className="text-amber-500 dark:text-amber-400 font-bold font-mono">
+                              {morningDelay.label}
                             </span>
+                          ) : log.checkInTime ? (
+                            <span className="text-emerald-500 font-bold">في الموعد (ضمن فترة السماح)</span>
                           ) : (
-                            <span className="inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                              منضبط (فترة سماح)
-                            </span>
+                            <span>—</span>
                           )}
                         </td>
+                        <td className="px-5 py-4">
+                          <span className={`inline-block px-2.5 py-1 rounded-xl text-[10px] ${penalty.badgeColor}`}>
+                            {penalty.penaltyLabel}
+                          </span>
+                        </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* --------------------------------------------------------------------- */}
-      {/* MODAL 1: CREATE LEAVE REQUEST */}
-      {/* --------------------------------------------------------------------- */}
+      {/* ===================================================================== */}
+      {/* MODAL: CREATE LEAVE REQUEST                                           */}
+      {/* ===================================================================== */}
       {isLeaveModalOpen && (
         <CreateLeaveModal
-          annualBalance={todayStatus?.employee?.annualLeaveDays ?? 21}
           onClose={() => setIsLeaveModalOpen(false)}
           onSuccess={() => {
             setIsLeaveModalOpen(false);
-            setActiveTab('LEAVES');
-            setFeedback({ type: 'SUCCESS', message: 'Leave request submitted successfully!' });
+            setFeedback({ type: 'SUCCESS', message: 'تم تقديم طلب الإجازة بنجاح وهو قيد مراجعة الإدارة.' });
           }}
         />
       )}
 
-      {/* --------------------------------------------------------------------- */}
-      {/* MODAL 2: CREATE PERMISSION REQUEST */}
-      {/* --------------------------------------------------------------------- */}
+      {/* ===================================================================== */}
+      {/* MODAL: CREATE PERMISSION REQUEST                                      */}
+      {/* ===================================================================== */}
       {isPermissionModalOpen && (
         <CreatePermissionModal
-          monthlyPermissionHours={todayStatus?.employee?.monthlyPermissionHours ?? 4}
           onClose={() => setIsPermissionModalOpen(false)}
           onSuccess={() => {
             setIsPermissionModalOpen(false);
-            setActiveTab('PERMISSIONS');
-            setFeedback({ type: 'SUCCESS', message: 'Permission request submitted successfully!' });
+            setFeedback({ type: 'SUCCESS', message: 'تم تقديم طلب الإذن بنجاح وهو قيد المراجعة.' });
           }}
         />
       )}
 
-      {/* --------------------------------------------------------------------- */}
-      {/* MODAL 3: REJECT REASON EXPLANATION */}
-      {/* --------------------------------------------------------------------- */}
+      {/* ===================================================================== */}
+      {/* MODAL: REJECT REQUEST                                                 */}
+      {/* ===================================================================== */}
       {rejectingItem && (
-        <RejectReasonModal
+        <RejectModal
           item={rejectingItem}
           onClose={() => setRejectingItem(null)}
           onConfirm={async (reason) => {
-            try {
-              if (rejectingItem.kind === 'LEAVE') {
-                await rejectLeaveMutation.mutateAsync({ id: rejectingItem.id, rejectionReason: reason });
-              } else {
-                await rejectPermissionMutation.mutateAsync({ id: rejectingItem.id, rejectionReason: reason });
-              }
-              setRejectingItem(null);
-              setFeedback({ type: 'SUCCESS', message: 'Request rejected with feedback.' });
-            } catch (err: any) {
-              setFeedback({ type: 'ERROR', message: err.response?.data?.message || 'Failed to reject request.' });
+            if (rejectingItem.kind === 'LEAVE') {
+              await rejectLeaveMutation.mutateAsync({ id: rejectingItem.id, rejectionReason: reason });
+            } else {
+              await rejectPermissionMutation.mutateAsync({ id: rejectingItem.id, rejectionReason: reason });
             }
+            setRejectingItem(null);
+            setFeedback({ type: 'SUCCESS', message: 'تم رفض الطلب وتوثيق السبب في السجل.' });
           }}
         />
       )}
@@ -1142,19 +1076,17 @@ export default function AttendancePage() {
 }
 
 // -----------------------------------------------------------------------------
-// MODAL: CREATE LEAVE REQUEST FORM
+// CREATE LEAVE MODAL COMPONENT
 // -----------------------------------------------------------------------------
 
 function CreateLeaveModal({
-  annualBalance,
   onClose,
   onSuccess,
 }: {
-  annualBalance: number;
   onClose: () => void;
   onSuccess: () => void;
 }) {
-  const createLeaveMutation = useCreateLeave();
+  const createMutation = useCreateLeave();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const {
@@ -1162,146 +1094,127 @@ function CreateLeaveModal({
     handleSubmit,
     watch,
     setValue,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<CreateLeaveFormData>({
     resolver: zodResolver(createLeaveSchema),
     defaultValues: {
       type: 'ANNUAL',
-      totalDaysRequested: 1,
       startDate: new Date().toISOString().split('T')[0],
       endDate: new Date().toISOString().split('T')[0],
+      totalDaysRequested: 1,
+      reason: '',
     },
   });
 
-  const selectedType = watch('type');
   const startDate = watch('startDate');
   const endDate = watch('endDate');
 
-  // Auto compute days difference when dates change
+  // Auto calculate total days
   useEffect(() => {
     if (startDate && endDate) {
       const s = new Date(startDate);
       const e = new Date(endDate);
       if (e >= s) {
-        const diff = Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-        setValue('totalDaysRequested', diff);
+        const diffTime = Math.abs(e.getTime() - s.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+        setValue('totalDaysRequested', diffDays);
       }
     }
   }, [startDate, endDate, setValue]);
 
-  const totalDays = watch('totalDaysRequested') || 1;
-
   const onSubmit = async (data: CreateLeaveFormData) => {
+    setErrorMsg(null);
     try {
-      setErrorMsg(null);
-      await createLeaveMutation.mutateAsync(data);
+      await createMutation.mutateAsync(data);
       onSuccess();
     } catch (err: any) {
-      setErrorMsg(err.response?.data?.message || 'Failed to submit leave request');
+      setErrorMsg(err.response?.data?.message || 'فشل تقديم طلب الإجازة.');
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in">
-      <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl overflow-hidden flex flex-col">
-        <div className="p-5 border-b border-slate-800 flex items-center justify-between">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2">
-            <CalendarDays className="h-4 w-4 text-indigo-400" />
-            <span>Submit Leave Request</span>
-          </h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
-            <X className="h-4 w-4" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in">
+      <div className="w-full max-w-md rounded-3xl bg-card p-6 shadow-2xl space-y-4">
+        <div className="flex items-center justify-between border-b border-border/30 pb-3">
+          <h2 className="text-sm font-black text-foreground">تقديم طلب إجازة رسمية</h2>
+          <button onClick={onClose} className="p-1 rounded-xl text-foreground-muted hover:text-foreground">
+            <FiX className="h-5 w-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
-          {errorMsg && (
-            <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-400">
-              {errorMsg}
-            </div>
-          )}
+        {errorMsg && (
+          <div className="rounded-2xl bg-rose-500/10 p-3 text-xs text-rose-500 dark:text-rose-400">
+            {errorMsg}
+          </div>
+        )}
 
-          {/* Leave Type */}
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1">Leave Type</label>
+            <label className="block text-xs font-bold text-foreground-muted mb-1">نوع الإجازة</label>
             <select
               {...register('type')}
-              className="w-full rounded-lg border border-slate-700 bg-slate-800/90 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+              className="w-full rounded-2xl bg-surface px-3.5 py-2.5 text-xs text-foreground focus:ring-2 focus:ring-primary/20 focus:outline-none cursor-pointer"
             >
-              <option value="ANNUAL">Annual Leave (Paid PtO)</option>
-              <option value="SICK">Sick Leave</option>
-              <option value="UNPAID">Unpaid Leave</option>
-              <option value="MATERNITY">Maternity / Paternity Leave</option>
+              <option value="ANNUAL">إجازة اعتيادية سنوية (خصم من الرصيد)</option>
+              <option value="SICK">إجازة مرضية (بتقرير طبي)</option>
+              <option value="UNPAID">إجازة بدون راتب</option>
+              <option value="MATERNITY">إجازة رعاية طفل / وضع</option>
             </select>
           </div>
 
-          {/* Balance Preview Badge */}
-          {selectedType === 'ANNUAL' && (
-            <div className="flex items-center justify-between rounded-xl bg-indigo-500/10 border border-indigo-500/20 p-3 text-xs text-indigo-300">
-              <span>Annual Balance Remaining:</span>
-              <span className="font-bold text-white">{annualBalance} Days</span>
-            </div>
-          )}
-
-          {/* Start and End Dates */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Start Date</label>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">من تاريخ</label>
               <input
                 type="date"
                 {...register('startDate')}
-                className="w-full rounded-lg border border-slate-700 bg-slate-800/90 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-2xl bg-surface px-3.5 py-2.5 text-xs text-foreground focus:ring-2 focus:ring-primary/20 focus:outline-none font-mono"
               />
-              {errors.startDate && <p className="text-[10px] text-rose-400 mt-1">{errors.startDate.message}</p>}
             </div>
-
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">End Date</label>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">إلى تاريخ</label>
               <input
                 type="date"
                 {...register('endDate')}
-                className="w-full rounded-lg border border-slate-700 bg-slate-800/90 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-2xl bg-surface px-3.5 py-2.5 text-xs text-foreground focus:ring-2 focus:ring-primary/20 focus:outline-none font-mono"
               />
-              {errors.endDate && <p className="text-[10px] text-rose-400 mt-1">{errors.endDate.message}</p>}
             </div>
           </div>
 
-          {/* Total Days Requested */}
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1">Total Days</label>
+            <label className="block text-xs font-bold text-foreground-muted mb-1">إجمالي الأيام المطلوبة</label>
             <input
               type="number"
-              min={1}
+              readOnly
               {...register('totalDaysRequested', { valueAsNumber: true })}
-              className="w-full rounded-lg border border-slate-700 bg-slate-800/90 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+              className="w-full rounded-2xl bg-surface-raised px-3.5 py-2.5 text-xs text-primary font-black font-mono focus:outline-none"
             />
           </div>
 
-          {/* Reason */}
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1">Reason / Details</label>
+            <label className="block text-xs font-bold text-foreground-muted mb-1">السبب / الملاحظات (اختياري)</label>
             <textarea
               rows={2}
               {...register('reason')}
-              placeholder="e.g. Family vacation, personal business..."
-              className="w-full rounded-lg border border-slate-700 bg-slate-800/90 p-2.5 text-xs text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+              placeholder="اكتب أسباب الإجازة إن وجدت..."
+              className="w-full rounded-2xl bg-surface p-2.5 text-xs text-foreground focus:ring-2 focus:ring-primary/20 focus:outline-none resize-none"
             />
           </div>
 
-          <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-800">
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-border/30">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-700"
+              className="rounded-2xl bg-surface hover:bg-surface-hover px-4 py-2 text-xs font-bold text-foreground"
             >
-              Cancel
+              إلغاء
             </button>
             <button
               type="submit"
-              disabled={createLeaveMutation.isPending}
-              className="rounded-xl bg-indigo-600 px-5 py-2 text-xs font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
+              disabled={isSubmitting}
+              className="rounded-2xl bg-primary hover:bg-primary-hover px-5 py-2 text-xs font-black text-primary-foreground shadow-md active:scale-95 disabled:opacity-50"
             >
-              {createLeaveMutation.isPending ? 'Submitting...' : 'Submit Request'}
+              {isSubmitting ? 'جاري التقديم...' : 'تقديم الطلب'}
             </button>
           </div>
         </form>
@@ -1311,19 +1224,17 @@ function CreateLeaveModal({
 }
 
 // -----------------------------------------------------------------------------
-// MODAL: CREATE PERMISSION REQUEST FORM
+// CREATE PERMISSION MODAL COMPONENT
 // -----------------------------------------------------------------------------
 
 function CreatePermissionModal({
-  monthlyPermissionHours,
   onClose,
   onSuccess,
 }: {
-  monthlyPermissionHours: number;
   onClose: () => void;
   onSuccess: () => void;
 }) {
-  const createPermissionMutation = useCreateWorkPermission();
+  const createMutation = useCreateWorkPermission();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const {
@@ -1331,7 +1242,7 @@ function CreatePermissionModal({
     handleSubmit,
     watch,
     setValue,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<CreatePermissionFormData>({
     resolver: zodResolver(createPermissionSchema),
     defaultValues: {
@@ -1339,131 +1250,116 @@ function CreatePermissionModal({
       startTime: '10:00',
       endTime: '12:00',
       hoursRequested: 2,
+      reason: '',
     },
   });
 
   const startTime = watch('startTime');
   const endTime = watch('endTime');
-  const hoursRequested = watch('hoursRequested');
 
-  // Auto-calculate requested hours whenever start time or end time changes
+  // Auto calculate hours
   useEffect(() => {
     if (startTime && endTime) {
       const [sh, sm] = startTime.split(':').map(Number);
       const [eh, em] = endTime.split(':').map(Number);
-      const startMinutes = sh * 60 + sm;
-      const endMinutes = eh * 60 + em;
-      if (endMinutes > startMinutes) {
-        const durationHours = Math.max(1, Math.ceil((endMinutes - startMinutes) / 60));
-        setValue('hoursRequested', durationHours);
+      const totalMins = (eh * 60 + em) - (sh * 60 + sm);
+      if (totalMins > 0) {
+        const hrs = parseFloat((totalMins / 60).toFixed(1));
+        setValue('hoursRequested', hrs);
       }
     }
   }, [startTime, endTime, setValue]);
 
   const onSubmit = async (data: CreatePermissionFormData) => {
+    setErrorMsg(null);
     try {
-      setErrorMsg(null);
-      await createPermissionMutation.mutateAsync(data);
+      await createMutation.mutateAsync(data);
       onSuccess();
     } catch (err: any) {
-      setErrorMsg(err.response?.data?.message || 'Failed to submit permission request');
+      setErrorMsg(err.response?.data?.message || 'فشل تقديم طلب الإذن.');
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in">
-      <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl overflow-hidden flex flex-col">
-        <div className="p-5 border-b border-slate-800 flex items-center justify-between">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2">
-            <Clock className="h-4 w-4 text-cyan-400" />
-            <span>تقديم طلب إذن عمل (Permission Request)</span>
-          </h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
-            <X className="h-4 w-4" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in">
+      <div className="w-full max-w-md rounded-3xl bg-card p-6 shadow-2xl space-y-4">
+        <div className="flex items-center justify-between border-b border-border/30 pb-3">
+          <h2 className="text-sm font-black text-foreground">تقديم طلب إذن عمل ساعي</h2>
+          <button onClick={onClose} className="p-1 rounded-xl text-foreground-muted hover:text-foreground">
+            <FiX className="h-5 w-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
-          {errorMsg && (
-            <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-400">
-              {errorMsg}
-            </div>
-          )}
-
-          {/* Monthly Balance Hint */}
-          <div className="flex items-center justify-between rounded-xl bg-cyan-500/10 border border-cyan-500/20 p-3 text-xs text-cyan-300">
-            <span>الرصيد الشهري المتبقي للأذونات:</span>
-            <span className="font-bold font-mono text-white">{monthlyPermissionHours} ساعة</span>
+        {errorMsg && (
+          <div className="rounded-2xl bg-rose-500/10 p-3 text-xs text-rose-500 dark:text-rose-400">
+            {errorMsg}
           </div>
+        )}
 
-          {/* Date */}
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1">تاريخ الإذن (Date)</label>
+            <label className="block text-xs font-bold text-foreground-muted mb-1">تاريخ الإذن</label>
             <input
               type="date"
               {...register('date')}
-              className="w-full rounded-lg border border-slate-700 bg-slate-800/90 px-3 py-2 text-xs text-white focus:border-cyan-500 focus:outline-none"
+              className="w-full rounded-2xl bg-surface px-3.5 py-2.5 text-xs text-foreground focus:ring-2 focus:ring-primary/20 focus:outline-none font-mono"
             />
-            {errors.date && <p className="text-[10px] text-rose-400 mt-1">{errors.date.message}</p>}
           </div>
 
-          {/* Time Interval: From Time - To Time */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">من الساعة (Start Time)</label>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">من الساعة</label>
               <input
                 type="time"
                 {...register('startTime')}
-                className="w-full rounded-lg border border-slate-700 bg-slate-800/90 px-3 py-2 text-xs text-white focus:border-cyan-500 focus:outline-none font-mono"
+                className="w-full rounded-2xl bg-surface px-3.5 py-2.5 text-xs text-foreground focus:ring-2 focus:ring-primary/20 focus:outline-none font-mono"
               />
-              {errors.startTime && <p className="text-[10px] text-rose-400 mt-1">{errors.startTime.message}</p>}
             </div>
-
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">إلى الساعة (End Time)</label>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">إلى الساعة</label>
               <input
                 type="time"
                 {...register('endTime')}
-                className="w-full rounded-lg border border-slate-700 bg-slate-800/90 px-3 py-2 text-xs text-white focus:border-cyan-500 focus:outline-none font-mono"
+                className="w-full rounded-2xl bg-surface px-3.5 py-2.5 text-xs text-foreground focus:ring-2 focus:ring-primary/20 focus:outline-none font-mono"
               />
-              {errors.endTime && <p className="text-[10px] text-rose-400 mt-1">{errors.endTime.message}</p>}
             </div>
           </div>
 
-          {/* Computed Duration Indicator Badge */}
-          <div className="rounded-xl bg-slate-950/70 border border-slate-800 p-3 flex items-center justify-between text-xs">
-            <span className="text-slate-400">إجمالي مدة الإذن المحسوبة:</span>
-            <span className="font-bold font-mono text-cyan-300">
-              {hoursRequested} ساعة {startTime && endTime ? `(من ${startTime} إلى ${endTime})` : ''}
-            </span>
+          <div>
+            <label className="block text-xs font-bold text-foreground-muted mb-1">إجمالي الساعات المطلوبة</label>
+            <input
+              type="number"
+              step="0.5"
+              readOnly
+              {...register('hoursRequested', { valueAsNumber: true })}
+              className="w-full rounded-2xl bg-surface-raised px-3.5 py-2.5 text-xs text-primary font-black font-mono focus:outline-none"
+            />
           </div>
 
-          {/* Reason */}
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1">Reason</label>
+            <label className="block text-xs font-bold text-foreground-muted mb-1">سبب الإذن</label>
             <textarea
               rows={2}
               {...register('reason')}
-              placeholder="e.g. Medical appointment, university exam..."
-              className="w-full rounded-lg border border-slate-700 bg-slate-800/90 p-2.5 text-xs text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
+              placeholder="اكتب سبب طلب الإذن..."
+              className="w-full rounded-2xl bg-surface p-2.5 text-xs text-foreground focus:ring-2 focus:ring-primary/20 focus:outline-none resize-none"
             />
-            {errors.reason && <p className="text-[10px] text-rose-400 mt-1">{errors.reason.message}</p>}
           </div>
 
-          <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-800">
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-border/30">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-700"
+              className="rounded-2xl bg-surface hover:bg-surface-hover px-4 py-2 text-xs font-bold text-foreground"
             >
-              Cancel
+              إلغاء
             </button>
             <button
               type="submit"
-              disabled={createPermissionMutation.isPending}
-              className="rounded-xl bg-cyan-600 px-5 py-2 text-xs font-semibold text-white hover:bg-cyan-500 disabled:opacity-50"
+              disabled={isSubmitting}
+              className="rounded-2xl bg-primary hover:bg-primary-hover px-5 py-2 text-xs font-black text-primary-foreground shadow-md active:scale-95 disabled:opacity-50"
             >
-              {createPermissionMutation.isPending ? 'Submitting...' : 'Submit Request'}
+              {isSubmitting ? 'جاري التقديم...' : 'تقديم طلب الإذن'}
             </button>
           </div>
         </form>
@@ -1473,10 +1369,10 @@ function CreatePermissionModal({
 }
 
 // -----------------------------------------------------------------------------
-// MODAL: REJECT REASON PROMPT FORM
+// REJECT REQUEST MODAL COMPONENT
 // -----------------------------------------------------------------------------
 
-function RejectReasonModal({
+function RejectModal({
   item,
   onClose,
   onConfirm,
@@ -1485,62 +1381,62 @@ function RejectReasonModal({
   onClose: () => void;
   onConfirm: (reason: string) => Promise<void>;
 }) {
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<RejectFormData>({
-    resolver: zodResolver(rejectSchema),
-  });
+  const [reason, setReason] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const onSubmit = async (data: RejectFormData) => {
-    await onConfirm(data.rejectionReason);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reason.trim()) return;
+    setIsSubmitting(true);
+    try {
+      await onConfirm(reason.trim());
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in">
-      <div className="w-full max-w-md rounded-2xl border border-rose-500/30 bg-slate-900 shadow-2xl p-6 space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2">
-            <XCircle className="h-4 w-4 text-rose-400" />
-            <span>Reject Request</span>
-          </h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
-            <X className="h-4 w-4" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in">
+      <div className="w-full max-w-md rounded-3xl bg-card p-6 shadow-2xl space-y-4">
+        <div className="flex items-center justify-between border-b border-border/30 pb-3">
+          <h2 className="text-sm font-black text-foreground flex items-center gap-2">
+            <FiAlertCircle className="h-4 w-4 text-rose-500" />
+            <span>رفض الطلب: {item.title}</span>
+          </h2>
+          <button onClick={onClose} className="p-1 rounded-xl text-foreground-muted hover:text-foreground">
+            <FiX className="h-5 w-5" />
           </button>
         </div>
 
-        <p className="text-xs text-slate-300">
-          Please state why you are rejecting <span className="font-bold text-white">{item.title}</span>.
-        </p>
-
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
+            <label className="block text-xs font-bold text-foreground-muted mb-1">
+              سبب الرفض الإداري <span className="text-rose-500">*</span>
+            </label>
             <textarea
               rows={3}
-              {...register('rejectionReason')}
-              placeholder="e.g. Insufficient coverage for this shift, please reschedule..."
-              className="w-full rounded-lg border border-slate-700 bg-slate-800/90 p-3 text-xs text-white placeholder-slate-500 focus:border-rose-500 focus:outline-none"
+              required
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="اكتب أسباب رفض الطلب ليتم إبلاغ الموظف بها..."
+              className="w-full rounded-2xl border border-border bg-surface p-2.5 text-xs text-foreground focus:border-rose-500 focus:outline-none resize-none"
             />
-            {errors.rejectionReason && (
-              <p className="text-[10px] text-rose-400 mt-1">{errors.rejectionReason.message}</p>
-            )}
           </div>
 
-          <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-800">
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-700"
+              className="rounded-2xl border border-border bg-surface px-4 py-2 text-xs font-bold text-foreground"
             >
-              Cancel
+              إلغاء
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="rounded-xl bg-rose-600 px-5 py-2 text-xs font-semibold text-white hover:bg-rose-500 disabled:opacity-50"
+              disabled={isSubmitting || !reason.trim()}
+              className="rounded-2xl bg-rose-500 hover:bg-rose-600 px-5 py-2 text-xs font-black text-white shadow-md active:scale-95 disabled:opacity-50"
             >
-              {isSubmitting ? 'Rejecting...' : 'Confirm Rejection'}
+              {isSubmitting ? 'جاري الرفض...' : 'تأكيد الرفض'}
             </button>
           </div>
         </form>

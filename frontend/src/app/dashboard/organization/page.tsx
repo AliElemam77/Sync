@@ -11,8 +11,20 @@ import {
   useDeleteLevel,
 } from '../../../hooks/use-organization';
 import { useAuth } from '../../../hooks/use-auth';
-import { AxiosError } from 'axios';
-import { Plus, Trash2, X, Building2, Layers } from 'lucide-react';
+import { Card } from '../../../components/ui/card';
+import { CardGridSkeleton } from '../../../components/ui/card-grid-skeleton';
+import { EmptyState } from '../../../components/ui/empty-state';
+import {
+  FiChevronDown,
+  FiChevronRight,
+  FiPlus,
+  FiLayers,
+  FiUsers,
+  FiTrash2,
+  FiAlertCircle,
+  FiX,
+} from 'react-icons/fi';
+import { BiBuildingHouse } from 'react-icons/bi';
 
 export default function OrganizationPage() {
   const { hasPermission } = useAuth();
@@ -36,17 +48,27 @@ export default function OrganizationPage() {
   const [posForm, setPosForm] = useState({ name: '', departmentId: '', description: '' });
   const [lvlForm, setLvlForm] = useState({ name: '', positionId: '', rank: 1, description: '' });
 
+  // Expansion State for Department cards
+  const [expandedDepts, setExpandedDepts] = useState<Record<string, boolean>>({});
+
   const [actionError, setActionError] = useState<string | null>(null);
+
+  const toggleDept = (id: string) => {
+    setExpandedDepts((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
 
   const handleCreateDept = async (e: React.FormEvent) => {
     e.preventDefault();
     setActionError(null);
     try {
-      await createDeptMutation.mutateAsync(deptForm);
+      await createDeptMutation.mutateAsync({
+        ...deptForm,
+        code: deptForm.code.toUpperCase(),
+      });
       setDeptForm({ name: '', code: '', description: '' });
       setIsDeptModalOpen(false);
     } catch (err: any) {
-      const msg = err?.response?.data?.message || 'Failed to create department';
+      const msg = err?.response?.data?.message || 'فشل إنشاء القسم';
       setActionError(Array.isArray(msg) ? msg.join(', ') : msg);
     }
   };
@@ -59,7 +81,7 @@ export default function OrganizationPage() {
       setPosForm({ name: '', departmentId: '', description: '' });
       setIsPosModalOpen(false);
     } catch (err: any) {
-      const msg = err?.response?.data?.message || 'Failed to create position';
+      const msg = err?.response?.data?.message || 'فشل إنشاء المسمى الوظيفي';
       setActionError(Array.isArray(msg) ? msg.join(', ') : msg);
     }
   };
@@ -75,310 +97,364 @@ export default function OrganizationPage() {
       setLvlForm({ name: '', positionId: '', rank: 1, description: '' });
       setIsLvlModalOpen(false);
     } catch (err: any) {
-      const msg = err?.response?.data?.message || 'Failed to create level';
+      const msg = err?.response?.data?.message || 'فشل إضافة المستوى الوظيفي';
       setActionError(Array.isArray(msg) ? msg.join(', ') : msg);
     }
   };
 
   const handleDeleteDept = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete department '${name}'?`)) return;
+    if (!confirm(`هل أنت متأكد من رغبتك في حذف قسم '${name}'؟`)) return;
     setActionError(null);
     try {
       await deleteDeptMutation.mutateAsync(id);
     } catch (err: any) {
-      const msg = err?.response?.data?.message || 'Failed to delete department';
+      const msg = err?.response?.data?.message || 'فشل حذف القسم';
       setActionError(Array.isArray(msg) ? msg.join(', ') : msg);
     }
   };
 
   const handleDeletePos = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete position '${name}'?`)) return;
+    if (!confirm(`هل أنت متأكد من رغبتك في حذف المسمى الوظيفي '${name}'؟`)) return;
     setActionError(null);
     try {
       await deletePosMutation.mutateAsync(id);
     } catch (err: any) {
-      const msg = err?.response?.data?.message || 'Failed to delete position';
+      const msg = err?.response?.data?.message || 'فشل حذف المسمى الوظيفي';
       setActionError(Array.isArray(msg) ? msg.join(', ') : msg);
     }
   };
 
   const handleDeleteLvl = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete level '${name}'?`)) return;
+    if (!confirm(`هل أنت متأكد من رغبتك في حذف المستوى '${name}'؟`)) return;
     setActionError(null);
     try {
       await deleteLvlMutation.mutateAsync(id);
     } catch (err: any) {
-      const msg = err?.response?.data?.message || 'Failed to delete level';
+      const msg = err?.response?.data?.message || 'فشل حذف المستوى';
       setActionError(Array.isArray(msg) ? msg.join(', ') : msg);
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
-      </div>
-    );
-  }
+  const totalPositions = departments?.reduce((acc, d) => acc + (d.positions?.length || 0), 0) || 0;
+  const totalEmployees = departments?.reduce((acc, d) => acc + (d._count?.employees || 0), 0) || 0;
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800 pb-6">
+    <div className="space-y-6 animate-in fade-in duration-300">
+      {/* Top Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/20 pb-5">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">
-            Organization Hierarchy
+          <div className="flex items-center space-x-2 text-xs text-foreground-muted mb-1">
+            <span>الهيكل المؤسسي</span>
+            <span>/</span>
+            <span className="text-foreground font-medium">الأقسام والمسارات الوظيفية</span>
+          </div>
+          <h1 className="text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
+            <span>الهيكل التنظيمي والوحدات الإدارية</span>
+            <span className="text-xs font-mono font-bold bg-primary/10 text-primary px-2.5 py-0.5 rounded-full border border-primary/20">
+              {departments?.length || 0} أقسام
+            </span>
           </h1>
-          <p className="mt-1 text-sm text-slate-400">
-            Manage enterprise business units, job positions, and seniority levels.
-          </p>
         </div>
 
         {canManage && (
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              onClick={() => {
-                setActionError(null);
-                setIsDeptModalOpen(true);
-              }}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 transition-colors"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>Add Department</span>
-            </button>
-            <button
-              onClick={() => {
-                setActionError(null);
-                if (departments && departments.length > 0) {
-                  setPosForm((p) => ({ ...p, departmentId: departments[0].id }));
-                }
-                setIsPosModalOpen(true);
-              }}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition-colors"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>Add Position</span>
-            </button>
-          </div>
+          <button
+            onClick={() => setIsDeptModalOpen(true)}
+            className="inline-flex items-center gap-2 rounded-2xl bg-primary hover:bg-primary-hover px-5 py-2.5 text-xs font-black text-primary-foreground shadow-md shadow-primary/25 active:scale-95 transition-all self-start sm:self-auto"
+          >
+            <FiPlus className="h-4 w-4" />
+            <span>إضافة قسم جديد</span>
+          </button>
         )}
       </div>
 
-      {/* Error Alert Banner */}
+      {/* Top Metric Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card className="flex items-center justify-between p-5">
+          <div className="space-y-1">
+            <span className="text-xs font-bold text-foreground-muted">الأقسام والوحدات</span>
+            <div className="text-2xl font-black text-foreground font-mono">{departments?.length || 0}</div>
+          </div>
+          <div className="h-10 w-10 rounded-2xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center">
+            <BiBuildingHouse className="h-5 w-5" />
+          </div>
+        </Card>
+
+        <Card className="flex items-center justify-between p-5">
+          <div className="space-y-1">
+            <span className="text-xs font-bold text-foreground-muted">المسميات الوظيفية</span>
+            <div className="text-2xl font-black text-foreground font-mono">{totalPositions}</div>
+          </div>
+          <div className="h-10 w-10 rounded-2xl bg-brand-gold/15 border border-brand-gold/30 text-brand-gold dark:text-brand-champagne flex items-center justify-center">
+            <FiLayers className="h-5 w-5" />
+          </div>
+        </Card>
+
+        <Card className="flex items-center justify-between p-5">
+          <div className="space-y-1">
+            <span className="text-xs font-bold text-foreground-muted">الموظفين المسكنين</span>
+            <div className="text-2xl font-black text-foreground font-mono">{totalEmployees}</div>
+          </div>
+          <div className="h-10 w-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 flex items-center justify-center">
+            <FiUsers className="h-5 w-5" />
+          </div>
+        </Card>
+      </div>
+
+      {/* Error Banner */}
       {actionError && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-400 flex items-center justify-between">
-          <span>{actionError}</span>
-          <button
-            onClick={() => setActionError(null)}
-            className="text-red-400 hover:text-white p-1 ml-4"
-          >
-            <X className="h-4 w-4" />
+        <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-xs text-rose-500 dark:text-rose-400 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FiAlertCircle className="h-4 w-4 shrink-0" />
+            <span>{actionError}</span>
+          </div>
+          <button onClick={() => setActionError(null)} className="p-1 hover:text-rose-600">
+            <FiX className="h-4 w-4" />
           </button>
         </div>
       )}
 
-      {/* Hierarchical Tree Cards */}
-      <div className="space-y-6">
-        {departments?.length === 0 && (
-          <div className="rounded-xl border border-dashed border-slate-800 p-12 text-center text-slate-500 text-sm">
-            No departments configured yet. Click "+ Add Department" to create your first unit.
-          </div>
-        )}
+      {/* Departments Tree Container */}
+      <div className="space-y-4">
+        {isLoading ? (
+          <CardGridSkeleton count={3} />
+        ) : departments?.length === 0 ? (
+          <EmptyState
+            icon={BiBuildingHouse}
+            title="لا توجد أقسام مسجلة"
+            description="ابدأ بإضافة الأقسام التنظيمية والمسميات الوظيفية للمنظومة."
+            action={
+              canManage
+                ? {
+                    label: 'إضافة أول قسم',
+                    onClick: () => setIsDeptModalOpen(true),
+                    icon: FiPlus,
+                  }
+                : undefined
+            }
+          />
+        ) : (
+          departments?.map((dept) => {
+            const isExpanded = expandedDepts[dept.id] !== false; // default expanded
 
-        {departments?.map((dept) => (
-          <div
-            key={dept.id}
-            className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6 backdrop-blur-sm transition-all"
-          >
-            {/* Department Head Row */}
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="flex items-center space-x-3">
-                  <span className="rounded-md bg-indigo-500/20 border border-indigo-500/30 px-2.5 py-0.5 font-mono text-xs font-bold text-indigo-300">
-                    {dept.code}
-                  </span>
-                  <h2 className="text-lg font-bold text-white">{dept.name}</h2>
-                </div>
-                {dept.description && (
-                  <p className="mt-1.5 text-xs text-slate-400">{dept.description}</p>
-                )}
-              </div>
-
-              {canManage && (
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => {
-                      setPosForm({ name: '', departmentId: dept.id, description: '' });
-                      setIsPosModalOpen(true);
-                    }}
-                    className="rounded-md bg-slate-800 px-2.5 py-1 text-[11px] font-semibold text-indigo-400 hover:bg-slate-700 transition-colors"
-                  >
-                    + Position
-                  </button>
-                  <button
-                    onClick={() => handleDeleteDept(dept.id, dept.name)}
-                    className="rounded-md bg-slate-800/80 px-2.5 py-1 text-[11px] font-semibold text-red-400 hover:bg-red-500/20 transition-colors"
-                  >
-                    Delete
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Positions List in this Department */}
-            <div className="mt-6 space-y-4">
-              {dept.positions.length === 0 ? (
-                <p className="text-xs italic text-slate-500 pl-4 border-l-2 border-slate-800">
-                  No positions defined in this department.
-                </p>
-              ) : (
-                <div className="grid grid-cols-1 gap-4 pl-3 border-l-2 border-indigo-500/20">
-                  {dept.positions.map((pos) => (
-                    <div
-                      key={pos.id}
-                      className="rounded-xl border border-slate-800/80 bg-slate-950/60 p-4"
+            return (
+              <div
+                key={dept.id}
+                className="rounded-3xl border border-card-border bg-card shadow-luxury dark:shadow-luxury-dark overflow-hidden transition-all"
+              >
+                {/* Department Row */}
+                <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface-raised/40">
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => toggleDept(dept.id)}
+                      className="p-1.5 rounded-xl bg-surface hover:bg-surface-hover text-foreground-muted hover:text-foreground transition-all"
                     >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="text-sm font-semibold text-slate-200">
-                            {pos.name}
-                          </h3>
-                          {pos.description && (
-                            <p className="text-xs text-slate-400 mt-0.5">
-                              {pos.description}
-                            </p>
-                          )}
-                        </div>
+                      {isExpanded ? (
+                        <FiChevronDown className="h-4 w-4" />
+                      ) : (
+                        <FiChevronRight className="h-4 w-4" />
+                      )}
+                    </button>
 
-                        {canManage && (
-                          <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => {
-                                setLvlForm({
-                                  name: '',
-                                  positionId: pos.id,
-                                  rank: pos.levels.length + 1,
-                                  description: '',
-                                });
-                                setIsLvlModalOpen(true);
-                              }}
-                              className="rounded bg-slate-800 px-2 py-0.5 text-[10px] font-medium text-emerald-400 hover:bg-slate-700 transition-colors"
-                            >
-                              + Level
-                            </button>
-                            <button
-                              onClick={() => handleDeletePos(pos.id, pos.name)}
-                              className="text-[10px] text-slate-500 hover:text-red-400 transition-colors"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                    <div className="h-10 w-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0">
+                      <BiBuildingHouse className="h-5 w-5" />
+                    </div>
 
-                      {/* Seniority Levels Pills */}
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mr-1">
-                          Levels:
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-extrabold text-foreground">{dept.name}</span>
+                        <span className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-mono font-bold text-primary">
+                          {dept.code}
                         </span>
-                        {pos.levels.length === 0 ? (
-                          <span className="text-[11px] text-slate-500 italic">
-                            No levels assigned
-                          </span>
-                        ) : (
-                          pos.levels.map((lvl) => (
-                            <span
-                              key={lvl.id}
-                              className="group inline-flex items-center space-x-1.5 rounded-md border border-slate-700/80 bg-slate-900 px-2.5 py-1 text-xs text-slate-300 shadow-sm"
-                            >
-                              <span className="font-mono text-[10px] font-bold text-indigo-400">
-                                L{lvl.rank}
-                              </span>
-                              <span>{lvl.name}</span>
-                              {canManage && (
-                                <button
-                                  onClick={() => handleDeleteLvl(lvl.id, lvl.name)}
-                                  className="text-slate-500 hover:text-red-400 ml-1 text-[10px]"
-                                  title="Delete Level"
-                                >
-                                  ×
-                                </button>
-                              )}
-                            </span>
-                          ))
-                        )}
+                      </div>
+                      <div className="text-xs text-foreground-muted flex items-center gap-3 mt-0.5 font-mono">
+                        <span>{dept.positions?.length || 0} مسميات وظيفية</span>
+                        <span>•</span>
+                        <span>{dept._count?.employees || 0} موظف مسكن</span>
                       </div>
                     </div>
-                  ))}
+                  </div>
+
+                  <div className="flex items-center gap-2 self-start sm:self-auto">
+                    {canManage && (
+                      <>
+                        <button
+                          onClick={() => {
+                            setPosForm({ name: '', departmentId: dept.id, description: '' });
+                            setIsPosModalOpen(true);
+                          }}
+                          className="inline-flex items-center gap-1.5 rounded-2xl bg-surface hover:bg-surface-hover px-3.5 py-1.5 text-xs font-bold text-foreground transition-all"
+                        >
+                          <FiPlus className="h-3.5 w-3.5 text-primary" />
+                          <span>إضافة مسمى وظيفي</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteDept(dept.id, dept.name)}
+                          className="p-2 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 transition-all"
+                          title="حذف القسم"
+                        >
+                          <FiTrash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
-          </div>
-        ))}
+
+                {/* Positions and Levels List (Accordion Content) */}
+                {isExpanded && (
+                  <div className="p-4 sm:p-5 space-y-2.5 bg-surface/30">
+                    {dept.positions?.length === 0 ? (
+                      <p className="text-xs text-foreground-subtle italic py-2">
+                        لا توجد مسميات وظيفية مسجلة في هذا القسم بعد.
+                      </p>
+                    ) : (
+                      dept.positions?.map((pos) => (
+                        <div
+                          key={pos.id}
+                          className="rounded-2xl bg-card p-4 space-y-2.5 shadow-xs"
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <div className="h-2 w-2 rounded-full bg-primary" />
+                              <span className="text-xs font-black text-foreground">{pos.name}</span>
+                            </div>
+
+                            <div className="flex items-center gap-3 self-start sm:self-auto">
+                              {canManage && (
+                                <>
+                                  <button
+                                    onClick={() => {
+                                      setLvlForm({ name: '', positionId: pos.id, rank: 1, description: '' });
+                                      setIsLvlModalOpen(true);
+                                    }}
+                                    className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1"
+                                  >
+                                    <FiPlus className="h-3 w-3" />
+                                    <span>إضافة مستوى/درجة</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeletePos(pos.id, pos.name)}
+                                    className="text-rose-500 dark:text-rose-400 hover:text-rose-600 p-1"
+                                    title="حذف المسمى"
+                                  >
+                                    <FiTrash2 className="h-3 w-3" />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Seniority Levels Tags */}
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2 pt-1">
+                              <span className="text-[10px] text-foreground-subtle font-bold">المستويات:</span>
+                              {pos.levels?.length === 0 ? (
+                                <span className="text-[10px] text-foreground-subtle italic">بدون مستويات مخصصة</span>
+                              ) : (
+                                pos.levels
+                                  ?.sort((a, b) => a.rank - b.rank)
+                                  .map((lvl) => (
+                                    <span
+                                      key={lvl.id}
+                                      className="inline-flex items-center gap-2 rounded-xl bg-surface px-2.5 py-1 text-[10px] font-mono text-foreground font-semibold group"
+                                    >
+                                      <span>{lvl.name}</span>
+                                      <span className="rounded bg-surface-raised px-1 py-0.2 text-[9px] text-foreground-muted">
+                                        رتبة {lvl.rank}
+                                      </span>
+                                      {canManage && (
+                                        <button
+                                          onClick={() => handleDeleteLvl(lvl.id, lvl.name)}
+                                          className="text-foreground-subtle hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        >
+                                          <FiX className="h-3 w-3" />
+                                        </button>
+                                      )}
+                                    </span>
+                                  ))
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
       </div>
 
-      {/* Modal: Create Department */}
+      {/* ===================================================================== */}
+      {/* MODAL: CREATE DEPARTMENT                                              */}
+      {/* ===================================================================== */}
       {isDeptModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
-            <h2 className="text-lg font-bold text-white">Create New Department</h2>
-            <form onSubmit={handleCreateDept} className="mt-4 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md rounded-3xl border border-card-border bg-card p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h2 className="text-sm font-black text-foreground">إضافة قسم تنظيمي جديد</h2>
+              <button
+                onClick={() => setIsDeptModalOpen(false)}
+                className="p-1 rounded-xl text-foreground-muted hover:text-foreground"
+              >
+                <FiX className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateDept} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  Department Name
+                <label className="block text-xs font-bold text-foreground-muted mb-1">
+                  اسم القسم <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
                   required
                   value={deptForm.name}
                   onChange={(e) => setDeptForm({ ...deptForm, name: e.target.value })}
-                  placeholder="Finance & Operations"
-                  className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
+                  placeholder="مثال: إدارة تكنولوجيا المعلومات"
+                  className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground placeholder-foreground-subtle focus:border-primary focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  Unique Code (Uppercase)
+                <label className="block text-xs font-bold text-foreground-muted mb-1">
+                  كود القسم (Code) <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
                   required
                   value={deptForm.code}
-                  onChange={(e) =>
-                    setDeptForm({ ...deptForm, code: e.target.value.toUpperCase() })
-                  }
-                  placeholder="FIN"
-                  className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none font-mono"
+                  onChange={(e) => setDeptForm({ ...deptForm, code: e.target.value })}
+                  placeholder="مثال: IT / HR / FIN"
+                  className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground font-mono placeholder-foreground-subtle uppercase focus:border-primary focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  Description (Optional)
-                </label>
+                <label className="block text-xs font-bold text-foreground-muted mb-1">الوصف (اختياري)</label>
                 <textarea
                   value={deptForm.description}
                   onChange={(e) => setDeptForm({ ...deptForm, description: e.target.value })}
-                  placeholder="Manages corporate accounts and payroll..."
+                  placeholder="نبذة عن مهام القسم والمسؤوليات..."
                   rows={2}
-                  className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
+                  className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:outline-none resize-none"
                 />
               </div>
 
-              <div className="flex justify-end space-x-3 pt-2">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
                 <button
                   type="button"
                   onClick={() => setIsDeptModalOpen(false)}
-                  className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+                  className="rounded-2xl border border-border bg-surface px-4 py-2 text-xs font-bold text-foreground"
                 >
-                  Cancel
+                  إلغاء
                 </button>
                 <button
                   type="submit"
                   disabled={createDeptMutation.isPending}
-                  className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-50"
+                  className="rounded-2xl bg-primary hover:bg-primary-hover px-5 py-2 text-xs font-black text-primary-foreground shadow-md active:scale-95 disabled:opacity-50"
                 >
-                  {createDeptMutation.isPending ? 'Creating...' : 'Create Department'}
+                  {createDeptMutation.isPending ? 'جاري الإنشاء...' : 'إنشاء القسم'}
                 </button>
               </div>
             </form>
@@ -386,71 +462,62 @@ export default function OrganizationPage() {
         </div>
       )}
 
-      {/* Modal: Create Position */}
+      {/* ===================================================================== */}
+      {/* MODAL: CREATE POSITION                                                */}
+      {/* ===================================================================== */}
       {isPosModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
-            <h2 className="text-lg font-bold text-white">Create New Position</h2>
-            <form onSubmit={handleCreatePos} className="mt-4 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  Department
-                </label>
-                <select
-                  required
-                  value={posForm.departmentId}
-                  onChange={(e) => setPosForm({ ...posForm, departmentId: e.target.value })}
-                  className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
-                >
-                  {departments?.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name} ({d.code})
-                    </option>
-                  ))}
-                </select>
-              </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md rounded-3xl border border-card-border bg-card p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h2 className="text-sm font-black text-foreground">إضافة مسمى وظيفي للقسم</h2>
+              <button
+                onClick={() => setIsPosModalOpen(false)}
+                className="p-1 rounded-xl text-foreground-muted hover:text-foreground"
+              >
+                <FiX className="h-5 w-5" />
+              </button>
+            </div>
 
+            <form onSubmit={handleCreatePos} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  Position Title
+                <label className="block text-xs font-bold text-foreground-muted mb-1">
+                  المسمى الوظيفي <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
                   required
                   value={posForm.name}
                   onChange={(e) => setPosForm({ ...posForm, name: e.target.value })}
-                  placeholder="Financial Analyst"
-                  className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
+                  placeholder="مثال: مهندس برمجيات أول (Senior Software Engineer)"
+                  className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground placeholder-foreground-subtle focus:border-primary focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  Description (Optional)
-                </label>
+                <label className="block text-xs font-bold text-foreground-muted mb-1">الوصف (اختياري)</label>
                 <textarea
                   value={posForm.description}
                   onChange={(e) => setPosForm({ ...posForm, description: e.target.value })}
-                  placeholder="Prepares budget reports..."
+                  placeholder="المتطلبات والمسؤوليات الأساسية..."
                   rows={2}
-                  className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
+                  className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:outline-none resize-none"
                 />
               </div>
 
-              <div className="flex justify-end space-x-3 pt-2">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
                 <button
                   type="button"
                   onClick={() => setIsPosModalOpen(false)}
-                  className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+                  className="rounded-2xl border border-border bg-surface px-4 py-2 text-xs font-bold text-foreground"
                 >
-                  Cancel
+                  إلغاء
                 </button>
                 <button
                   type="submit"
                   disabled={createPosMutation.isPending}
-                  className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-50"
+                  className="rounded-2xl bg-primary hover:bg-primary-hover px-5 py-2 text-xs font-black text-primary-foreground shadow-md active:scale-95 disabled:opacity-50"
                 >
-                  {createPosMutation.isPending ? 'Creating...' : 'Create Position'}
+                  {createPosMutation.isPending ? 'جاري الإضافة...' : 'إضافة المسمى'}
                 </button>
               </div>
             </form>
@@ -458,67 +525,77 @@ export default function OrganizationPage() {
         </div>
       )}
 
-      {/* Modal: Create Level */}
+      {/* ===================================================================== */}
+      {/* MODAL: CREATE LEVEL                                                   */}
+      {/* ===================================================================== */}
       {isLvlModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
-            <h2 className="text-lg font-bold text-white">Create Seniority Level</h2>
-            <form onSubmit={handleCreateLvl} className="mt-4 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md rounded-3xl border border-card-border bg-card p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h2 className="text-sm font-black text-foreground">إضافة درجة / مستوى وظيفي</h2>
+              <button
+                onClick={() => setIsLvlModalOpen(false)}
+                className="p-1 rounded-xl text-foreground-muted hover:text-foreground"
+              >
+                <FiX className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateLvl} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  Level Title
+                <label className="block text-xs font-bold text-foreground-muted mb-1">
+                  اسم المستوى <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
                   required
                   value={lvlForm.name}
                   onChange={(e) => setLvlForm({ ...lvlForm, name: e.target.value })}
-                  placeholder="Senior (L3)"
-                  className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
+                  placeholder="مثال: مبتدئ (Junior) / خبير (Lead)"
+                  className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground placeholder-foreground-subtle focus:border-primary focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  Rank / Seniority Index
+                <label className="block text-xs font-bold text-foreground-muted mb-1">
+                  الرتبة الرقمية (Rank) <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="number"
-                  min={1}
                   required
+                  min={1}
                   value={lvlForm.rank}
                   onChange={(e) => setLvlForm({ ...lvlForm, rank: Number(e.target.value) })}
-                  className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none font-mono"
+                  placeholder="1"
+                  className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground font-mono focus:border-primary focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  Description (Optional)
-                </label>
+                <label className="block text-xs font-bold text-foreground-muted mb-1">الوصف (اختياري)</label>
                 <textarea
                   value={lvlForm.description}
                   onChange={(e) => setLvlForm({ ...lvlForm, description: e.target.value })}
-                  placeholder="Requirements: 5+ years experience..."
+                  placeholder="سنوات الخبرة أو المعايير المطلوبة..."
                   rows={2}
-                  className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
+                  className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:outline-none resize-none"
                 />
               </div>
 
-              <div className="flex justify-end space-x-3 pt-2">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
                 <button
                   type="button"
                   onClick={() => setIsLvlModalOpen(false)}
-                  className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+                  className="rounded-2xl border border-border bg-surface px-4 py-2 text-xs font-bold text-foreground"
                 >
-                  Cancel
+                  إلغاء
                 </button>
                 <button
                   type="submit"
                   disabled={createLvlMutation.isPending}
-                  className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-50"
+                  className="rounded-2xl bg-primary hover:bg-primary-hover px-5 py-2 text-xs font-black text-primary-foreground shadow-md active:scale-95 disabled:opacity-50"
                 >
-                  {createLvlMutation.isPending ? 'Creating...' : 'Create Level'}
+                  {createLvlMutation.isPending ? 'جاري الإضافة...' : 'إضافة المستوى'}
                 </button>
               </div>
             </form>

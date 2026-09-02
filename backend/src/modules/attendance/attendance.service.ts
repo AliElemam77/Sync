@@ -144,13 +144,23 @@ export class AttendanceService {
       );
     }
 
+    // Calculate morning arrival delay based on standard 09:00 AM start with 15 mins grace (until 09:15 AM)
+    const checkInMinutes = now.getHours() * 60 + now.getMinutes();
+    const shiftStartMinutes = 9 * 60; // 09:00 AM = 540
+    const graceEndMinutes = shiftStartMinutes + 15; // 09:15 AM = 555
+
+    let delayMinutes = 0;
+    if (checkInMinutes > graceEndMinutes) {
+      delayMinutes = checkInMinutes - shiftStartMinutes;
+    }
+
     const record = await this.prisma.attendanceRecord.create({
       data: {
         employeeId: employee.id,
         date: today,
         checkInTime: now,
         status: AttendanceStatus.PRESENT,
-        delayMinutes: 0,
+        delayMinutes,
         overtimeMinutes: 0,
       },
       include: {

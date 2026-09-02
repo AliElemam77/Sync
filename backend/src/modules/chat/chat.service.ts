@@ -462,15 +462,25 @@ export class ChatService {
 
     const now = new Date();
 
+    const content = (dto.content || '').trim();
+    const attachments = dto.attachmentUrls || [];
+
+    if (!content && attachments.length === 0) {
+      throw new BadRequestException('محتوى الرسالة أو الصور المرفقة مطلوبة للإرسال');
+    }
+
+    const messageType =
+      dto.type || (attachments.length > 0 ? MessageType.IMAGE : MessageType.TEXT);
+
     // Create message in database
     const message = await this.prisma.message.create({
       data: {
         conversationId: dto.conversationId,
         senderId: userId,
         senderEmployeeId: senderProfile?.id || null,
-        content: dto.content,
-        type: dto.type || MessageType.TEXT,
-        attachmentUrls: dto.attachmentUrls || [],
+        content: content,
+        type: messageType,
+        attachmentUrls: attachments,
         replyToId: dto.replyToId || null,
         reactions: [],
       },
@@ -575,6 +585,97 @@ export class ChatService {
     );
 
     return { messageId, reactions: currentReactions };
+  }
+
+  /**
+   * Edit message content
+   */
+  async editMessage(messageId: string, userId: string, content: string) {
+    const message = await this.prisma.message.findUnique({
+      where: { id: messageId },
+    });
+
+    if (!message) {
+      throw new NotFoundException('الرسالة غير موجودة');
+    }
+
+    if (message.senderId !== userId) {
+      throw new ForbiddenException('لا يمكنك تعديل رسالة مستخدم آخر');
+    }
+
+    if (message.isDeleted) {
+      throw new BadRequestException('لا يمكن تعديل رسالة محذوفة');
+    }
+
+    const updated = await this.prisma.message.update({
+      where: { id: messageId },
+      data: {
+        content: content.trim(),
+        isEdited: true,
+      },
+      include: {
+        sender: { select: { id: true, email: true } },
+        senderEmployee: {
+          select: {
+            id: true,
+            fullName: true,
+            avatarUrl: true,
+            employeeCode: true,
+          },
+        },
+        replyTo: {
+          select: {
+            id: true,
+            content: true,
+            type: true,
+            attachmentUrls: true,
+            senderEmployee: { select: { id: true, fullName: true } },
+          },
+        },
+        readReceipts: { select: { userId: true, readAt: true } },
+      },
+    });
+
+    this.chatGateway.broadcastMessageEdited(updated.conversationId, updated);
+    return updated;
+  }
+
+  /**
+   * Soft-delete a message (Preserved in database, marked isDeleted: true for users)
+   */
+  async deleteMessage(messageId: string, userId: string) {
+    const message = await this.prisma.message.findUnique({
+      where: { id: messageId },
+      include: {
+        conversation: {
+          include: {
+            participants: true,
+          },
+        },
+      },
+    });
+
+    if (!message) {
+      throw new NotFoundException('الرسالة غير موجودة');
+    }
+
+    const isSender = message.senderId === userId;
+    const participant = message.conversation.participants.find((p) => p.userId === userId);
+    const isGroupAdmin = participant?.role === ParticipantRole.ADMIN;
+
+    if (!isSender && !isGroupAdmin) {
+      throw new ForbiddenException('ليس لديك صلاحية لحذف هذه الرسالة');
+    }
+
+    await this.prisma.message.update({
+      where: { id: messageId },
+      data: {
+        isDeleted: true,
+      },
+    });
+
+    this.chatGateway.broadcastMessageDeleted(message.conversationId, messageId);
+    return { success: true, messageId };
   }
 
   /**

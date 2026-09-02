@@ -26,6 +26,10 @@ export interface Department {
   description?: string | null;
   isActive: boolean;
   positions: Position[];
+  _count?: {
+    employees?: number;
+    positions?: number;
+  };
   createdAt: string;
   updatedAt: string;
 }

@@ -196,6 +196,56 @@ export function useToggleReaction() {
   });
 }
 
+export function useEditMessage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ messageId, content, conversationId }: { messageId: string; content: string; conversationId: string }) => {
+      const res = await apiClient.patch<Message>(`/api/v1/chat/messages/${messageId}`, { content });
+      return { message: res.data, conversationId, messageId };
+    },
+    onSuccess: (result) => {
+      queryClient.setQueryData<MessagesResponse>(
+        CHAT_MESSAGES_KEY(result.conversationId),
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            messages: old.messages.map((m) =>
+              m.id === result.messageId ? { ...m, content: result.message.content, isEdited: true } : m,
+            ),
+          };
+        },
+      );
+    },
+  });
+}
+
+export function useDeleteMessage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ messageId, conversationId }: { messageId: string; conversationId: string }) => {
+      const res = await apiClient.delete(`/api/v1/chat/messages/${messageId}`);
+      return { data: res.data, conversationId, messageId };
+    },
+    onSuccess: (result) => {
+      queryClient.setQueryData<MessagesResponse>(
+        CHAT_MESSAGES_KEY(result.conversationId),
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            messages: old.messages.map((m) =>
+              m.id === result.messageId ? { ...m, isDeleted: true, content: 'تم حذف هذه الرسالة' } : m,
+            ),
+          };
+        },
+      );
+    },
+  });
+}
+
 // =============================================================================
 // REAL-TIME WEBSOCKET HOOK
 // =============================================================================
@@ -298,7 +348,39 @@ export function useChatSocket(activeConversationId: string | null) {
       );
     };
 
-    // 5. Live typing indicator
+    // 5. Message edited in real-time
+    const handleMessageEdited = (data: { conversationId: string; message: Message }) => {
+      queryClient.setQueryData<MessagesResponse>(
+        CHAT_MESSAGES_KEY(data.conversationId),
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            messages: old.messages.map((m) =>
+              m.id === data.message.id ? { ...m, content: data.message.content, isEdited: true } : m,
+            ),
+          };
+        },
+      );
+    };
+
+    // 6. Message deleted in real-time
+    const handleMessageDeleted = (data: { conversationId: string; messageId: string }) => {
+      queryClient.setQueryData<MessagesResponse>(
+        CHAT_MESSAGES_KEY(data.conversationId),
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            messages: old.messages.map((m) =>
+              m.id === data.messageId ? { ...m, isDeleted: true, content: 'تم حذف هذه الرسالة' } : m,
+            ),
+          };
+        },
+      );
+    };
+
+    // 7. Live typing indicator
     const handleUserTyping = (data: {
       conversationId: string;
       userId: string;
@@ -342,6 +424,8 @@ export function useChatSocket(activeConversationId: string | null) {
     socket.on('chat:conversation_updated', handleConversationUpdated);
     socket.on('chat:new_conversation', handleNewConversation);
     socket.on('chat:reaction_updated', handleReactionUpdated);
+    socket.on('chat:message_edited', handleMessageEdited);
+    socket.on('chat:message_deleted', handleMessageDeleted);
     socket.on('chat:user_typing', handleUserTyping);
 
     return () => {
@@ -352,6 +436,8 @@ export function useChatSocket(activeConversationId: string | null) {
       socket.off('chat:conversation_updated', handleConversationUpdated);
       socket.off('chat:new_conversation', handleNewConversation);
       socket.off('chat:reaction_updated', handleReactionUpdated);
+      socket.off('chat:message_edited', handleMessageEdited);
+      socket.off('chat:message_deleted', handleMessageDeleted);
       socket.off('chat:user_typing', handleUserTyping);
     };
   }, [activeConversationId, queryClient]);

@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -14,6 +15,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { CreateDirectConversationDto } from './dto/create-direct-conversation.dto';
 import { SendMessageDto } from './dto/send-message.dto';
+import { EditMessageDto } from './dto/edit-message.dto';
 import { AddParticipantsDto } from './dto/add-participants.dto';
 import { ToggleReactionDto } from './dto/toggle-reaction.dto';
 
@@ -84,6 +86,29 @@ export class ChatController {
     @CurrentUser() user: any,
   ) {
     return this.chatService.sendMessage(user.id, dto);
+  }
+
+  /**
+   * Edit an existing message
+   */
+  @Patch('messages/:id')
+  async editMessage(
+    @Param('id') messageId: string,
+    @Body() dto: EditMessageDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.chatService.editMessage(messageId, user.id, dto.content);
+  }
+
+  /**
+   * Soft-delete a message
+   */
+  @Delete('messages/:id')
+  async deleteMessage(
+    @Param('id') messageId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.chatService.deleteMessage(messageId, user.id);
   }
 
   /**

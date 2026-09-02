@@ -1,15 +1,20 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Inter, Cairo } from 'next/font/google';
 import { QueryProvider } from '../providers/query-provider';
 import { AuthProvider } from '../context/auth-context';
 import { ThemeProvider } from '../components/theme-provider';
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+const cairo = Cairo({
+  subsets: ['arabic', 'latin'],
+  weight: ['300', '400', '500', '600', '700', '800', '900'],
+  variable: '--font-cairo',
+});
 
 export const metadata: Metadata = {
-  title: 'Sync | Enterprise HR ERP',
-  description: 'Enterprise Grade HR Management System with Granular RBAC',
+  title: 'Sync | Enterprise HR ERP & Workspace',
+  description: 'منصة إدارة الموارد البشرية والمهام والمحادثات للمؤسسات الحديثة',
 };
 
 export default function RootLayout({
@@ -19,7 +24,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ar" dir="rtl" suppressHydrationWarning className="h-full antialiased">
-      <body className={`${inter.className} min-h-screen flex flex-col bg-background text-foreground transition-colors duration-200`}>
+      <body className={`${cairo.variable} ${inter.variable} font-sans min-h-screen flex flex-col bg-background text-foreground transition-colors duration-200`}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           <QueryProvider>
             <AuthProvider>{children}</AuthProvider>
@@ -29,3 +34,4 @@ export default function RootLayout({
     </html>
   );
 }
+

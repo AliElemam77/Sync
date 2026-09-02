@@ -9,7 +9,6 @@ import { z } from 'zod';
 import { useEmployee, useUpdateEmployee } from '../../../../../hooks/use-employees';
 import { useOrganizationTree } from '../../../../../hooks/use-organization';
 import { useAuth } from '../../../../../hooks/use-auth';
-import { AlertTriangle } from 'lucide-react';
 import {
   Gender,
   ShiftType,
@@ -17,6 +16,19 @@ import {
   EmployeeStatus,
   EmergencyRelationship,
 } from '../../../../../types/employees';
+import {
+  FiUser,
+  FiBriefcase,
+  FiPhoneCall,
+  FiDollarSign,
+  FiSave,
+  FiAlertTriangle,
+  FiAlertCircle,
+  FiCheckCircle,
+  FiArrowLeft,
+  FiShield,
+} from 'react-icons/fi';
+import { canAccessEmployees } from '../../../../../lib/permissions';
 
 // -----------------------------------------------------------------------------
 // ZOD SCHEMA FOR EDIT EMPLOYEE FORM
@@ -24,21 +36,21 @@ import {
 
 const editEmployeeSchema = z.object({
   // 1. Account & Identity
-  fullName: z.string().min(1, 'Full name is required'),
-  email: z.string().email('Invalid email address'),
+  fullName: z.string().min(1, 'الاسم بالكامل مطلوب'),
+  email: z.string().email('يرجى إدخال بريد إلكتروني صحيح'),
   password: z.string().optional(),
   isActive: z.boolean(),
-  phone: z.string().min(1, 'Phone is required'),
+  phone: z.string().min(1, 'رقم الهاتف مطلوب'),
   dob: z.string().optional(),
   gender: z.enum(['MALE', 'FEMALE', 'OTHER']),
   shiftType: z.enum(['RS', 'LS', 'FS']),
   avatarUrl: z.string().optional(),
 
   // 2. Employment Details
-  company: z.string().min(1, 'Company is required'),
-  branch: z.string().min(1, 'Branch is required'),
-  departmentId: z.string().min(1, 'Department is required'),
-  positionId: z.string().min(1, 'Position is required'),
+  company: z.string().min(1, 'اسم الشركة مطلوب'),
+  branch: z.string().min(1, 'اسم الفرع مطلوب'),
+  departmentId: z.string().min(1, 'يرجى اختيار القسم'),
+  positionId: z.string().min(1, 'يرجى اختيار المسمى الوظيفي'),
   levelId: z.string().optional(),
   joiningDate: z.string().optional(),
   employmentType: z.enum(['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERNSHIP']),
@@ -72,15 +84,38 @@ export default function EditEmployeePage() {
   const params = useParams();
   const employeeId = params?.id as string;
 
-  const { hasPermission } = useAuth();
+  const { user, hasPermission } = useAuth();
+  const hasAccess = canAccessEmployees(user);
   const canManageSalary = hasPermission('employees.manage_salary');
 
-  const { data: employee, isLoading: isEmployeeLoading, isError: isEmployeeError } = useEmployee(employeeId);
+  const { data: employee, isLoading: isEmployeeLoading, isError: isEmployeeError } = useEmployee(
+    hasAccess ? employeeId : '',
+  );
   const { data: orgTree, isLoading: isOrgLoading } = useOrganizationTree();
   const updateMutation = useUpdateEmployee();
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  if (!hasAccess) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center space-y-4 animate-in fade-in">
+        <div className="h-16 w-16 rounded-3xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center shadow-inner">
+          <FiAlertCircle className="h-8 w-8" />
+        </div>
+        <h2 className="text-xl font-black text-foreground">الوصول مقيد (Restricted Access)</h2>
+        <p className="text-xs text-foreground-muted max-w-md leading-relaxed">
+          عذراً، تعديل بيانات الكوادر والموظفين مخصص حصرياً لأعضاء قسم الموارد البشرية (HR) والإدارة العامة (Management).
+        </p>
+        <Link
+          href="/dashboard"
+          className="px-5 py-2.5 rounded-2xl bg-primary hover:bg-primary-hover text-primary-foreground text-xs font-black shadow-md transition-all active:scale-95"
+        >
+          العودة للرئيسية
+        </Link>
+      </div>
+    );
+  }
 
   const {
     register,
@@ -128,7 +163,6 @@ export default function EditEmployeePage() {
 
   const departmentId = watch('departmentId');
   const positionId = watch('positionId');
-  const shiftType = watch('shiftType');
 
   // Initialize form when employee data loads
   useEffect(() => {
@@ -243,23 +277,23 @@ export default function EditEmployeePage() {
         },
       });
 
-      setSuccessMessage('Employee profile updated successfully!');
+      setSuccessMessage('تم تحديث الملف الشخصي للموظف بنجاح!');
       setTimeout(() => {
         router.push('/dashboard/employees');
       }, 1200);
     } catch (err: any) {
       setErrorMessage(
-        err?.response?.data?.message || 'Failed to update employee. Please verify required fields.',
+        err?.response?.data?.message || 'فشل تحديث بيانات الموظف. يرجى مراجعة الحقول المطلوبة.',
       );
     }
   };
 
   if (isEmployeeLoading || isOrgLoading) {
     return (
-      <div className="flex h-96 items-center justify-center">
-        <div className="flex flex-col items-center space-y-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
-          <p className="text-sm text-slate-400">Loading employee data...</p>
+      <div className="flex min-h-[400px] items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <p className="text-xs text-foreground-muted font-bold animate-pulse">جاري تحميل بيانات الموظف...</p>
         </div>
       </div>
     );
@@ -267,197 +301,210 @@ export default function EditEmployeePage() {
 
   if (isEmployeeError || !employee) {
     return (
-      <div className="flex h-96 flex-col items-center justify-center space-y-4">
-        <div className="rounded-full bg-red-500/10 p-3 text-red-400">
-          <AlertTriangle className="h-6 w-6" />
+      <div className="flex min-h-[400px] flex-col items-center justify-center space-y-4">
+        <div className="rounded-3xl bg-rose-500/10 p-4 text-rose-500">
+          <FiAlertTriangle className="h-8 w-8" />
         </div>
-        <h2 className="text-lg font-bold text-white">Employee Not Found</h2>
+        <h2 className="text-lg font-black text-foreground">لم يتم العثور على الموظف</h2>
         <Link
           href="/dashboard/employees"
-          className="rounded-lg bg-slate-800 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-700"
+          className="rounded-2xl bg-primary px-5 py-2.5 text-xs font-bold text-primary-foreground shadow-md"
         >
-          Return to Employee Directory
+          العودة لسجل الموظفين
         </Link>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-16">
+    <div className="space-y-6 max-w-5xl mx-auto pb-16 animate-in fade-in duration-300">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800 pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/20 pb-5">
         <div>
-          <div className="flex items-center space-x-2 text-xs text-slate-400 mb-1">
-            <Link href="/dashboard/employees" className="hover:text-indigo-400 transition-colors">
-              Employees
+          <div className="flex items-center space-x-2 text-xs text-foreground-muted mb-1">
+            <Link href="/dashboard/employees" className="hover:text-primary transition-colors">
+              دليل الموظفين
             </Link>
             <span>/</span>
-            <span className="text-white font-medium">{employee.employeeCode}</span>
+            <span className="text-foreground font-mono font-bold">{employee.employeeCode}</span>
             <span>/</span>
-            <span>Edit Profile</span>
+            <span className="text-foreground font-medium">تعديل الملف</span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-3">
-            <span>Edit Employee: {employee.fullName}</span>
-            <span className="text-xs bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full border border-slate-700 font-mono">
+          <h1 className="text-2xl font-black tracking-tight text-foreground flex items-center gap-3">
+            <span>تعديل بيانات: {employee.fullName}</span>
+            <span className="text-xs bg-primary/10 text-primary px-2.5 py-1 rounded-full border border-primary/20 font-mono font-bold">
               {employee.employeeCode}
             </span>
           </h1>
         </div>
 
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center gap-3">
           <Link
             href="/dashboard/employees"
-            className="rounded-xl border border-slate-700 bg-slate-800/80 px-4 py-2.5 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition-all"
+            className="rounded-2xl border border-border bg-surface hover:bg-surface-hover px-4 py-2.5 text-xs font-bold text-foreground transition-all"
           >
-            Cancel
+            إلغاء
           </Link>
           <button
             type="submit"
             form="edit-employee-form"
             disabled={isSubmitting}
-            className="inline-flex items-center space-x-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-semibold text-white shadow-lg shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-50 transition-all"
+            className="inline-flex items-center gap-2 rounded-2xl bg-primary hover:bg-primary-hover px-6 py-2.5 text-xs font-black text-primary-foreground shadow-md shadow-primary/25 active:scale-95 disabled:opacity-50 transition-all"
           >
-            <span>{isSubmitting ? 'Saving Changes...' : 'Save Changes'}</span>
+            <FiSave className="h-4 w-4" />
+            <span>{isSubmitting ? 'جاري الحفظ...' : 'حفظ التعديلات'}</span>
           </button>
         </div>
       </div>
 
       {/* Notifications */}
       {errorMessage && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-xs text-red-400">
-          {errorMessage}
+        <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-xs text-rose-500 dark:text-rose-400 flex items-center gap-2">
+          <FiAlertTriangle className="h-4 w-4 shrink-0" />
+          <span>{errorMessage}</span>
         </div>
       )}
 
       {successMessage && (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs text-emerald-400">
-          {successMessage}
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
+          <FiCheckCircle className="h-4 w-4 shrink-0" />
+          <span>{successMessage}</span>
         </div>
       )}
 
       {/* Main Form */}
       <form id="edit-employee-form" onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* 1. Account & Security Credentials */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-sm space-y-4">
-          <div className="border-b border-slate-800 pb-3 flex items-center justify-between">
-            <div>
-              <h2 className="text-base font-bold text-white">1. Account & Authentication</h2>
-              <p className="text-xs text-slate-400">Manage user access credentials, active status, and primary email.</p>
+        <div className="rounded-3xl border border-card-border bg-card/80 dark:bg-card/70 p-6 backdrop-blur-xl space-y-4 shadow-xs">
+          <div className="border-b border-border/20 pb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+                <FiUser className="h-4 w-4" />
+              </div>
+              <div>
+                <h2 className="text-sm font-extrabold text-foreground">1. بيانات الحساب والمصادقة</h2>
+                <p className="text-[11px] text-foreground-muted">بيانات تسجيل الدخول، البريد، وحالة التفعيل.</p>
+              </div>
             </div>
-            <span className="text-xs font-mono text-indigo-400 bg-indigo-500/10 px-2.5 py-1 rounded border border-indigo-500/20">
-              User ID: {employee.user?.email || 'No User Account'}
+            <span className="text-xs font-mono text-primary bg-primary/10 px-2.5 py-1 rounded-xl border border-primary/20 font-bold">
+              {employee.user?.email || 'بدون حساب مستخدم'}
             </span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
-                Full Name <span className="text-red-400">*</span>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">
+                الاسم بالكامل <span className="text-rose-500">*</span>
               </label>
               <input
                 type="text"
                 {...register('fullName')}
-                className={`w-full rounded-xl border bg-slate-800/80 px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none ${
-                  errors.fullName ? 'border-red-500' : 'border-slate-700 focus:border-indigo-500'
+                className={`w-full rounded-2xl border bg-surface px-3.5 py-2.5 text-xs text-foreground placeholder-foreground-subtle focus:outline-none ${
+                  errors.fullName ? 'border-rose-500' : 'border-border focus:border-primary focus:ring-2 focus:ring-primary/20'
                 }`}
               />
-              {errors.fullName && <p className="text-[10px] text-red-400 mt-1">{errors.fullName.message}</p>}
+              {errors.fullName && <p className="text-[10px] text-rose-500 mt-1">{errors.fullName.message}</p>}
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
-                Email Address <span className="text-red-400">*</span>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">
+                البريد الإلكتروني <span className="text-rose-500">*</span>
               </label>
               <input
                 type="email"
                 {...register('email')}
-                className={`w-full rounded-xl border bg-slate-800/80 px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none ${
-                  errors.email ? 'border-red-500' : 'border-slate-700 focus:border-indigo-500'
+                className={`w-full rounded-2xl border bg-surface px-3.5 py-2.5 text-xs text-foreground placeholder-foreground-subtle focus:outline-none ${
+                  errors.email ? 'border-rose-500' : 'border-border focus:border-primary focus:ring-2 focus:ring-primary/20'
                 }`}
               />
-              {errors.email && <p className="text-[10px] text-red-400 mt-1">{errors.email.message}</p>}
+              {errors.email && <p className="text-[10px] text-rose-500 mt-1">{errors.email.message}</p>}
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
-                New Password <span className="text-slate-500">(Leave blank to keep current)</span>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">
+                كلمة مرور جديدة <span className="text-foreground-subtle font-normal">(اتركها فارغة للإبقاء على الحالية)</span>
               </label>
               <input
                 type="password"
                 {...register('password')}
-                placeholder="Min 8 characters"
-                className={`w-full rounded-xl border bg-slate-800/80 px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none ${
-                  errors.password ? 'border-red-500' : 'border-slate-700 focus:border-indigo-500'
+                placeholder="8 أحرف على الأقل"
+                className={`w-full rounded-2xl border bg-surface px-3.5 py-2.5 text-xs text-foreground placeholder-foreground-subtle focus:outline-none font-mono ${
+                  errors.password ? 'border-rose-500' : 'border-border focus:border-primary focus:ring-2 focus:ring-primary/20'
                 }`}
               />
-              {errors.password && <p className="text-[10px] text-red-400 mt-1">{errors.password.message}</p>}
+              {errors.password && <p className="text-[10px] text-rose-500 mt-1">{errors.password.message}</p>}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-1">
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Account Active Status</label>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">حالة تفعيل الحساب</label>
               <select
                 {...register('isActive', { setValueAs: (v) => v === 'true' || v === true })}
-                className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
               >
-                <option value="true">Active (Allowed to Login)</option>
-                <option value="false">Suspended / Inactive</option>
+                <option value="true">مفعل (يسمح له بتسجيل الدخول)</option>
+                <option value="false">معطل / موقوف</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
-                Phone Number <span className="text-red-400">*</span>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">
+                رقم الهاتف <span className="text-rose-500">*</span>
               </label>
               <input
                 type="text"
                 {...register('phone')}
-                className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none font-mono"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Gender</label>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">النوع / الجنس</label>
               <select
                 {...register('gender')}
-                className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
               >
-                <option value="MALE">Male</option>
-                <option value="FEMALE">Female</option>
-                <option value="OTHER">Other</option>
+                <option value="MALE">ذكر</option>
+                <option value="FEMALE">أنثى</option>
+                <option value="OTHER">أخرى</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Date of Birth</label>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">تاريخ الميلاد</label>
               <input
                 type="date"
                 {...register('dob')}
-                className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none font-mono"
               />
             </div>
           </div>
         </div>
 
         {/* 2. Employment & Organization Hierarchy */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-sm space-y-4">
-          <div className="border-b border-slate-800 pb-3">
-            <h2 className="text-base font-bold text-white">2. Organization & Employment Placement</h2>
-            <p className="text-xs text-slate-400">Assign department, job title position, seniority level, and shift policies.</p>
+        <div className="rounded-3xl border border-card-border bg-card/80 dark:bg-card/70 p-6 backdrop-blur-xl space-y-4 shadow-xs">
+          <div className="border-b border-border/20 pb-3 flex items-center gap-2">
+            <div className="h-8 w-8 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-500">
+              <FiBriefcase className="h-4 w-4" />
+            </div>
+            <div>
+              <h2 className="text-sm font-extrabold text-foreground">2. التسكين الوظيفي والرصيد الإجازات</h2>
+              <p className="text-[11px] text-foreground-muted">تحديد القسم، المسمى الوظيفي، الدرجة، ورصيد الإجازات والأذونات.</p>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
-                Department <span className="text-red-400">*</span>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">
+                القسم <span className="text-rose-500">*</span>
               </label>
               <select
                 value={departmentId}
                 onChange={(e) => handleDepartmentChange(e.target.value)}
-                className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
               >
-                <option value="">Select Department</option>
+                <option value="">اختر القسم</option>
                 {orgTree?.map((dept) => (
                   <option key={dept.id} value={dept.id}>
                     {dept.name} ({dept.code})
@@ -467,15 +514,15 @@ export default function EditEmployeePage() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
-                Position <span className="text-red-400">*</span>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">
+                المسمى الوظيفي <span className="text-rose-500">*</span>
               </label>
               <select
                 value={positionId}
                 onChange={(e) => handlePositionChange(e.target.value)}
-                className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
               >
-                <option value="">Select Position</option>
+                <option value="">اختر المسمى الوظيفي</option>
                 {availablePositions.map((pos) => (
                   <option key={pos.id} value={pos.id}>
                     {pos.name}
@@ -485,24 +532,24 @@ export default function EditEmployeePage() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Seniority Level</label>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">المستوى والدرجة الوظيفية</label>
               <select
                 {...register('levelId')}
-                className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
               >
-                <option value="">Select Level (Optional)</option>
+                <option value="">اختر المستوى (اختياري)</option>
                 {availableLevels.map((lvl) => (
                   <option key={lvl.id} value={lvl.id}>
-                    {lvl.name} (Rank: {lvl.rank})
+                    {lvl.name} (رتبة: {lvl.rank})
                   </option>
                 ))}
               </select>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-1">
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Shift Type</label>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">نظام الوردية (Shift)</label>
               <select
                 {...register('shiftType')}
                 onChange={(e) => {
@@ -510,194 +557,220 @@ export default function EditEmployeePage() {
                   setValue('shiftType', s as ShiftType);
                   if (s === 'RS') setValue('annualLeaveDays', 21);
                   else if (s === 'LS') setValue('annualLeaveDays', 30);
-                  else if (s === 'FS') setValue('annualLeaveDays', 30);
                 }}
-                className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
               >
-                <option value="RS">RS (Regular - 21 Days)</option>
-                <option value="LS">LS (Long Shift - 30 Days)</option>
-                <option value="FS">FS (Full Shift - 30 Days)</option>
+                <option value="RS">RS (عادية - 6 أيام، 8 ساعات)</option>
+                <option value="LS">LS (طويلة - 5 أيام، 9 ساعات)</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Employment Type</label>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">نوع التوظيف</label>
               <select
                 {...register('employmentType')}
-                className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
               >
-                <option value="FULL_TIME">Full Time</option>
-                <option value="PART_TIME">Part Time</option>
-                <option value="CONTRACT">Contract</option>
-                <option value="INTERNSHIP">Internship</option>
+                <option value="FULL_TIME">دوام كامل (Full Time)</option>
+                <option value="PART_TIME">دوام جزئي (Part Time)</option>
+                <option value="TRAINING">تدريب (Internship)</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Employment Status</label>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">حالة الموظف</label>
               <select
                 {...register('status')}
-                className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
               >
-                <option value="ACTIVE">Active</option>
-                <option value="PROBATION">Probation</option>
-                <option value="ON_LEAVE">On Leave</option>
-                <option value="SUSPENDED">Suspended</option>
-                <option value="TERMINATED">Terminated</option>
+                <option value="ACTIVE">نشط (Active)</option>
+                <option value="PROBATION">تحت الاختبار (Probation)</option>
+                <option value="ON_LEAVE">في إجازة (On Leave)</option>
+                <option value="INACTIVE">غير نشط (Inactive)</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Joining Date</label>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">تاريخ الالتحاق</label>
               <input
                 type="date"
                 {...register('joiningDate')}
-                className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none font-mono"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+            <div>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">رصيد الإجازات السنوية (أيام)</label>
+              <input
+                type="number"
+                {...register('annualLeaveDays', { valueAsNumber: true })}
+                className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none font-mono font-bold"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">رصيد الأذونات الشهرية (ساعات)</label>
+              <input
+                type="number"
+                {...register('monthlyPermissionHours', { valueAsNumber: true })}
+                className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none font-mono font-bold"
               />
             </div>
           </div>
         </div>
 
         {/* 3. Emergency Contact */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-sm space-y-4">
-          <div className="border-b border-slate-800 pb-3">
-            <h2 className="text-base font-bold text-white">3. Emergency Contact</h2>
-            <p className="text-xs text-slate-400">Primary point of contact during emergency situations.</p>
+        <div className="rounded-3xl border border-card-border bg-card/80 dark:bg-card/70 p-6 backdrop-blur-xl space-y-4 shadow-xs">
+          <div className="border-b border-border/20 pb-3 flex items-center gap-2">
+            <div className="h-8 w-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500">
+              <FiPhoneCall className="h-4 w-4" />
+            </div>
+            <div>
+              <h2 className="text-sm font-extrabold text-foreground">3. جهة اتصال الطوارئ</h2>
+              <p className="text-[11px] text-foreground-muted">الشخص المعتمد للتواصل معه في الحالات الطارئة.</p>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Contact Name</label>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">اسم جهة الاتصال</label>
               <input
                 type="text"
                 {...register('emergencyName')}
-                className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Relationship</label>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">صلة القرابة</label>
               <select
                 {...register('emergencyRelationship')}
-                className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
               >
-                <option value="FATHER">Father</option>
-                <option value="MOTHER">Mother</option>
-                <option value="BROTHER">Brother</option>
-                <option value="SPOUSE">Spouse</option>
-                <option value="CHILD">Child</option>
-                <option value="FRIEND">Friend</option>
-                <option value="OTHER">Other</option>
+                <option value="FATHER">أب</option>
+                <option value="MOTHER">أم</option>
+                <option value="BROTHER">أخ</option>
+                <option value="SISTER">أخت</option>
+                <option value="SPOUSE">زوج / زوجة</option>
+                <option value="OTHER">أخرى</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Emergency Phone</label>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">هاتف الطوارئ</label>
               <input
                 type="text"
                 {...register('emergencyPhone')}
-                className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none font-mono"
               />
             </div>
           </div>
         </div>
 
         {/* 4. Bank Information & Compensation */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-sm space-y-4">
-          <div className="border-b border-slate-800 pb-3">
-            <h2 className="text-base font-bold text-white">4. Bank & Payroll Compensation</h2>
-            <p className="text-xs text-slate-400">Direct deposit account specifications and basic salary definition.</p>
+        <div className="rounded-3xl border border-card-border bg-card/80 dark:bg-card/70 p-6 backdrop-blur-xl space-y-4 shadow-xs">
+          <div className="border-b border-border/20 pb-3 flex items-center gap-2">
+            <div className="h-8 w-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500">
+              <FiDollarSign className="h-4 w-4" />
+            </div>
+            <div>
+              <h2 className="text-sm font-extrabold text-foreground">4. البيانات البنكية والراتب</h2>
+              <p className="text-[11px] text-foreground-muted">بيانات الحساب البنكي والراتب الأساسي.</p>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Bank Name</label>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">اسم البنك</label>
               <input
                 type="text"
                 {...register('bankName')}
-                className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Account Holder Name</label>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">اسم صاحب الحساب</label>
               <input
                 type="text"
                 {...register('accountHolder')}
-                className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Account Number</label>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">رقم الحساب</label>
               <input
                 type="text"
                 {...register('accountNumber')}
-                className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none font-mono"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-1">
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">IBAN</label>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">رقم الآيبان (IBAN)</label>
               <input
                 type="text"
                 {...register('iban')}
-                className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none font-mono"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">SWIFT / BIC Code</label>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">كود السويفت (SWIFT)</label>
               <input
                 type="text"
                 {...register('swift')}
-                className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none font-mono"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Bank Branch</label>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">فرع البنك</label>
               <input
                 type="text"
                 {...register('bankBranch')}
-                className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
-                Basic Salary (EGP) {!canManageSalary && <span className="text-slate-500">(Read Only)</span>}
+              <label className="block text-xs font-bold text-foreground-muted mb-1">
+                الراتب الأساسي (ج.م) {!canManageSalary && <span className="text-foreground-subtle font-normal">(للقراءة فقط)</span>}
               </label>
               <input
                 type="number"
                 step="0.01"
                 disabled={!canManageSalary}
                 {...register('basicSalary')}
-                className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs text-white disabled:opacity-50 focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground disabled:opacity-50 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none font-mono"
               />
             </div>
           </div>
         </div>
 
         {/* Submit Bar */}
-        <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-800">
+        <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
           <Link
             href="/dashboard/employees"
-            className="rounded-xl border border-slate-700 bg-slate-800 px-5 py-2.5 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white"
+            className="rounded-2xl border border-border bg-surface hover:bg-surface-hover px-5 py-2.5 text-xs font-bold text-foreground transition-all"
           >
-            Cancel
+            إلغاء
           </Link>
           <button
             type="submit"
             disabled={isSubmitting}
-            className="rounded-xl bg-indigo-600 px-6 py-2.5 text-xs font-semibold text-white shadow-lg shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-2xl bg-primary hover:bg-primary-hover px-7 py-2.5 text-xs font-black text-primary-foreground shadow-md shadow-primary/25 active:scale-95 disabled:opacity-50 transition-all"
           >
-            {isSubmitting ? 'Saving Changes...' : 'Save Changes'}
+            <FiSave className="h-4 w-4" />
+            <span>{isSubmitting ? 'جاري الحفظ...' : 'حفظ التعديلات'}</span>
           </button>
         </div>
       </form>
     </div>
   );
 }
+

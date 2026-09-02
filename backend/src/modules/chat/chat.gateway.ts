@@ -231,6 +231,26 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   /**
+   * Broadcast message edited event to room
+   */
+  broadcastMessageEdited(conversationId: string, message: any) {
+    this.server.to(`conversation:${conversationId}`).emit('chat:message_edited', {
+      conversationId,
+      message,
+    });
+  }
+
+  /**
+   * Broadcast message deleted event to room (soft-deleted from UI, preserved in DB)
+   */
+  broadcastMessageDeleted(conversationId: string, messageId: string) {
+    this.server.to(`conversation:${conversationId}`).emit('chat:message_deleted', {
+      conversationId,
+      messageId,
+    });
+  }
+
+  /**
    * Broadcast when a new conversation or group is created
    */
   broadcastNewConversation(conversation: any, participantUserIds: string[]) {

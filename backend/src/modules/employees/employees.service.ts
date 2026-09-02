@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -181,8 +182,86 @@ export class EmployeesService {
 
     const skip = (page - 1) * limit;
 
+    // Calculate hierarchical scoping for the requesting user
+    let scopedDepartmentIds: string[] | null = null; // null = full company access
+
+    if (currentUser) {
+      const roleName = currentUser.role?.toUpperCase() || '';
+      const isSuperAdminOrAdmin = [
+        'SUPER_ADMIN',
+        'ADMIN',
+        'HR_MANAGER',
+        'GENERAL_MANAGER',
+        'EXECUTIVE_MANAGER',
+        'DIRECTOR',
+      ].includes(roleName);
+
+      if (!isSuperAdminOrAdmin) {
+        const actorEmployee = await this.prisma.employeeProfile.findUnique({
+          where: { userId: currentUser.id },
+          include: { department: true, position: true },
+        });
+
+        const deptCode = actorEmployee?.department?.code?.toUpperCase() || '';
+        const deptName = actorEmployee?.department?.name?.toLowerCase() || '';
+
+        const isHR =
+          ['HR', 'HRD', 'HUMAN_RESOURCES'].includes(deptCode) ||
+          deptName.includes('موارد بشرية') ||
+          deptName.includes('hr');
+
+        const isMgmt =
+          ['MGMT', 'MGT', 'CORP', 'ADMIN', 'EXEC', 'HQ', 'BOARD'].includes(deptCode) ||
+          deptName.includes('إدارة عامة') ||
+          deptName.includes('management') ||
+          deptName.includes('executive');
+
+        if (!isHR && !isMgmt) {
+          const posName = actorEmployee?.position?.name?.toLowerCase() || '';
+          const isHead =
+            roleName.includes('HEAD') ||
+            posName.includes('head') ||
+            posName.includes('رئيس') ||
+            posName.includes('مدير إدارة');
+
+          if (actorEmployee?.departmentId) {
+            if (isHead) {
+              // A Head oversees their department and related department hierarchy
+              const prefix = deptCode.split('_')[0];
+              const relatedDepts = await this.prisma.department.findMany({
+                where: {
+                  OR: [
+                    { id: actorEmployee.departmentId },
+                    ...(prefix ? [{ code: { startsWith: prefix } }] : []),
+                  ],
+                },
+                select: { id: true },
+              });
+              scopedDepartmentIds = relatedDepts.map((d) => d.id);
+            } else {
+              // Team Leaders and Agents see their own department (team members / colleagues)
+              scopedDepartmentIds = [actorEmployee.departmentId];
+            }
+          } else {
+            scopedDepartmentIds = [];
+          }
+        }
+      }
+    }
+
     const where: Prisma.EmployeeProfileWhereInput = {
-      ...(departmentId && { departmentId }),
+      ...(scopedDepartmentIds !== null
+        ? {
+            departmentId: {
+              in:
+                departmentId && scopedDepartmentIds.includes(departmentId)
+                  ? [departmentId]
+                  : scopedDepartmentIds,
+            },
+          }
+        : departmentId
+        ? { departmentId }
+        : {}),
       ...(positionId && { positionId }),
       ...(status && { status }),
       ...(shiftType && { shiftType }),

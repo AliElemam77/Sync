@@ -21,32 +21,30 @@ import { useAuth } from '../../../hooks/use-auth';
 import { useSocket } from '../../../providers/socket-provider';
 import { uploadImageToImgBB } from '../../../lib/imgbb';
 import {
-  Plus,
-  Inbox,
-  User,
-  Users,
-  Building2,
-  Send,
-  Globe,
-  Trash2,
-  Image as ImageIcon,
-  AlertTriangle,
-  CheckCircle2,
-  MessageSquare,
-  Clock,
-  Sparkles,
-  ArrowRight,
-  Shield,
-  Layers,
-  ClipboardList,
-  Zap,
-  Search,
-  Calendar,
-  X,
-  Eye,
-  RotateCcw,
-  Check,
-} from 'lucide-react';
+  FiPlus,
+  FiInbox,
+  FiUser,
+  FiUsers,
+  FiSend,
+  FiGlobe,
+  FiTrash2,
+  FiImage,
+  FiAlertCircle,
+  FiCheckCircle,
+  FiMessageSquare,
+  FiClock,
+  FiCheck,
+  FiLayers,
+  FiList,
+  FiZap,
+  FiSearch,
+  FiCalendar,
+  FiX,
+  FiEye,
+  FiRotateCcw,
+  FiFilter,
+} from 'react-icons/fi';
+import { BiBuildingHouse } from 'react-icons/bi';
 import {
   Task,
   TaskStatus,
@@ -60,24 +58,24 @@ import {
 // -----------------------------------------------------------------------------
 
 const createTaskSchema = z.object({
-  title: z.string().min(1, 'Title is required').max(255, 'Title is too long'),
+  title: z.string().min(1, 'عنوان المهمة مطلوب').max(255, 'العنوان طويل جداً'),
   description: z.string().optional(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']),
   assignmentType: z.enum(['DEPARTMENT', 'SELF_OR_TEAM']),
-  targetId: z.string().min(1, 'Please select a target department or assignee'),
+  targetId: z.string().min(1, 'يرجى تحديد القسم أو الموظف المعني'),
   dueDate: z.string().optional(),
 });
 
 type CreateTaskFormData = z.infer<typeof createTaskSchema>;
 
 const revisionSchema = z.object({
-  comment: z.string().min(3, 'Please provide at least 3 characters of feedback'),
+  comment: z.string().min(3, 'يرجى تقديم 3 أحرف على الأقل لشرح سبب التعديل'),
 });
 
 type RevisionFormData = z.infer<typeof revisionSchema>;
 
 const commentSchema = z.object({
-  content: z.string().min(1, 'Comment cannot be empty'),
+  content: z.string().min(1, 'لا يمكن إرسال تعليق فارغ'),
 });
 
 type CommentFormData = z.infer<typeof commentSchema>;
@@ -90,7 +88,6 @@ interface ColumnConfig {
   id: TaskStatus;
   title: string;
   badgeColor: string;
-  borderColor: string;
   headerBg: string;
   icon: React.ComponentType<{ className?: string }>;
 }
@@ -98,59 +95,53 @@ interface ColumnConfig {
 const COLUMNS: ColumnConfig[] = [
   {
     id: 'TODO',
-    title: 'To Do',
-    badgeColor: 'bg-slate-500/10 text-slate-300 border-slate-700',
-    borderColor: 'border-slate-800',
-    headerBg: 'bg-slate-900/90',
-    icon: ClipboardList,
+    title: 'قيد الانتظار',
+    badgeColor: 'bg-surface-raised text-foreground-muted border-border',
+    headerBg: 'bg-surface-raised/60',
+    icon: FiList,
   },
   {
     id: 'IN_PROGRESS',
-    title: 'In Progress',
-    badgeColor: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-    borderColor: 'border-blue-500/30',
-    headerBg: 'bg-blue-950/30',
-    icon: Zap,
+    title: 'قيد التنفيذ',
+    badgeColor: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
+    headerBg: 'bg-blue-500/5',
+    icon: FiZap,
   },
   {
     id: 'REVIEW',
-    title: 'Under Review',
-    badgeColor: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
-    borderColor: 'border-purple-500/30',
-    headerBg: 'bg-purple-950/30',
-    icon: Search,
+    title: 'تحت المراجعة والتدقيق',
+    badgeColor: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
+    headerBg: 'bg-purple-500/5',
+    icon: FiSearch,
   },
   {
     id: 'WAITING_FOR_CLIENT',
-    title: 'Waiting on Client',
-    badgeColor: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-    borderColor: 'border-amber-500/30',
-    headerBg: 'bg-amber-950/30',
-    icon: Clock,
+    title: 'بانتظار العميل',
+    badgeColor: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
+    headerBg: 'bg-amber-500/5',
+    icon: FiClock,
   },
   {
     id: 'NEEDS_REVISION',
-    title: 'Needs Revision',
-    badgeColor: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
-    borderColor: 'border-rose-500/30',
-    headerBg: 'bg-rose-950/30',
-    icon: AlertTriangle,
+    title: 'تتطلب تعديلات',
+    badgeColor: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20',
+    headerBg: 'bg-rose-500/5',
+    icon: FiAlertCircle,
   },
   {
     id: 'DONE',
-    title: 'Accepted & Done',
-    badgeColor: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-    borderColor: 'border-emerald-500/30',
-    headerBg: 'bg-emerald-950/30',
-    icon: CheckCircle2,
+    title: 'مكتملة ومعتمدة',
+    badgeColor: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+    headerBg: 'bg-emerald-500/5',
+    icon: FiCheckCircle,
   },
 ];
 
-const PRIORITY_BADGES: Record<TaskPriority, { bg: string; text: string; border: string }> = {
-  LOW: { bg: 'bg-slate-500/10', text: 'text-slate-400', border: 'border-slate-500/20' },
-  MEDIUM: { bg: 'bg-blue-500/10', text: 'text-blue-400', border: 'border-blue-500/20' },
-  HIGH: { bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/20' },
-  URGENT: { bg: 'bg-rose-500/15', text: 'text-rose-400 font-bold animate-pulse', border: 'border-rose-500/30' },
+const PRIORITY_BADGES: Record<TaskPriority, { bg: string; text: string; border: string; label: string }> = {
+  LOW: { bg: 'bg-surface-raised', text: 'text-foreground-muted', border: 'border-border', label: 'منخفضة' },
+  MEDIUM: { bg: 'bg-blue-500/10', text: 'text-blue-600 dark:text-blue-400', border: 'border-blue-500/20', label: 'متوسطة' },
+  HIGH: { bg: 'bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-500/20', label: 'مرتفعة' },
+  URGENT: { bg: 'bg-rose-500/15', text: 'text-rose-600 dark:text-rose-400 font-bold animate-pulse', border: 'border-rose-500/30', label: 'عاجلة جداً' },
 };
 
 // -----------------------------------------------------------------------------
@@ -173,7 +164,7 @@ export default function TasksKanbanPage() {
     return employees.find((emp) => emp.userId === user?.id);
   }, [employees, user?.id]);
 
-  // Filters State (Default regular employees to 'MINE' so they only see their own tasks)
+  // Filters State
   const [search, setSearch] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState<string>('');
   const [selectedPriority, setSelectedPriority] = useState<string>('');
@@ -255,86 +246,69 @@ export default function TasksKanbanPage() {
     filtered.forEach((task) => {
       if (grouped[task.status]) {
         grouped[task.status].push(task);
-      } else {
-        grouped.TODO.push(task);
       }
-    });
-
-    Object.keys(grouped).forEach((col) => {
-      grouped[col as TaskStatus].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     });
 
     return grouped;
   }, [tasks, filterMode, currentEmployee]);
 
-  // Handle Drag & Drop with state machine validation
+  // Drag and Drop Handler
   const handleDragEnd = async (result: DropResult) => {
     const { destination, source, draggableId } = result;
-
     if (!destination) return;
-    if (destination.droppableId === source.droppableId && destination.index === source.index) {
-      return;
-    }
+    if (destination.droppableId === source.droppableId && destination.index === source.index) return;
 
-    const targetStatus = destination.droppableId as TaskStatus;
-    const targetTask = tasks.find((t) => t.id === draggableId);
-    if (!targetTask) return;
+    const newStatus = destination.droppableId as TaskStatus;
+    const task = tasks.find((t) => t.id === draggableId);
+    if (!task) return;
 
-    // Check if dragging to NEEDS_REVISION -> Requires revision comment prompt
-    if (targetStatus === 'NEEDS_REVISION') {
-      setRevisionModalTask(targetTask);
-      resetRevisionForm({ comment: '' });
+    // Trigger Revision Modal if moving to NEEDS_REVISION
+    if (newStatus === 'NEEDS_REVISION') {
+      setRevisionModalTask(task);
+      resetRevisionForm();
       setRevisionAttachmentUrls([]);
       return;
     }
 
-    setErrorMessage(null);
     try {
       await updateStatusMutation.mutateAsync({
         id: draggableId,
-        data: {
-          status: targetStatus,
-          order: destination.index,
-        },
+        data: { status: newStatus },
       });
     } catch (err: any) {
-      setErrorMessage(
-        err?.response?.data?.message || 'Unauthorized status transition. Reverting position.',
-      );
+      setErrorMessage(err?.response?.data?.message || 'فشل تحديث حالة المهمة.');
     }
   };
 
+  // Submit Revision
   const onConfirmRevision = async (data: RevisionFormData) => {
     if (!revisionModalTask) return;
-
     try {
       await updateStatusMutation.mutateAsync({
         id: revisionModalTask.id,
         data: {
           status: 'NEEDS_REVISION',
-          comment: data.comment.trim(),
+          comment: data.comment,
           attachmentUrls: revisionAttachmentUrls,
         },
       });
       setRevisionModalTask(null);
-      resetRevisionForm();
       setRevisionAttachmentUrls([]);
     } catch (err: any) {
-      setErrorMessage(err?.response?.data?.message || 'Failed to request revision.');
+      setErrorMessage(err?.response?.data?.message || 'فشل إرسال طلب التعديل');
     }
   };
 
   const handleRevisionImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-
     setIsUploadingRevisionImg(true);
     try {
       const file = files[0];
       const url = await uploadImageToImgBB(file);
       setRevisionAttachmentUrls((prev) => [...prev, url]);
     } catch (err: any) {
-      alert(err.message || 'Image upload failed');
+      alert(err.message || 'فشل رفع الصورة');
     } finally {
       setIsUploadingRevisionImg(false);
       e.target.value = '';
@@ -342,119 +316,119 @@ export default function TasksKanbanPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
-      {/* Top Header & Cross-Dept Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800 pb-5">
+    <div className="space-y-6 animate-in fade-in duration-300">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/20 pb-5">
         <div>
-          <div className="flex items-center space-x-2 text-xs text-slate-400 mb-1">
-            <span>Workforce Operations</span>
+          <div className="flex items-center space-x-2 text-xs text-foreground-muted mb-1">
+            <span>إدارة العمليات</span>
             <span>/</span>
-            <span className="text-white font-medium">Cross-Department Routing</span>
+            <span className="text-foreground font-medium">لوحة كانبان التفاعلية</span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-            <span>Tasks & State Machine Kanban</span>
-            <span className="text-xs bg-indigo-500/10 text-indigo-400 px-2.5 py-0.5 rounded-full border border-indigo-500/20 font-mono">
-              PHASE 04
+          <h1 className="text-2xl font-black tracking-tight text-foreground flex items-center gap-3">
+            <span>إدارة المهام وكانبان</span>
+            <span className="text-xs font-mono font-bold bg-primary/10 text-primary px-2.5 py-0.5 rounded-full border border-primary/20">
+              {tasks.length} مهام
             </span>
           </h1>
         </div>
 
-        <div className="flex items-center space-x-3 self-start sm:self-auto">
-          {/* Department Backlog Drawer Trigger (Team Leader & Admin Only) */}
-          {isTeamLeaderOrAdmin && (
+        <div className="flex flex-wrap items-center gap-2.5">
+          {isTeamLeaderOrAdmin && backlogTasks.length > 0 && (
             <button
               onClick={() => setIsBacklogDrawerOpen(true)}
-              className="relative inline-flex items-center space-x-2 rounded-xl border border-slate-700 bg-slate-800/90 px-3.5 py-2.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 hover:text-white transition-all"
+              className="inline-flex items-center gap-2 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 px-4 py-2.5 text-xs font-black hover:bg-amber-500/20 active:scale-95 transition-all"
             >
-              <Inbox className="h-3.5 w-3.5 text-amber-400" />
-              <span>Dept Backlog</span>
-              {backlogTasks.length > 0 && (
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-black">
-                  {backlogTasks.length}
-                </span>
-              )}
+              <FiInbox className="h-4 w-4" />
+              <span>صندوق مهام القسم ({backlogTasks.length})</span>
             </button>
           )}
 
-          {/* Create Task Button */}
           {canCreate && (
             <button
               onClick={() => setIsCreateModalOpen(true)}
-              className="inline-flex items-center space-x-1.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white shadow-lg shadow-indigo-600/30 hover:bg-indigo-500 transition-all"
+              className="inline-flex items-center gap-2 rounded-2xl bg-primary hover:bg-primary-hover px-5 py-2.5 text-xs font-black text-primary-foreground shadow-md shadow-primary/25 active:scale-95 transition-all"
             >
-              <Plus className="h-4 w-4" />
-              <span>Create Task</span>
+              <FiPlus className="h-4 w-4" />
+              <span>إنشاء مهمة جديدة</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* Global Error Banner */}
+      {/* Error Alert */}
       {errorMessage && (
-        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3.5 text-xs text-rose-400 flex items-center justify-between">
-          <span>{errorMessage}</span>
-          <button onClick={() => setErrorMessage(null)} className="text-rose-300 hover:text-white p-1">
-            <X className="h-4 w-4" />
+        <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-xs text-rose-500 dark:text-rose-400 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FiAlertCircle className="h-4 w-4 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+          <button onClick={() => setErrorMessage(null)} className="p-1 hover:text-rose-600">
+            <FiX className="h-4 w-4" />
           </button>
         </div>
       )}
 
       {/* Filter and Search Bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 bg-slate-900/40 p-4 rounded-xl border border-slate-800 backdrop-blur-sm items-center">
+      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 bg-card/70 border border-card-border p-4 rounded-3xl backdrop-blur-xl shadow-xs items-center">
         {/* Search */}
-        <div className="sm:col-span-4">
+        <div className="sm:col-span-4 relative">
+          <FiSearch className="absolute start-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground-subtle" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search task title, requester, or assignee..."
-            className="w-full rounded-lg border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+            placeholder="بحث بالعنوان، مقدم الطلب، أو الموظف المعين..."
+            className="w-full rounded-2xl border border-border bg-surface ps-10 pe-4 py-2.5 text-xs text-foreground placeholder-foreground-subtle focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all"
           />
         </div>
 
         {/* Filter by Department */}
-        <div className="sm:col-span-3">
+        <div className="sm:col-span-3 relative">
           <select
             value={selectedDepartment}
             onChange={(e) => setSelectedDepartment(e.target.value)}
-            className="w-full rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+            className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all appearance-none cursor-pointer"
           >
-            <option value="">All Target Departments</option>
+            <option value="">جميع الأقسام المعنية</option>
             {orgTree.map((dept) => (
               <option key={dept.id} value={dept.id}>
                 {dept.name} ({dept.code})
               </option>
             ))}
           </select>
+          <FiFilter className="absolute end-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground-subtle pointer-events-none" />
         </div>
 
         {/* Filter by Priority */}
-        <div className="sm:col-span-2">
+        <div className="sm:col-span-2 relative">
           <select
             value={selectedPriority}
             onChange={(e) => setSelectedPriority(e.target.value)}
-            className="w-full rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+            className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all appearance-none cursor-pointer"
           >
-            <option value="">All Priorities</option>
-            <option value="LOW">Low</option>
-            <option value="MEDIUM">Medium</option>
-            <option value="HIGH">High</option>
-            <option value="URGENT">Urgent</option>
+            <option value="">جميع الأولويات</option>
+            <option value="LOW">منخفضة</option>
+            <option value="MEDIUM">متوسطة</option>
+            <option value="HIGH">مرتفعة</option>
+            <option value="URGENT">عاجلة جداً</option>
           </select>
         </div>
 
-        {/* Scope Filter Segment (Agent sees My Tasks & Requested only; Team Leader/Admin sees Dept & All) */}
-        <div className="sm:col-span-3 flex rounded-lg border border-slate-700 bg-slate-800/80 p-1">
+        {/* Scope Filter Segment */}
+        <div className="sm:col-span-3 flex rounded-2xl border border-border bg-surface p-1">
           <button
             type="button"
             onClick={() => setFilterMode('MINE')}
-            className={`flex-1 rounded py-1 text-[10px] font-semibold transition-all ${
-              filterMode === 'MINE' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
+            className={`flex-1 rounded-xl py-1.5 text-[11px] font-bold transition-all ${
+              filterMode === 'MINE'
+                ? 'bg-primary text-primary-foreground shadow-md font-black'
+                : 'text-foreground-muted hover:text-foreground'
             }`}
           >
             <span className="inline-flex items-center gap-1">
-              <User className="h-3 w-3" />
-              <span>My Tasks</span>
+              <FiUser className="h-3 w-3" />
+              <span>مهامي</span>
             </span>
           </button>
 
@@ -462,13 +436,15 @@ export default function TasksKanbanPage() {
             <button
               type="button"
               onClick={() => setFilterMode('MY_DEPT')}
-              className={`flex-1 rounded py-1 text-[10px] font-semibold transition-all ${
-                filterMode === 'MY_DEPT' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
+              className={`flex-1 rounded-xl py-1.5 text-[11px] font-bold transition-all ${
+                filterMode === 'MY_DEPT'
+                  ? 'bg-primary text-primary-foreground shadow-md font-black'
+                  : 'text-foreground-muted hover:text-foreground'
               }`}
             >
               <span className="inline-flex items-center gap-1">
-                <Building2 className="h-3 w-3" />
-                <span>Dept</span>
+                <BiBuildingHouse className="h-3 w-3" />
+                <span>القسم</span>
               </span>
             </button>
           )}
@@ -476,13 +452,15 @@ export default function TasksKanbanPage() {
           <button
             type="button"
             onClick={() => setFilterMode('CREATED_BY_ME')}
-            className={`flex-1 rounded py-1 text-[10px] font-semibold transition-all ${
-              filterMode === 'CREATED_BY_ME' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
+            className={`flex-1 rounded-xl py-1.5 text-[11px] font-bold transition-all ${
+              filterMode === 'CREATED_BY_ME'
+                ? 'bg-primary text-primary-foreground shadow-md font-black'
+                : 'text-foreground-muted hover:text-foreground'
             }`}
           >
             <span className="inline-flex items-center gap-1">
-              <Send className="h-3 w-3" />
-              <span>Requested</span>
+              <FiSend className="h-3 w-3" />
+              <span>طلباتي</span>
             </span>
           </button>
 
@@ -490,13 +468,15 @@ export default function TasksKanbanPage() {
             <button
               type="button"
               onClick={() => setFilterMode('ALL')}
-              className={`flex-1 rounded py-1 text-[10px] font-semibold transition-all ${
-                filterMode === 'ALL' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
+              className={`flex-1 rounded-xl py-1.5 text-[11px] font-bold transition-all ${
+                filterMode === 'ALL'
+                  ? 'bg-primary text-primary-foreground shadow-md font-black'
+                  : 'text-foreground-muted hover:text-foreground'
               }`}
             >
               <span className="inline-flex items-center gap-1">
-                <Globe className="h-3 w-3" />
-                <span>All</span>
+                <FiGlobe className="h-3 w-3" />
+                <span>الكل</span>
               </span>
             </button>
           )}
@@ -506,9 +486,9 @@ export default function TasksKanbanPage() {
       {/* Loading state */}
       {isLoading && (
         <div className="flex h-64 items-center justify-center">
-          <div className="flex flex-col items-center space-y-2">
-            <div className="h-7 w-7 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
-            <p className="text-xs text-slate-400">Loading Kanban state machine...</p>
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <p className="text-xs text-foreground-muted font-bold animate-pulse">جاري تحميل لوحة كانبان...</p>
           </div>
         </div>
       )}
@@ -516,25 +496,25 @@ export default function TasksKanbanPage() {
       {/* 6-COLUMN KANBAN BOARD */}
       {!isLoading && !isError && (
         <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 items-start overflow-x-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5 items-start overflow-x-auto pb-4">
             {COLUMNS.map((column) => {
               const columnTasks = tasksByColumn[column.id] || [];
 
               return (
                 <div
                   key={column.id}
-                  className="flex flex-col rounded-2xl border border-slate-800 bg-slate-900/50 backdrop-blur-sm overflow-hidden shadow-xl"
+                  className="flex flex-col rounded-3xl border border-card-border bg-card/80 dark:bg-card/70 backdrop-blur-xl overflow-hidden shadow-xs"
                 >
                   {/* Column Header */}
-                  <div className={`p-3 border-b border-slate-800 ${column.headerBg} flex items-center justify-between`}>
-                    <div className="flex items-center space-x-1.5 truncate">
-                      <column.icon className="h-3.5 w-3.5 shrink-0" />
-                      <h2 className="text-[11px] font-bold text-white uppercase tracking-wider truncate">
+                  <div className={`p-3.5 border-b border-border/20 ${column.headerBg} flex items-center justify-between`}>
+                    <div className="flex items-center gap-2 truncate">
+                      <column.icon className="h-4 w-4 shrink-0 text-primary" />
+                      <h2 className="text-xs font-black text-foreground truncate">
                         {column.title}
                       </h2>
                     </div>
                     <span
-                      className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full border ${column.badgeColor}`}
+                      className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${column.badgeColor}`}
                     >
                       {columnTasks.length}
                     </span>
@@ -546,13 +526,13 @@ export default function TasksKanbanPage() {
                       <div
                         ref={provided.innerRef}
                         {...provided.droppableProps}
-                        className={`p-2.5 space-y-2.5 min-h-[460px] transition-colors ${
-                          snapshot.isDraggingOver ? 'bg-indigo-950/20' : ''
+                        className={`p-2.5 space-y-2.5 min-h-[480px] transition-colors ${
+                          snapshot.isDraggingOver ? 'bg-primary/5 rounded-2xl' : ''
                         }`}
                       >
                         {columnTasks.length === 0 ? (
-                          <div className="h-32 flex items-center justify-center border-2 border-dashed border-slate-800/80 rounded-xl text-[10px] text-slate-600 italic">
-                            Empty
+                          <div className="h-32 flex items-center justify-center border-2 border-dashed border-border rounded-2xl text-[11px] text-foreground-subtle italic">
+                            فارغ
                           </div>
                         ) : (
                           columnTasks.map((task, index) => (
@@ -563,103 +543,103 @@ export default function TasksKanbanPage() {
                                   {...dragProvided.draggableProps}
                                   {...dragProvided.dragHandleProps}
                                   onClick={() => setSelectedTaskId(task.id)}
-                                  className={`group relative rounded-xl border border-slate-800 bg-slate-800/90 p-3 shadow-md hover:border-indigo-500/50 hover:shadow-indigo-500/10 cursor-pointer transition-all ${
+                                  className={`group relative rounded-2xl border border-border bg-surface hover:bg-surface-hover p-3.5 shadow-xs hover:border-primary/50 hover:shadow-md cursor-pointer transition-all ${
                                     dragSnapshot.isDragging
-                                      ? 'border-indigo-500 shadow-2xl shadow-indigo-500/25 scale-102 bg-slate-800 z-50'
+                                      ? 'border-primary shadow-2xl scale-102 bg-surface-raised z-50'
                                       : ''
                                   }`}
                                 >
                                   {/* Top Badges: Priority & Routing */}
                                   <div className="flex items-center justify-between mb-2">
                                     <span
-                                      className={`inline-flex items-center rounded px-1.5 py-0.5 text-[8px] font-semibold border ${
+                                      className={`inline-flex items-center rounded-lg px-2 py-0.5 text-[9px] font-bold border ${
                                         PRIORITY_BADGES[task.priority].bg
                                       } ${PRIORITY_BADGES[task.priority].text} ${
                                         PRIORITY_BADGES[task.priority].border
                                       }`}
                                     >
-                                      {task.priority}
+                                      {PRIORITY_BADGES[task.priority].label}
                                     </span>
 
                                     {task.targetDepartment && (
-                                      <span className="rounded bg-indigo-500/10 px-1.5 py-0.5 text-[8px] font-mono text-indigo-300 border border-indigo-500/20">
+                                      <span className="rounded-lg bg-primary/10 px-2 py-0.5 text-[9px] font-mono text-primary border border-primary/20">
                                         → {task.targetDepartment.code}
                                       </span>
                                     )}
                                   </div>
 
                                   {/* Task Title */}
-                                  <h3 className="text-xs font-semibold text-white group-hover:text-indigo-300 transition-colors line-clamp-2">
+                                  <h3 className="text-xs font-black text-foreground group-hover:text-primary transition-colors line-clamp-2">
                                     {task.title}
                                   </h3>
 
                                   {/* Attachment image thumbnail if present */}
                                   {task.attachmentUrls && task.attachmentUrls.length > 0 && (
-                                    <div className="mt-2 flex items-center gap-1.5 overflow-hidden rounded-lg bg-slate-900/60 p-1 border border-slate-700/60">
+                                    <div className="mt-2.5 flex items-center gap-1.5 overflow-hidden rounded-xl bg-surface-raised p-1 border border-border">
                                       <img
                                         src={task.attachmentUrls[0]}
                                         alt="Task preview"
-                                        className="h-9 w-full object-cover rounded"
+                                        className="h-10 w-full object-cover rounded-lg"
                                       />
                                       {task.attachmentUrls.length > 1 && (
-                                        <span className="text-[8px] font-bold text-slate-400 px-1">
+                                        <span className="text-[9px] font-mono font-bold text-foreground-muted px-1">
                                           +{task.attachmentUrls.length - 1}
                                         </span>
                                       )}
                                     </div>
                                   )}
 
-                                  {/* Cross-Department Note or Comments Count */}
-                                  <div className="mt-2 flex items-center justify-between text-[9px] text-slate-400">
-                                    <span className="truncate max-w-[90px]">
-                                      Req: {task.creator?.fullName?.split(' ')[0] || 'Admin'}
+                                  {/* Creator & Comments Count */}
+                                  <div className="mt-2.5 flex items-center justify-between text-[10px] text-foreground-muted">
+                                    <span className="truncate max-w-[100px]">
+                                      من: {task.creator?.fullName?.split(' ')[0] || 'الإدارة'}
                                     </span>
 
-                                    {task.comments?.length > 0 && (
-                                      <span className="flex items-center space-x-1 text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded">
-                                        <MessageSquare className="h-2.5 w-2.5" />
+                                    {task.comments && task.comments.length > 0 && (
+                                      <span className="flex items-center gap-1 text-primary bg-primary/10 px-1.5 py-0.5 rounded-md font-mono">
+                                        <FiMessageSquare className="h-3 w-3" />
                                         <span>{task.comments.length}</span>
                                       </span>
                                     )}
                                   </div>
 
                                   {/* Footer: Due Date & Assignee */}
-                                  <div className="mt-2.5 pt-2 border-t border-slate-700/60 flex items-center justify-between text-[9px]">
+                                  <div className="mt-2.5 pt-2 border-t border-border flex items-center justify-between text-[10px]">
                                     {task.dueDate ? (
                                       <div
-                                        className={`flex items-center space-x-1 ${
+                                        className={`flex items-center gap-1 ${
                                           new Date(task.dueDate) < new Date() && task.status !== 'DONE'
-                                            ? 'text-rose-400 font-semibold'
-                                            : 'text-slate-400'
+                                            ? 'text-rose-500 font-bold'
+                                            : 'text-foreground-muted'
                                         }`}
                                       >
-                                        <Calendar className="h-2.5 w-2.5" />
+                                        <FiCalendar className="h-3 w-3" />
                                         <span>
-                                          {new Date(task.dueDate).toLocaleDateString(undefined, {
+                                          {new Date(task.dueDate).toLocaleDateString('ar-EG', {
                                             month: 'short',
                                             day: 'numeric',
                                           })}
                                         </span>
                                       </div>
                                     ) : (
-                                      <span className="text-slate-600">No deadline</span>
+                                      <span className="text-foreground-subtle">بدون موعد</span>
                                     )}
 
                                     {task.assignee ? (
                                       <div
-                                        className="flex items-center space-x-1 bg-slate-900/80 px-1.5 py-0.5 rounded-full border border-slate-700"
-                                        title={`Assignee: ${task.assignee.fullName}`}
+                                        className="flex items-center gap-1.5 bg-surface-raised px-2 py-0.5 rounded-full border border-border"
+                                        title={`المعين: ${task.assignee.fullName}`}
                                       >
-                                        <div className="h-3.5 w-3.5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[7px] font-bold">
+                                        <div className="h-4 w-4 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-[8px] font-bold">
                                           {task.assignee.fullName.charAt(0)}
                                         </div>
-                                        <span className="text-slate-300 truncate max-w-[65px]">
+                                        <span className="text-foreground font-bold truncate max-w-[70px]">
                                           {task.assignee.fullName.split(' ')[0]}
                                         </span>
                                       </div>
                                     ) : (
-                                      <span className="text-[8px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
-                                        Unassigned
+                                      <span className="text-[9px] font-bold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+                                        غير مسند
                                       </span>
                                     )}
                                   </div>
@@ -679,7 +659,7 @@ export default function TasksKanbanPage() {
         </DragDropContext>
       )}
 
-      {/* CREATE TASK MODAL (REACT-HOOK-FORM + ZOD + IMGBB) */}
+      {/* CREATE TASK MODAL */}
       {isCreateModalOpen && (
         <CreateTaskModal
           departments={orgTree}
@@ -695,7 +675,7 @@ export default function TasksKanbanPage() {
         />
       )}
 
-      {/* TASK DETAILS & WORKFLOW ACTION PANEL (LIVE COMMENTS & IMGBB) */}
+      {/* TASK DETAILS MODAL */}
       {selectedTaskId && (
         <TaskDetailsModal
           taskId={selectedTaskId}
@@ -724,7 +704,7 @@ export default function TasksKanbanPage() {
             });
           }}
           onDelete={async () => {
-            if (confirm('Delete this task permanently?')) {
+            if (confirm('هل أنت متأكد من حذف هذه المهمة نهائياً؟')) {
               await deleteTaskMutation.mutateAsync(selectedTaskId);
               setSelectedTaskId(null);
             }
@@ -733,55 +713,54 @@ export default function TasksKanbanPage() {
         />
       )}
 
-      {/* REVISION EXPLANATION MODAL (REACT-HOOK-FORM + MANDATORY COMMENT + IMGBB) */}
+      {/* REVISION EXPLANATION MODAL */}
       {revisionModalTask && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl border border-rose-500/30 bg-slate-900 p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-rose-400" />
-                <span>Request Revisions</span>
-                <span className="text-xs text-rose-400 font-mono">NEEDS_REVISION</span>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="w-full max-w-md rounded-3xl border border-rose-500/30 bg-card p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="text-sm font-black text-foreground flex items-center gap-2">
+                <FiAlertCircle className="h-4 w-4 text-rose-500" />
+                <span>طلب تعديلات وإعادة المهمة</span>
               </h3>
               <button
                 onClick={() => setRevisionModalTask(null)}
-                className="text-slate-400 hover:text-white p-1"
+                className="text-foreground-muted hover:text-foreground p-1"
               >
-                <X className="h-4 w-4" />
+                <FiX className="h-4 w-4" />
               </button>
             </div>
 
-            <p className="text-xs text-slate-300">
-              Please state why the work is being returned for revision. You can also attach screenshots.
+            <p className="text-xs text-foreground-muted">
+              يرجى توضيح أسباب إعادة المهمة للتعديل وملاحظات الجودة المطلوبة.
             </p>
 
             <form onSubmit={handleRevisionSubmit(onConfirmRevision)} className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
-                  Revision Details <span className="text-rose-400">*</span>
+                <label className="block text-xs font-bold text-foreground-muted mb-1">
+                  تفاصيل وملاحظات التعديل <span className="text-rose-500">*</span>
                 </label>
                 <textarea
                   rows={3}
                   {...registerRevision('comment')}
-                  placeholder="e.g. Button alignment is off on mobile view and colors don't match..."
-                  className={`w-full rounded-lg border bg-slate-800/90 p-3 text-xs text-white placeholder-slate-500 focus:outline-none ${
-                    revisionErrors.comment ? 'border-rose-500 focus:border-rose-500' : 'border-slate-700 focus:border-rose-500'
+                  placeholder="مثال: يرجى تعديل ألوان الأزرار لتطابق هوية النظام..."
+                  className={`w-full rounded-2xl border bg-surface p-3 text-xs text-foreground placeholder-foreground-subtle focus:outline-none ${
+                    revisionErrors.comment ? 'border-rose-500' : 'border-border focus:border-rose-500'
                   }`}
                 />
                 {revisionErrors.comment && (
-                  <p className="text-[10px] text-rose-400 mt-1">{revisionErrors.comment.message}</p>
+                  <p className="text-[10px] text-rose-500 mt-1">{revisionErrors.comment.message}</p>
                 )}
               </div>
 
               {/* ImgBB Attachment upload in Revision */}
               <div>
-                <label className="block text-[11px] font-medium text-slate-400 mb-1.5">
-                  Attach Issue Screenshot (ImgBB)
+                <label className="block text-[11px] font-bold text-foreground-muted mb-1.5">
+                  إرفاق لقطة شاشة للتوضيح (ImgBB)
                 </label>
                 <div className="flex items-center gap-2">
-                  <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-700">
-                    <ImageIcon className="h-4 w-4 text-slate-300" />
-                    <span>Upload Image</span>
+                  <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-2xl border border-border bg-surface px-3 py-1.5 text-xs text-foreground hover:bg-surface-hover">
+                    <FiImage className="h-4 w-4 text-primary" />
+                    <span>رفع صورة</span>
                     <input
                       type="file"
                       accept="image/*"
@@ -790,7 +769,7 @@ export default function TasksKanbanPage() {
                     />
                   </label>
                   {isUploadingRevisionImg && (
-                    <span className="text-[10px] text-indigo-400 animate-pulse">Uploading to ImgBB...</span>
+                    <span className="text-[10px] text-primary animate-pulse font-mono">جاري الرفع...</span>
                   )}
                 </div>
 
@@ -798,13 +777,13 @@ export default function TasksKanbanPage() {
                   <div className="mt-2 flex gap-2 overflow-x-auto py-1">
                     {revisionAttachmentUrls.map((url, idx) => (
                       <div key={idx} className="relative group">
-                        <img src={url} alt="Attachment" className="h-12 w-12 object-cover rounded-lg border border-slate-700" />
+                        <img src={url} alt="Attachment" className="h-12 w-12 object-cover rounded-xl border border-border" />
                         <button
                           type="button"
                           onClick={() => setRevisionAttachmentUrls(prev => prev.filter((_, i) => i !== idx))}
-                          className="absolute -top-1 -right-1 bg-rose-600 text-white rounded-full h-4 w-4 flex items-center justify-center shadow"
+                          className="absolute -top-1 -right-1 bg-rose-500 text-white rounded-full h-4 w-4 flex items-center justify-center shadow"
                         >
-                          <X className="h-2.5 w-2.5" />
+                          <FiX className="h-2.5 w-2.5" />
                         </button>
                       </div>
                     ))}
@@ -812,20 +791,20 @@ export default function TasksKanbanPage() {
                 )}
               </div>
 
-              <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-800">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
                 <button
                   type="button"
                   onClick={() => setRevisionModalTask(null)}
-                  className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-700"
+                  className="rounded-2xl border border-border bg-surface px-4 py-2 text-xs font-bold text-foreground"
                 >
-                  Cancel
+                  إلغاء
                 </button>
                 <button
                   type="submit"
                   disabled={isRevisionSubmitting || updateStatusMutation.isPending}
-                  className="rounded-xl bg-rose-600 px-5 py-2 text-xs font-semibold text-white shadow hover:bg-rose-500 disabled:opacity-50"
+                  className="rounded-2xl bg-rose-500 hover:bg-rose-600 px-5 py-2 text-xs font-black text-white shadow-md active:scale-95 disabled:opacity-50"
                 >
-                  Submit & Reject
+                  إرسال طلب التعديل
                 </button>
               </div>
             </form>
@@ -837,20 +816,20 @@ export default function TasksKanbanPage() {
       {activePreviewImage && (
         <div
           onClick={() => setActivePreviewImage(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 cursor-zoom-out"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 cursor-zoom-out animate-in fade-in"
         >
           <div className="relative max-w-4xl max-h-[90vh]">
             <img
               src={activePreviewImage}
               alt="Full Preview"
-              className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl"
+              className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl"
             />
             <button
               onClick={() => setActivePreviewImage(null)}
-              className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-full bg-slate-900/80 text-white px-3 py-1.5 text-xs hover:bg-slate-800 transition-colors"
+              className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-full bg-card/80 text-foreground px-3 py-1.5 text-xs hover:bg-surface transition-colors"
             >
-              <X className="h-3.5 w-3.5" />
-              <span>Close</span>
+              <FiX className="h-3.5 w-3.5" />
+              <span>إغلاق</span>
             </button>
           </div>
         </div>
@@ -876,7 +855,7 @@ export default function TasksKanbanPage() {
 }
 
 // -----------------------------------------------------------------------------
-// CREATE TASK MODAL (REACT-HOOK-FORM + ZOD RESOLVER + IMGBB)
+// CREATE TASK MODAL
 // -----------------------------------------------------------------------------
 
 interface CreateTaskModalProps {
@@ -936,7 +915,6 @@ function CreateTaskModal({
     if (isTeamLeader && currentEmployee) {
       return employees.filter((e) => e.departmentId === currentEmployee.departmentId);
     }
-    // Regular Agent: only allowed to assign to themselves
     return currentEmployee ? [currentEmployee] : [];
   }, [employees, currentEmployee, isAdmin, isTeamLeader]);
 
@@ -960,7 +938,7 @@ function CreateTaskModal({
         setAttachmentUrls((prev) => [...prev, url]);
       }
     } catch (err: any) {
-      setSubmitError(err.message || 'Image upload to ImgBB failed');
+      setSubmitError(err.message || 'فشل رفع الصورة إلى ImgBB');
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -984,26 +962,26 @@ function CreateTaskModal({
         attachmentUrls,
       });
     } catch (err: any) {
-      setSubmitError(err?.response?.data?.message || 'Failed to create task.');
+      setSubmitError(err?.response?.data?.message || 'فشل إنشاء المهمة.');
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-      <div className="w-full max-w-lg max-h-[92vh] flex flex-col rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl overflow-hidden">
-        <div className="p-5 border-b border-slate-800 flex items-center justify-between">
-          <h2 className="text-base font-bold text-white flex items-center gap-2">
-            <Plus className="h-4 w-4 text-indigo-400" />
-            <span>Create Workflow Task</span>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
+      <div className="w-full max-w-lg max-h-[92vh] flex flex-col rounded-3xl border border-card-border bg-card shadow-2xl overflow-hidden">
+        <div className="p-5 border-b border-border flex items-center justify-between">
+          <h2 className="text-base font-black text-foreground flex items-center gap-2">
+            <FiPlus className="h-4 w-4 text-primary" />
+            <span>إنشاء مهمة عمل جديدة</span>
           </h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
-            <X className="h-4 w-4" />
+          <button onClick={onClose} className="text-foreground-muted hover:text-foreground p-1">
+            <FiX className="h-4 w-4" />
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {submitError && (
-            <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400">
+            <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-500 dark:text-rose-400">
               {submitError}
             </div>
           )}
@@ -1011,31 +989,31 @@ function CreateTaskModal({
           <form id="create-task-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             {/* Assignment Routing Mode Toggle */}
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                Task Assignment Type
+              <label className="block text-xs font-bold text-foreground-muted mb-1.5">
+                نوع توجيه المهمة
               </label>
-              <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-800/80 p-1 border border-slate-700">
+              <div className="grid grid-cols-2 gap-2 rounded-2xl bg-surface p-1 border border-border">
                 <button
                   type="button"
                   onClick={() => {
                     setValue('assignmentType', 'SELF_OR_TEAM');
                     setValue('targetId', currentEmployee?.id || employees[0]?.id || '');
                   }}
-                  className={`py-2 rounded-lg text-xs font-semibold transition-all ${
+                  className={`py-2 rounded-xl text-xs font-bold transition-all ${
                     assignmentType === 'SELF_OR_TEAM'
-                      ? 'bg-indigo-600 text-white shadow-md'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-primary text-primary-foreground shadow-md font-black'
+                      : 'text-foreground-muted hover:text-foreground'
                   }`}
                 >
                   {isTeamLeaderOrAdmin ? (
                     <span className="inline-flex items-center gap-1.5">
-                      <Users className="h-3.5 w-3.5" />
-                      <span>Assign to Self / Team</span>
+                      <FiUsers className="h-3.5 w-3.5" />
+                      <span>إسناد لنفسي / الفريق</span>
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5">
-                      <User className="h-3.5 w-3.5" />
-                      <span>Assign to Myself</span>
+                      <FiUser className="h-3.5 w-3.5" />
+                      <span>إسناد لنفسي</span>
                     </span>
                   )}
                 </button>
@@ -1045,15 +1023,15 @@ function CreateTaskModal({
                     setValue('assignmentType', 'DEPARTMENT');
                     setValue('targetId', availableDepartments[0]?.id || '');
                   }}
-                  className={`py-2 rounded-lg text-xs font-semibold transition-all ${
+                  className={`py-2 rounded-xl text-xs font-bold transition-all ${
                     assignmentType === 'DEPARTMENT'
-                      ? 'bg-indigo-600 text-white shadow-md'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-primary text-primary-foreground shadow-md font-black'
+                      : 'text-foreground-muted hover:text-foreground'
                   }`}
                 >
                   <span className="inline-flex items-center gap-1.5">
-                    <Building2 className="h-3.5 w-3.5" />
-                    <span>Assign to Department</span>
+                    <BiBuildingHouse className="h-3.5 w-3.5" />
+                    <span>توجيه إلى قسم آخر</span>
                   </span>
                 </button>
               </div>
@@ -1061,21 +1039,21 @@ function CreateTaskModal({
 
             {/* Dynamic Target Selector */}
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
+              <label className="block text-xs font-bold text-foreground-muted mb-1">
                 {assignmentType === 'DEPARTMENT'
-                  ? 'Target Department'
+                  ? 'القسم المستهدف'
                   : isTeamLeaderOrAdmin
-                  ? 'Assignee (Self or Team Member)'
-                  : 'Assignee'} <span className="text-red-400">*</span>
+                  ? 'المعين بالمهمة (نفسك أو عضو بالفريق)'
+                  : 'المعين'} <span className="text-rose-500">*</span>
               </label>
               {assignmentType === 'DEPARTMENT' ? (
                 <select
                   {...register('targetId')}
-                  className={`w-full rounded-lg border bg-slate-800/90 px-3.5 py-2 text-xs text-white focus:outline-none ${
-                    errors.targetId ? 'border-red-500 focus:border-red-500' : 'border-slate-700 focus:border-indigo-500'
+                  className={`w-full rounded-2xl border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:outline-none ${
+                    errors.targetId ? 'border-rose-500' : 'border-border focus:border-primary'
                   }`}
                 >
-                  <option value="">Select target department...</option>
+                  <option value="">اختر القسم المستهدف...</option>
                   {availableDepartments.map((dept) => (
                     <option key={dept.id} value={dept.id}>
                       {dept.name} ({dept.code})
@@ -1085,81 +1063,81 @@ function CreateTaskModal({
               ) : isTeamLeaderOrAdmin ? (
                 <select
                   {...register('targetId')}
-                  className={`w-full rounded-lg border bg-slate-800/90 px-3.5 py-2 text-xs text-white focus:outline-none ${
-                    errors.targetId ? 'border-red-500 focus:border-red-500' : 'border-slate-700 focus:border-indigo-500'
+                  className={`w-full rounded-2xl border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:outline-none ${
+                    errors.targetId ? 'border-rose-500' : 'border-border focus:border-primary'
                   }`}
                 >
-                  <option value="">Select assignee...</option>
+                  <option value="">اختر الموظف المعين...</option>
                   {selectableEmployees.map((emp) => (
                     <option key={emp.id} value={emp.id}>
-                      {emp.fullName} ({emp.employeeCode}) {emp.id === currentEmployee?.id ? '(You)' : ''}
+                      {emp.fullName} ({emp.employeeCode}) {emp.id === currentEmployee?.id ? '(أنت)' : ''}
                     </option>
                   ))}
                 </select>
               ) : (
-                <div className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800/90 px-3.5 py-2.5 text-xs text-white">
-                  <div className="flex items-center space-x-2">
-                    <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                    <span className="font-medium">{currentEmployee?.fullName || 'You'}</span>
-                    <span className="text-slate-400 font-mono text-[11px]">({currentEmployee?.employeeCode || 'Self'})</span>
+                <div className="flex items-center justify-between rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="font-bold">{currentEmployee?.fullName || 'أنت'}</span>
+                    <span className="text-foreground-muted font-mono text-[11px]">({currentEmployee?.employeeCode || 'Self'})</span>
                   </div>
-                  <span className="text-[10px] text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20 font-medium">
-                    Self Assignment
+                  <span className="text-[10px] text-primary bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20 font-bold">
+                    إسناد ذاتي
                   </span>
                   <input type="hidden" {...register('targetId')} value={currentEmployee?.id || ''} />
                 </div>
               )}
               {errors.targetId && (
-                <p className="text-[10px] text-red-400 mt-1">{errors.targetId.message}</p>
+                <p className="text-[10px] text-rose-500 mt-1">{errors.targetId.message}</p>
               )}
             </div>
 
             {/* Title */}
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
-                Title <span className="text-red-400">*</span>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">
+                عنوان المهمة <span className="text-rose-500">*</span>
               </label>
               <input
                 type="text"
                 {...register('title')}
-                placeholder="e.g. Design Mobile Checkout Flow..."
-                className={`w-full rounded-lg border bg-slate-800/90 px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none ${
-                  errors.title ? 'border-red-500 focus:border-red-500' : 'border-slate-700 focus:border-indigo-500'
+                placeholder="مثال: تصميم واجهة الدفع على الهاتف..."
+                className={`w-full rounded-2xl border bg-surface px-3.5 py-2.5 text-xs text-foreground placeholder-foreground-subtle focus:outline-none ${
+                  errors.title ? 'border-rose-500' : 'border-border focus:border-primary'
                 }`}
               />
               {errors.title && (
-                <p className="text-[10px] text-red-400 mt-1">{errors.title.message}</p>
+                <p className="text-[10px] text-rose-500 mt-1">{errors.title.message}</p>
               )}
             </div>
 
             {/* Description */}
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Description</label>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">الوصف والتفاصيل</label>
               <textarea
                 rows={3}
                 {...register('description')}
-                placeholder="Deliverables, requirements, and reference URLs..."
-                className="w-full rounded-lg border border-slate-700 bg-slate-800/90 px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+                placeholder="المتطلبات، المخرجات المطلوبة، وروابط المراجع..."
+                className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground placeholder-foreground-subtle focus:border-primary focus:outline-none resize-none"
               />
             </div>
 
             {/* ImgBB Images Upload */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-medium text-slate-300">
-                  Task Reference Images (ImgBB)
+                <label className="block text-xs font-bold text-foreground-muted">
+                  المرفقات والصور التوضيحية (ImgBB)
                 </label>
                 {isUploading && (
-                  <span className="text-[10px] text-indigo-400 animate-pulse font-mono">
-                    Uploading to ImgBB...
+                  <span className="text-[10px] text-primary animate-pulse font-mono">
+                    جاري الرفع إلى ImgBB...
                   </span>
                 )}
               </div>
 
               <div className="flex items-center gap-3">
-                <label className="cursor-pointer inline-flex items-center gap-2 rounded-xl border border-dashed border-indigo-500/40 bg-indigo-500/5 px-4 py-2.5 text-xs font-medium text-indigo-300 hover:bg-indigo-500/10 transition-all">
-                  <ImageIcon className="h-4 w-4" />
-                  <span>Select Images</span>
+                <label className="cursor-pointer inline-flex items-center gap-2 rounded-2xl border border-dashed border-primary/40 bg-primary/5 px-4 py-2.5 text-xs font-bold text-primary hover:bg-primary/10 transition-all">
+                  <FiImage className="h-4 w-4" />
+                  <span>اختر الصور المرفقة</span>
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -1169,21 +1147,21 @@ function CreateTaskModal({
                     className="hidden"
                   />
                 </label>
-                <span className="text-[10px] text-slate-500">Supports PNG, JPG, WebP</span>
+                <span className="text-[10px] text-foreground-subtle">PNG, JPG, WebP</span>
               </div>
 
               {/* Uploaded Thumbnails */}
               {attachmentUrls.length > 0 && (
                 <div className="mt-3 grid grid-cols-4 gap-2">
                   {attachmentUrls.map((url, idx) => (
-                    <div key={idx} className="relative group rounded-lg overflow-hidden border border-slate-700 bg-slate-800 aspect-video">
+                    <div key={idx} className="relative group rounded-xl overflow-hidden border border-border bg-surface aspect-video">
                       <img src={url} alt="Uploaded attachment" className="w-full h-full object-cover" />
                       <button
                         type="button"
                         onClick={() => removeAttachment(idx)}
-                        className="absolute top-1 right-1 bg-rose-600/90 hover:bg-rose-500 text-white rounded-full p-1 text-[9px] shadow flex items-center justify-center"
+                        className="absolute top-1 right-1 bg-rose-500 text-white rounded-full p-1 text-[9px] shadow flex items-center justify-center"
                       >
-                        <X className="h-2.5 w-2.5" />
+                        <FiX className="h-2.5 w-2.5" />
                       </button>
                     </div>
                   ))}
@@ -1194,24 +1172,24 @@ function CreateTaskModal({
             {/* Priority & Due Date Row */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">Priority</label>
+                <label className="block text-xs font-bold text-foreground-muted mb-1">درجة الأولوية</label>
                 <select
                   {...register('priority')}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800/90 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                  className="w-full rounded-2xl border border-border bg-surface px-3 py-2 text-xs text-foreground focus:border-primary focus:outline-none"
                 >
-                  <option value="LOW">Low</option>
-                  <option value="MEDIUM">Medium</option>
-                  <option value="HIGH">High</option>
-                  <option value="URGENT">Urgent</option>
+                  <option value="LOW">منخفضة</option>
+                  <option value="MEDIUM">متوسطة</option>
+                  <option value="HIGH">مرتفعة</option>
+                  <option value="URGENT">عاجلة جداً</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">Due Date</label>
+                <label className="block text-xs font-bold text-foreground-muted mb-1">الموعد النهائي (Due Date)</label>
                 <input
                   type="date"
                   {...register('dueDate')}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800/90 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                  className="w-full rounded-2xl border border-border bg-surface px-3 py-2 text-xs text-foreground focus:border-primary focus:outline-none font-mono"
                 />
               </div>
             </div>
@@ -1219,21 +1197,21 @@ function CreateTaskModal({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-slate-800 bg-slate-900/90 flex items-center justify-end space-x-2">
+        <div className="p-4 border-t border-border bg-surface-raised/40 flex items-center justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-700"
+            className="rounded-2xl border border-border bg-surface px-4 py-2 text-xs font-bold text-foreground hover:bg-surface-hover"
           >
-            Cancel
+            إلغاء
           </button>
           <button
             form="create-task-form"
             type="submit"
             disabled={isSubmitting || isUploading}
-            className="rounded-xl bg-indigo-600 px-5 py-2 text-xs font-semibold text-white shadow-lg shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-50"
+            className="rounded-2xl bg-primary hover:bg-primary-hover px-5 py-2 text-xs font-black text-primary-foreground shadow-md active:scale-95 disabled:opacity-50"
           >
-            {isSubmitting ? 'Creating...' : 'Create Task'}
+            {isSubmitting ? 'جاري الإنشاء...' : 'إنشاء المهمة'}
           </button>
         </div>
       </div>
@@ -1242,7 +1220,7 @@ function CreateTaskModal({
 }
 
 // -----------------------------------------------------------------------------
-// TASK DETAILS & WORKFLOW ACCEPTANCE PANEL (REACT-HOOK-FORM + IMGBB)
+// TASK DETAILS MODAL
 // -----------------------------------------------------------------------------
 
 interface TaskDetailsModalProps {
@@ -1272,7 +1250,6 @@ function TaskDetailsModal({
   onDelete,
   onPreviewImage,
 }: TaskDetailsModalProps) {
-  // Live query subscription for instantaneous updates
   const { data: task, isLoading } = useTask(taskId);
 
   const [commentAttachmentUrls, setCommentAttachmentUrls] = useState<string[]>([]);
@@ -1285,7 +1262,6 @@ function TaskDetailsModal({
 
   const [selectedAssignee, setSelectedAssignee] = useState<string>('');
 
-  // Comment form using react-hook-form
   const {
     register: registerComment,
     handleSubmit: handleCommentSubmit,
@@ -1298,7 +1274,6 @@ function TaskDetailsModal({
 
   const commentValue = watchComment('content');
 
-  // Update selectedAssignee when task loads
   useEffect(() => {
     if (task?.assigneeId) {
       setSelectedAssignee(task.assigneeId);
@@ -1318,7 +1293,6 @@ function TaskDetailsModal({
 
   const canReassign = isTargetLeader || isAdmin;
 
-  // Filter employees strictly to members of the target/leader department
   const assignableEmployees = useMemo(() => {
     if (isAdmin) return employees;
     const targetDeptId = task?.targetDepartmentId || currentEmployee?.departmentId;
@@ -1328,7 +1302,6 @@ function TaskDetailsModal({
     return employees;
   }, [employees, task?.targetDepartmentId, currentEmployee?.departmentId, isAdmin]);
 
-  // Handle Comment Image Upload
   const handleCommentImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -1339,18 +1312,17 @@ function TaskDetailsModal({
       const url = await uploadImageToImgBB(file);
       setCommentAttachmentUrls((prev) => [...prev, url]);
     } catch (err: any) {
-      alert(err.message || 'Image upload failed');
+      alert(err.message || 'فشل رفع الصورة');
     } finally {
       setIsUploadingCommentImg(false);
       e.target.value = '';
     }
   };
 
-  // Handle Post Comment
   const onPostComment = async (data: CommentFormData) => {
     if (!data.content?.trim() && commentAttachmentUrls.length === 0) return;
 
-    const content = data.content?.trim() || 'Attached an image:';
+    const content = data.content?.trim() || 'أرفق صورة:';
     const attachments = [...commentAttachmentUrls];
     
     resetCommentForm();
@@ -1362,34 +1334,34 @@ function TaskDetailsModal({
   if (isLoading || !task) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-        <div className="p-8 rounded-2xl bg-slate-900 border border-slate-800 text-center text-xs text-slate-400">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent mx-auto mb-2" />
-          Loading task details...
+        <div className="p-8 rounded-3xl bg-card border border-border text-center text-xs text-foreground-muted">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent mx-auto mb-2" />
+          جاري تحميل تفاصيل المهمة...
         </div>
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
+      <div className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-3xl border border-card-border bg-card shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/90">
+        <div className="p-5 border-b border-border flex items-center justify-between bg-surface-raised/40">
           <div>
-            <div className="flex items-center space-x-2 text-[10px] text-slate-400 mb-1">
-              <span>Status:</span>
-              <span className="font-mono text-indigo-400 font-bold">{task.status}</span>
+            <div className="flex items-center gap-2 text-[10px] text-foreground-muted mb-1 font-bold">
+              <span>الحالة:</span>
+              <span className="font-mono text-primary">{task.status}</span>
               {task.targetDepartment && (
                 <>
                   <span>•</span>
-                  <span>Target: {task.targetDepartment.name}</span>
+                  <span>القسم: {task.targetDepartment.name}</span>
                 </>
               )}
             </div>
-            <h2 className="text-base font-bold text-white">{task.title}</h2>
+            <h2 className="text-base font-black text-foreground">{task.title}</h2>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
-            <X className="h-4 w-4" />
+          <button onClick={onClose} className="text-foreground-muted hover:text-foreground p-1">
+            <FiX className="h-4 w-4" />
           </button>
         </div>
 
@@ -1397,47 +1369,47 @@ function TaskDetailsModal({
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* Creator State Machine Action Bar */}
           {isCreator && ['REVIEW', 'WAITING_FOR_CLIENT'].includes(task.status) && (
-            <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-4 space-y-3">
+            <div className="rounded-3xl border border-primary/30 bg-primary/10 p-5 space-y-3">
               <div>
-                <h4 className="text-xs font-bold text-indigo-300">Creator Decision Required</h4>
-                <p className="text-[11px] text-slate-300">
-                  This task has been submitted for evaluation. You can accept it or request revisions.
+                <h4 className="text-xs font-black text-primary">قرار اعتماد المهمة مطلوب من قبلك</h4>
+                <p className="text-[11px] text-foreground-muted">
+                  تم تسليم هذه المهمة للمراجعة. يمكنك اعتمادها وإغلاقها أو طلب تعديلات إضافية.
                 </p>
               </div>
 
               {!isRejecting ? (
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center gap-3">
                   <button
                     onClick={() => onStatusChange('DONE')}
-                    className="inline-flex items-center space-x-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow hover:bg-emerald-500 transition-all"
+                    className="inline-flex items-center gap-1.5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 px-4 py-2 text-xs font-black text-white shadow-md active:scale-95 transition-all"
                   >
-                    <CheckCircle2 className="h-4 w-4" />
-                    <span>Accept & Mark Done</span>
+                    <FiCheckCircle className="h-4 w-4" />
+                    <span>اعتماد المهمة كمنجزة</span>
                   </button>
 
                   <button
                     onClick={() => setIsRejecting(true)}
-                    className="inline-flex items-center space-x-1.5 rounded-lg bg-rose-600/80 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-500 transition-all"
+                    className="inline-flex items-center gap-1.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 px-4 py-2 text-xs font-black text-rose-500 hover:bg-rose-500/20 transition-all"
                   >
-                    <RotateCcw className="h-4 w-4" />
-                    <span>Reject with Feedback</span>
+                    <FiRotateCcw className="h-4 w-4" />
+                    <span>طلب تعديلات وإعادة</span>
                   </button>
                 </div>
               ) : (
-                <div className="space-y-2.5 pt-2 border-t border-indigo-500/20">
+                <div className="space-y-2.5 pt-2 border-t border-primary/20">
                   <textarea
                     rows={2}
                     value={rejectComment}
                     onChange={(e) => setRejectComment(e.target.value)}
-                    placeholder="Provide mandatory feedback explaining the required fixes..."
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2 text-xs text-white focus:border-rose-500 focus:outline-none"
+                    placeholder="اكتب الملاحظات والتعديلات المطلوبة بوضوح..."
+                    className="w-full rounded-2xl border border-border bg-surface p-2.5 text-xs text-foreground focus:border-rose-500 focus:outline-none resize-none"
                   />
 
                   {/* Reject image upload */}
                   <div className="flex items-center gap-2">
-                    <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1 text-[11px] text-slate-300 hover:bg-slate-700">
-                      <ImageIcon className="h-3.5 w-3.5" />
-                      <span>Attach Screenshot (ImgBB)</span>
+                    <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-xl border border-border bg-surface px-2.5 py-1 text-[11px] text-foreground hover:bg-surface-hover">
+                      <FiImage className="h-3.5 w-3.5 text-primary" />
+                      <span>إرفاق لقطة شاشة (ImgBB)</span>
                       <input
                         type="file"
                         accept="image/*"
@@ -1457,7 +1429,7 @@ function TaskDetailsModal({
                       />
                     </label>
                     {isUploadingRejectImg && (
-                      <span className="text-[10px] text-indigo-400 animate-pulse">Uploading...</span>
+                      <span className="text-[10px] text-primary animate-pulse">جاري الرفع...</span>
                     )}
                   </div>
 
@@ -1468,25 +1440,25 @@ function TaskDetailsModal({
                           key={i}
                           src={url}
                           alt="Reject attachment"
-                          className="h-10 w-10 object-cover rounded border border-slate-700"
+                          className="h-10 w-10 object-cover rounded-xl border border-border"
                         />
                       ))}
                     </div>
                   )}
 
-                  <div className="flex items-center space-x-2 pt-1">
+                  <div className="flex items-center gap-2 pt-1">
                     <button
                       onClick={() => onStatusChange('NEEDS_REVISION', rejectComment, rejectAttachmentUrls)}
                       disabled={!rejectComment.trim()}
-                      className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                      className="rounded-2xl bg-rose-500 hover:bg-rose-600 px-4 py-1.5 text-xs font-black text-white disabled:opacity-50"
                     >
-                      Submit Rejection
+                      إرسال التعديل
                     </button>
                     <button
                       onClick={() => setIsRejecting(false)}
-                      className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300"
+                      className="rounded-2xl border border-border px-3 py-1.5 text-xs font-bold text-foreground"
                     >
-                      Cancel
+                      إلغاء
                     </button>
                   </div>
                 </div>
@@ -1495,25 +1467,25 @@ function TaskDetailsModal({
           )}
 
           {/* Quick Info Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-850 p-4 rounded-xl border border-slate-800 text-xs">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-surface p-4 rounded-3xl border border-border text-xs">
             <div>
-              <span className="text-[10px] text-slate-400 block uppercase font-medium">Requester</span>
-              <span className="text-white font-semibold">{task.creator?.fullName || 'Admin'}</span>
+              <span className="text-[10px] text-foreground-muted block font-bold">مقدم الطلب</span>
+              <span className="text-foreground font-extrabold">{task.creator?.fullName || 'الإدارة'}</span>
             </div>
             <div>
-              <span className="text-[10px] text-slate-400 block uppercase font-medium">Priority</span>
-              <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${PRIORITY_BADGES[task.priority].text}`}>
-                {task.priority}
+              <span className="text-[10px] text-foreground-muted block font-bold">الأولوية</span>
+              <span className={`inline-block px-2 py-0.5 rounded-lg text-[10px] font-bold ${PRIORITY_BADGES[task.priority].bg} ${PRIORITY_BADGES[task.priority].text}`}>
+                {PRIORITY_BADGES[task.priority].label}
               </span>
             </div>
             <div>
-              <span className="text-[10px] text-slate-400 block uppercase font-medium">Due Date</span>
-              <span className="text-slate-200">
-                {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No deadline'}
+              <span className="text-[10px] text-foreground-muted block font-bold">الموعد النهائي</span>
+              <span className="text-foreground font-mono">
+                {task.dueDate ? new Date(task.dueDate).toLocaleDateString('ar-EG') : 'بدون موعد'}
               </span>
             </div>
             <div>
-              <span className="text-[10px] text-slate-400 block uppercase font-medium">Assignee</span>
+              <span className="text-[10px] text-foreground-muted block font-bold">المعين بالمهمة</span>
               {canReassign ? (
                 <select
                   value={selectedAssignee}
@@ -1521,9 +1493,9 @@ function TaskDetailsModal({
                     setSelectedAssignee(e.target.value);
                     onAssigneeChange(e.target.value);
                   }}
-                  className="mt-0.5 rounded border border-slate-700 bg-slate-800 px-2 py-1 text-[11px] text-white focus:outline-none"
+                  className="mt-1 rounded-xl border border-border bg-surface-raised px-2 py-1 text-[11px] text-foreground focus:outline-none"
                 >
-                  <option value="">Unassigned</option>
+                  <option value="">غير مسند</option>
                   {assignableEmployees.map((emp) => (
                     <option key={emp.id} value={emp.id}>
                       {emp.fullName} ({emp.employeeCode})
@@ -1531,9 +1503,9 @@ function TaskDetailsModal({
                   ))}
                 </select>
               ) : (
-                <div className="mt-0.5 flex items-center space-x-1 text-slate-200">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                  <span className="font-semibold">{task.assignee?.fullName || 'Unassigned'}</span>
+                <div className="mt-1 flex items-center gap-1.5 text-foreground">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  <span className="font-bold">{task.assignee?.fullName || 'غير مسند'}</span>
                 </div>
               )}
             </div>
@@ -1541,30 +1513,30 @@ function TaskDetailsModal({
 
           {/* Description */}
           <div>
-            <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Description</h4>
-            <div className="p-4 rounded-xl border border-slate-800 bg-slate-800/40 text-xs text-slate-200 whitespace-pre-wrap">
-              {task.description || 'No description provided.'}
+            <h4 className="text-xs font-black text-foreground mb-1.5">الوصف والتوجيهات</h4>
+            <div className="p-4 rounded-2xl border border-border bg-surface/50 text-xs text-foreground leading-relaxed whitespace-pre-wrap">
+              {task.description || 'لا يوجد وصف مدون لهذه المهمة.'}
             </div>
           </div>
 
           {/* Task Attachments Gallery */}
           {task.attachmentUrls && task.attachmentUrls.length > 0 && (
             <div>
-              <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
-                Attached Images ({task.attachmentUrls.length})
+              <h4 className="text-xs font-black text-foreground mb-2">
+                الصور المرفقة بالمهمة ({task.attachmentUrls.length})
               </h4>
               <div className="grid grid-cols-3 gap-2">
                 {task.attachmentUrls.map((url, idx) => (
                   <div
                     key={idx}
                     onClick={() => onPreviewImage(url)}
-                    className="relative group rounded-xl overflow-hidden border border-slate-700 bg-slate-800 aspect-video cursor-zoom-in hover:border-indigo-500 transition-all"
+                    className="relative group rounded-2xl overflow-hidden border border-border bg-surface aspect-video cursor-zoom-in hover:border-primary transition-all"
                   >
                     <img src={url} alt={`Task attachment ${idx + 1}`} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-medium transition-opacity">
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-opacity">
                       <span className="inline-flex items-center gap-1">
-                        <Eye className="h-3.5 w-3.5" />
-                        <span>View</span>
+                        <FiEye className="h-3.5 w-3.5" />
+                        <span>عرض</span>
                       </span>
                     </div>
                   </div>
@@ -1575,25 +1547,25 @@ function TaskDetailsModal({
 
           {/* Live Comments & Revision Timeline */}
           <div className="space-y-3">
-            <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-              Comments & Revision Log ({task.comments?.length || 0})
+            <h4 className="text-xs font-black text-foreground">
+              التعليقات وسجل الملاحظات ({task.comments?.length || 0})
             </h4>
 
             <div className="space-y-2.5 max-h-64 overflow-y-auto">
               {(!task.comments || task.comments.length === 0) ? (
-                <p className="text-xs text-slate-500 italic p-3 text-center border border-dashed border-slate-800 rounded-lg">
-                  No discussion comments yet.
+                <p className="text-xs text-foreground-subtle italic p-3 text-center border border-dashed border-border rounded-2xl">
+                  لا توجد تعليقات أو مناقشات بعد.
                 </p>
               ) : (
                 task.comments.map((c) => (
-                  <div key={c.id} className="p-3 rounded-lg border border-slate-800 bg-slate-800/70 text-xs space-y-2">
+                  <div key={c.id} className="p-3.5 rounded-2xl border border-border bg-surface text-xs space-y-2">
                     <div className="flex items-center justify-between text-[10px]">
-                      <span className="font-bold text-indigo-400">{c.author.fullName}</span>
-                      <span className="text-slate-500">
-                        {new Date(c.createdAt).toLocaleDateString()} {new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      <span className="font-extrabold text-primary">{c.author.fullName}</span>
+                      <span className="text-foreground-muted font-mono">
+                        {new Date(c.createdAt).toLocaleDateString('ar-EG')} {new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
-                    <p className="text-slate-200 whitespace-pre-wrap">{c.content}</p>
+                    <p className="text-foreground whitespace-pre-wrap">{c.content}</p>
 
                     {/* Comment image attachments if any */}
                     {c.attachmentUrls && c.attachmentUrls.length > 0 && (
@@ -1604,7 +1576,7 @@ function TaskDetailsModal({
                             src={imgUrl}
                             alt="Comment attachment"
                             onClick={() => onPreviewImage(imgUrl)}
-                            className="h-16 w-24 object-cover rounded-lg border border-slate-700 cursor-zoom-in hover:opacity-90"
+                            className="h-16 w-24 object-cover rounded-xl border border-border cursor-zoom-in hover:opacity-90"
                           />
                         ))}
                       </div>
@@ -1614,22 +1586,22 @@ function TaskDetailsModal({
               )}
             </div>
 
-            {/* Comment Form with react-hook-form + ImgBB upload */}
+            {/* Comment Form */}
             <form onSubmit={handleCommentSubmit(onPostComment)} className="space-y-2 pt-2">
-              <div className="flex space-x-2">
+              <div className="flex gap-2">
                 <input
                   type="text"
                   {...registerComment('content')}
-                  placeholder="Post a comment or update..."
-                  className="flex-1 rounded-lg border border-slate-700 bg-slate-800/90 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                  placeholder="اكتب تعليقاً أو استفساراً..."
+                  className="flex-1 rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:outline-none"
                 />
 
                 {/* ImgBB upload button */}
                 <label
-                  className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-300 hover:bg-slate-700 hover:text-white"
-                  title="Attach image to comment (ImgBB)"
+                  className="cursor-pointer inline-flex items-center justify-center rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-foreground hover:bg-surface-hover"
+                  title="إرفاق صورة بالتعليق"
                 >
-                  <ImageIcon className="h-4 w-4" />
+                  <FiImage className="h-4 w-4 text-primary" />
                   <input
                     type="file"
                     accept="image/*"
@@ -1641,28 +1613,27 @@ function TaskDetailsModal({
                 <button
                   type="submit"
                   disabled={(!commentValue?.trim() && commentAttachmentUrls.length === 0) || isUploadingCommentImg}
-                  className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
+                  className="rounded-2xl bg-primary hover:bg-primary-hover px-5 py-2.5 text-xs font-black text-primary-foreground shadow-md disabled:opacity-50"
                 >
-                  Send
+                  إرسال
                 </button>
               </div>
 
-              {/* Uploading indicator or Preview */}
               {isUploadingCommentImg && (
-                <p className="text-[10px] text-indigo-400 font-mono animate-pulse">Uploading image to ImgBB...</p>
+                <p className="text-[10px] text-primary font-mono animate-pulse">جاري رفع الصورة إلى ImgBB...</p>
               )}
 
               {commentAttachmentUrls.length > 0 && (
                 <div className="flex gap-2 items-center">
                   {commentAttachmentUrls.map((url, idx) => (
                     <div key={idx} className="relative group">
-                      <img src={url} alt="Comment preview" className="h-12 w-12 object-cover rounded-lg border border-slate-700" />
+                      <img src={url} alt="Comment preview" className="h-12 w-12 object-cover rounded-xl border border-border" />
                       <button
                         type="button"
                         onClick={() => setCommentAttachmentUrls(prev => prev.filter((_, i) => i !== idx))}
-                        className="absolute -top-1 -right-1 bg-rose-600 text-white rounded-full h-4 w-4 flex items-center justify-center shadow"
+                        className="absolute -top-1 -right-1 bg-rose-500 text-white rounded-full h-4 w-4 flex items-center justify-center shadow"
                       >
-                        <X className="h-2.5 w-2.5" />
+                        <FiX className="h-2.5 w-2.5" />
                       </button>
                     </div>
                   ))}
@@ -1673,14 +1644,14 @@ function TaskDetailsModal({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-slate-800 bg-slate-900/90 flex items-center justify-between">
+        <div className="p-4 border-t border-border bg-surface-raised/40 flex items-center justify-between">
           {(isAdmin || (isCreator && task.status === 'TODO')) ? (
             <button
               onClick={onDelete}
-              className="inline-flex items-center space-x-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-medium text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-all"
+              className="inline-flex items-center gap-1.5 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2 text-xs font-bold text-rose-500 hover:bg-rose-500/20 transition-all"
             >
-              <Trash2 className="h-3.5 w-3.5" />
-              <span>Delete Task</span>
+              <FiTrash2 className="h-3.5 w-3.5" />
+              <span>حذف المهمة</span>
             </button>
           ) : (
             <div />
@@ -1688,9 +1659,9 @@ function TaskDetailsModal({
 
           <button
             onClick={onClose}
-            className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-700"
+            className="rounded-2xl border border-border bg-surface px-5 py-2 text-xs font-bold text-foreground hover:bg-surface-hover"
           >
-            Close
+            إغلاق
           </button>
         </div>
       </div>
@@ -1699,7 +1670,7 @@ function TaskDetailsModal({
 }
 
 // -----------------------------------------------------------------------------
-// DEPARTMENT BACKLOG DRAWER (TEAM LEADER TASK DISTRIBUTION)
+// DEPARTMENT BACKLOG DRAWER
 // -----------------------------------------------------------------------------
 
 interface DepartmentBacklogDrawerProps {
@@ -1723,47 +1694,47 @@ function DepartmentBacklogDrawer({
   }, [employees, currentEmployee]);
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/70 backdrop-blur-sm animate-in fade-in">
-      <div className="w-full max-w-md h-full bg-slate-900 border-l border-slate-800 p-6 flex flex-col space-y-4 shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+    <div className="fixed inset-0 z-50 flex justify-start bg-black/70 backdrop-blur-sm animate-in fade-in">
+      <div className="w-full max-w-md h-full bg-card border-s border-border p-6 flex flex-col space-y-4 shadow-2xl">
+        <div className="flex items-center justify-between border-b border-border pb-4">
           <div>
-            <h3 className="text-base font-bold text-white flex items-center gap-2">
-              <Inbox className="h-4 w-4 text-amber-400" />
-              <span>Department Backlog</span>
+            <h3 className="text-base font-black text-foreground flex items-center gap-2">
+              <FiInbox className="h-4 w-4 text-amber-500" />
+              <span>صندوق مهام القسم (Backlog)</span>
             </h3>
-            <p className="text-xs text-slate-400">
-              Cross-department requests waiting for team leader distribution.
+            <p className="text-xs text-foreground-muted">
+              المهام المحولة لقسمك بانتظار التوزيع والتسكين على أعضاء الفريق.
             </p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
-            <X className="h-4 w-4" />
+          <button onClick={onClose} className="text-foreground-muted hover:text-foreground p-1">
+            <FiX className="h-4 w-4" />
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto space-y-3">
           {backlogTasks.length === 0 ? (
-            <div className="py-20 text-center text-xs text-slate-500 italic">
-              No unassigned tasks in your department backlog.
+            <div className="py-20 text-center text-xs text-foreground-subtle italic">
+              لا توجد مهام معلقة في صندوق القسم حالياً.
             </div>
           ) : (
             backlogTasks.map((t) => (
               <div
                 key={t.id}
-                className="rounded-xl border border-slate-800 bg-slate-800/80 p-4 space-y-2.5 shadow-md"
+                className="rounded-2xl border border-border bg-surface p-4 space-y-2.5 shadow-xs"
               >
                 <div className="flex items-center justify-between text-[10px]">
-                  <span className={`px-2 py-0.5 rounded font-bold border ${PRIORITY_BADGES[t.priority].bg} ${PRIORITY_BADGES[t.priority].text} ${PRIORITY_BADGES[t.priority].border}`}>
-                    {t.priority}
+                  <span className={`px-2 py-0.5 rounded-md font-bold border ${PRIORITY_BADGES[t.priority].bg} ${PRIORITY_BADGES[t.priority].text} ${PRIORITY_BADGES[t.priority].border}`}>
+                    {PRIORITY_BADGES[t.priority].label}
                   </span>
-                  <span className="text-indigo-400 font-mono">From: {t.creator?.fullName}</span>
+                  <span className="text-primary font-mono font-bold">من: {t.creator?.fullName}</span>
                 </div>
 
-                <h4 className="text-xs font-bold text-white">{t.title}</h4>
-                {t.description && <p className="text-[11px] text-slate-400 line-clamp-2">{t.description}</p>}
+                <h4 className="text-xs font-black text-foreground">{t.title}</h4>
+                {t.description && <p className="text-[11px] text-foreground-muted line-clamp-2">{t.description}</p>}
 
                 {/* Team Leader Distribution Selector */}
-                <div className="pt-2 border-t border-slate-700/60 flex items-center justify-between">
-                  <span className="text-[10px] text-slate-400 font-medium">Assign to Member:</span>
+                <div className="pt-2 border-t border-border flex items-center justify-between gap-2">
+                  <span className="text-[10px] text-foreground-muted font-bold shrink-0">إسناد إلى:</span>
                   <select
                     defaultValue=""
                     onChange={(e) => {
@@ -1771,9 +1742,9 @@ function DepartmentBacklogDrawer({
                         onAssignTask(t.id, e.target.value);
                       }
                     }}
-                    className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-white focus:outline-none"
+                    className="rounded-xl border border-border bg-surface-raised px-2.5 py-1 text-xs text-foreground focus:outline-none"
                   >
-                    <option value="" disabled>Select member...</option>
+                    <option value="" disabled>اختر عضو الفريق...</option>
                     {teamMembers.map((m) => (
                       <option key={m.id} value={m.id}>
                         {m.fullName} ({m.employeeCode})

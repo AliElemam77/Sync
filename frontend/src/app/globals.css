@@ -2,90 +2,187 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  /* ========================================================================= */
-  /* LIGHT MODE THEME TOKENS (Brand: #EFECE3, #8FABD4, #4A70A9, #000000)     */
-  /* ========================================================================= */
-  --background: #FFFFFF;
-  --background-subtle: #F6F4EE;
-  --surface: #FFFFFF;
-  --surface-raised: #EFECE3;
-  --surface-hover: #E4E0D4;
+@layer base {
+  :root {
+    color-scheme: light;
+    /* ========================================================================= */
+    /* LIGHT MODE THEME TOKENS - Warm Alabaster & Champagne Frost Glass         */
+    /* Palette: #605B51 (Warm Stone), #D8D365 (Gold Lime), #E6F082 (Champagne)   */
+    /* ========================================================================= */
+    --background: #FBFBFA;
+    --background-subtle: #F5F4EE;
+    --surface: #F3F2EB;
+    --surface-raised: #ECEAE1;
+    --surface-hover: #E3E0D4;
 
-  --foreground: #000000;
-  --foreground-muted: #4A5568;
-  --foreground-subtle: #718096;
+    --foreground: #22201C;
+    --foreground-muted: #605B51;
+    --foreground-subtle: #8A857A;
 
-  --primary: #4A70A9;
-  --primary-hover: #3B5D90;
-  --primary-foreground: #FFFFFF;
+    --primary: #605B51;
+    --primary-hover: #4C4840;
+    --primary-foreground: #FFFFFF;
 
-  --secondary: #8FABD4;
-  --secondary-hover: #7E9DC6;
-  --secondary-foreground: #000000;
+    --secondary: #D8D365;
+    --secondary-hover: #C5C04E;
+    --secondary-foreground: #22201C;
 
-  --accent: #EFECE3;
-  --accent-foreground: #4A70A9;
+    --accent: #E6F082;
+    --accent-foreground: #38350F;
 
-  --border: rgba(0, 0, 0, 0.08);
-  --border-subtle: rgba(74, 112, 169, 0.18);
-  --ring: #4A70A9;
+    --border: rgba(96, 91, 81, 0.04);
+    --border-subtle: rgba(96, 91, 81, 0.02);
+    --ring: rgba(216, 211, 101, 0.3);
 
-  --card: #FFFFFF;
-  --card-foreground: #000000;
-  --card-border: rgba(0, 0, 0, 0.07);
+    --card: rgba(255, 255, 255, 0.85);
+    --card-foreground: #22201C;
+    --card-border: rgba(96, 91, 81, 0.04);
 
-  --skeleton: rgba(0, 0, 0, 0.07);
-  --skeleton-highlight: rgba(74, 112, 169, 0.12);
+    --skeleton: rgba(96, 91, 81, 0.03);
+    --skeleton-highlight: rgba(216, 211, 101, 0.1);
+  }
+
+  .dark {
+    color-scheme: dark;
+    /* ========================================================================= */
+    /* DARK MODE THEME TOKENS - Deep Obsidian & Glowing Luminous Gold Glass     */
+    /* ========================================================================= */
+    --background: #0E0E0C;
+    --background-subtle: #141411;
+    --surface: rgba(255, 255, 255, 0.03);
+    --surface-raised: rgba(255, 255, 255, 0.05);
+    --surface-hover: rgba(255, 255, 255, 0.08);
+
+    --foreground: #F8F8F2;
+    --foreground-muted: #A8A398;
+    --foreground-subtle: #68655E;
+
+    --primary: #D8D365;
+    --primary-hover: #E6F082;
+    --primary-foreground: #0E0E0C;
+
+    --secondary: #605B51;
+    --secondary-hover: #736E63;
+    --secondary-foreground: #F8F8F2;
+
+    --accent: #1C1C17;
+    --accent-foreground: #E6F082;
+
+    --border: rgba(255, 255, 255, 0.03);
+    --border-subtle: rgba(255, 255, 255, 0.015);
+    --ring: rgba(216, 211, 101, 0.25);
+
+    --card: rgba(20, 21, 17, 0.65);
+    --card-foreground: #F8F8F2;
+    --card-border: rgba(255, 255, 255, 0.03);
+
+    --skeleton: rgba(255, 255, 255, 0.02);
+    --skeleton-highlight: rgba(216, 211, 101, 0.08);
+  }
 }
 
-.dark {
-  /* ========================================================================= */
-  /* DARK MODE THEME TOKENS (Brand: #EFECE3, #8FABD4, #4A70A9, #000000)      */
-  /* ========================================================================= */
-  --background: #000000;
-  --background-subtle: #080C14;
-  --surface: #0E1420;
-  --surface-raised: #151D2E;
-  --surface-hover: #1D283E;
+/* ========================================================================= */
+/* NATIVE FORM CONTROLS & DROPDOWN POPUPS (DARK / LIGHT THEME FIX)          */
+/* ========================================================================= */
 
-  --foreground: #EFECE3;
-  --foreground-muted: #8FABD4;
-  --foreground-subtle: #677A98;
+select {
+  color-scheme: light;
+}
 
-  --primary: #8FABD4;
-  --primary-hover: #A5C0E5;
-  --primary-foreground: #000000;
+.dark select {
+  color-scheme: dark;
+}
 
-  --secondary: #4A70A9;
-  --secondary-hover: #5D85C2;
-  --secondary-foreground: #EFECE3;
+select option,
+select optgroup {
+  background-color: #F3F2EB;
+  color: #22201C;
+}
 
-  --accent: #172238;
-  --accent-foreground: #8FABD4;
-
-  --border: rgba(239, 236, 227, 0.12);
-  --border-subtle: rgba(143, 171, 212, 0.22);
-  --ring: #8FABD4;
-
-  --card: #0A0F1A;
-  --card-foreground: #EFECE3;
-  --card-border: rgba(239, 236, 227, 0.1);
-
-  --skeleton: rgba(239, 236, 227, 0.08);
-  --skeleton-highlight: rgba(143, 171, 212, 0.16);
+.dark select option,
+.dark select optgroup {
+  background-color: #181814;
+  color: #F8F8F2;
 }
 
 /* Base Body Styles */
 body {
   background-color: var(--background);
   color: var(--foreground);
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+/* Background Pattern and Ambient Lighting */
+.dark body {
+  background-color: #0E0E0C;
+  background-image: 
+    radial-gradient(ellipse 80% 50% at 50% -15%, rgba(216, 211, 101, 0.09), transparent 60%),
+    radial-gradient(circle 600px at 95% 40%, rgba(96, 91, 81, 0.18), transparent 70%),
+    radial-gradient(circle 500px at 5% 85%, rgba(230, 240, 130, 0.06), transparent 60%);
+  background-attachment: fixed;
+}
+
+/* ========================================================================= */
+/* LUXURY GLASSMORPHISM UTILITIES                                            */
+/* ========================================================================= */
+
+.glass-card {
+  background: var(--card);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid var(--card-border);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.06), 0 20px 40px -15px rgba(0, 0, 0, 0.4);
+}
+
+.dark .glass-card {
+  background: rgba(20, 21, 17, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.07), 0 20px 45px -12px rgba(0, 0, 0, 0.65);
+}
+
+.dark .glass-card:hover {
+  background: rgba(25, 26, 21, 0.75);
+  border-color: rgba(216, 211, 101, 0.2);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.12), 0 25px 55px -12px rgba(0, 0, 0, 0.8), 0 0 30px -5px rgba(216, 211, 101, 0.1);
+}
+
+.glass-pill {
+  background: var(--surface);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+}
+
+.dark .glass-pill {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.035);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.04);
+}
+
+.dark .glass-pill:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(216, 211, 101, 0.2);
+}
+
+/* Luminous Glow Accent */
+.btn-glow-primary {
+  background: linear-gradient(135deg, #D8D365 0%, #E6F082 100%);
+  color: #0E0E0C;
+  box-shadow: 0 0 24px -2px rgba(216, 211, 101, 0.4), inset 0 1px 0 0 rgba(255, 255, 255, 0.5);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-glow-primary:hover {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 0 32px 0 rgba(216, 211, 101, 0.6), inset 0 1px 0 0 rgba(255, 255, 255, 0.7);
 }
 
 /* Custom Scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
 }
 
 ::-webkit-scrollbar-track {
@@ -93,10 +190,20 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: rgba(128, 128, 128, 0.2);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--foreground-subtle);
+  background: rgba(216, 211, 101, 0.4);
 }
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
