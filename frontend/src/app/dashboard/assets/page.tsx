@@ -727,25 +727,36 @@ function CreateAssetModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in">
-      <div className="relative overflow-hidden w-full max-w-lg rounded-3xl border border-white/60 dark:border-white/15 bg-white/85 dark:bg-black/90 backdrop-blur-2xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/80 dark:via-white/20 to-transparent" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 sm:p-6 animate-in fade-in duration-200">
+      <div className="relative overflow-hidden w-full max-w-xl max-h-[88vh] flex flex-col rounded-3xl border border-white/30 dark:border-white/10 bg-white/90 dark:bg-[#141411]/95 backdrop-blur-3xl shadow-2xl">
+        {/* Top Specular Rim */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent z-10" />
 
-        <div className="flex items-center justify-between border-b border-border/30 pb-3">
-          <h3 className="text-sm font-black text-foreground flex items-center gap-2">
-            <FiPlus className="h-4 w-4 text-brand-gold" />
-            <span>إضافة أصل / جهاز تقني جديد</span>
-          </h3>
-          <button onClick={onClose} className="text-foreground-muted hover:text-foreground p-1">
+        <div className="px-6 py-5 border-b border-border/30 dark:border-white/10 flex items-center justify-between bg-surface/40 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-2xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shadow-inner">
+              <FiPlus className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-foreground">إضافة أصل / عهدة تقنية جديدة</h3>
+              <p className="text-[11px] text-foreground-muted">تسجيل الأجهزة والمعدات والتراخيص في المخزن</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-8 w-8 rounded-xl flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+            title="إغلاق"
+          >
             <FiX className="h-4 w-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
+        <form id="add-asset-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-5 space-y-4 text-xs">
           {/* Name & Type */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block font-bold text-foreground-muted mb-1">
+              <label className="block text-xs font-bold text-foreground mb-1.5">
                 اسم الأصل / الجهاز <span className="text-rose-500">*</span>
               </label>
               <input
@@ -754,23 +765,23 @@ function CreateAssetModal({
                 placeholder="مثال: MacBook Pro 16 M3 Max"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-2xl border border-border/50 bg-surface p-2.5 text-foreground focus:outline-none focus:border-primary"
+                className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 text-xs text-foreground placeholder:text-foreground-subtle focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </div>
 
             <div>
-              <label className="block font-bold text-foreground-muted mb-1">
+              <label className="block text-xs font-bold text-foreground mb-1.5">
                 نوع الأصل <span className="text-rose-500">*</span>
               </label>
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value as AssetType)}
-                className="w-full rounded-2xl border border-border/50 bg-surface p-2.5 text-foreground focus:outline-none"
+                className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-3.5 py-2.5 text-xs text-foreground focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
-                <option value="HARDWARE">أجهزة ومعدات (HARDWARE)</option>
-                <option value="SOFTWARE">تراخيص وبرمجيات (SOFTWARE)</option>
-                <option value="FURNITURE">أثاث ومكتبيات (FURNITURE)</option>
-                <option value="OTHER">أخرى (OTHER)</option>
+                <option value="HARDWARE">💻 أجهزة ومعدات (HARDWARE)</option>
+                <option value="SOFTWARE">🔑 تراخيص وبرمجيات (SOFTWARE)</option>
+                <option value="FURNITURE">🪑 أثاث ومكتبية (FURNITURE)</option>
+                <option value="OTHER">📦 أخرى (OTHER)</option>
               </select>
             </div>
           </div>
@@ -778,7 +789,7 @@ function CreateAssetModal({
           {/* Serial Number & Brand */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block font-bold text-foreground-muted mb-1">
+              <label className="block text-xs font-bold text-foreground mb-1.5">
                 الرقم التسلسلي (S/N) <span className="text-rose-500">*</span>
               </label>
               <input
@@ -787,12 +798,12 @@ function CreateAssetModal({
                 placeholder="مثال: C02G90XXMD6M"
                 value={serialNumber}
                 onChange={(e) => setSerialNumber(e.target.value)}
-                className="w-full rounded-2xl border border-border/50 bg-surface p-2.5 font-mono text-foreground focus:outline-none focus:border-primary"
+                className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 text-xs font-mono text-foreground placeholder:text-foreground-subtle focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </div>
 
             <div>
-              <label className="block font-bold text-foreground-muted mb-1">
+              <label className="block text-xs font-bold text-foreground mb-1.5">
                 الشركة المصنعة / الماركة
               </label>
               <input
@@ -800,7 +811,7 @@ function CreateAssetModal({
                 placeholder="مثال: Apple, Dell, JetBrains..."
                 value={manufacturer}
                 onChange={(e) => setManufacturer(e.target.value)}
-                className="w-full rounded-2xl border border-border/50 bg-surface p-2.5 text-foreground focus:outline-none"
+                className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 text-xs text-foreground placeholder:text-foreground-subtle focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </div>
           </div>
@@ -808,18 +819,18 @@ function CreateAssetModal({
           {/* Model & Purchase Cost */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block font-bold text-foreground-muted mb-1">الموديل / الإصدار</label>
+              <label className="block text-xs font-bold text-foreground mb-1.5">الموديل / الإصدار</label>
               <input
                 type="text"
                 placeholder="مثال: A2991 / 2024"
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
-                className="w-full rounded-2xl border border-border/50 bg-surface p-2.5 text-foreground focus:outline-none"
+                className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 text-xs text-foreground placeholder:text-foreground-subtle focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </div>
 
             <div>
-              <label className="block font-bold text-foreground-muted mb-1">تكلفة الشراء (EGP)</label>
+              <label className="block text-xs font-bold text-foreground mb-1.5">تكلفة الشراء (EGP)</label>
               <input
                 type="number"
                 min="0"
@@ -827,7 +838,7 @@ function CreateAssetModal({
                 placeholder="0.00"
                 value={purchaseCost}
                 onChange={(e) => setPurchaseCost(e.target.value)}
-                className="w-full rounded-2xl border border-border/50 bg-surface p-2.5 font-mono text-foreground focus:outline-none"
+                className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 text-xs font-mono text-foreground placeholder:text-foreground-subtle focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </div>
           </div>
@@ -835,35 +846,35 @@ function CreateAssetModal({
           {/* Purchase Date & Warranty */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block font-bold text-foreground-muted mb-1">تاريخ الشراء</label>
+              <label className="block text-xs font-bold text-foreground mb-1.5">تاريخ الشراء</label>
               <input
                 type="date"
                 value={purchaseDate}
                 onChange={(e) => setPurchaseDate(e.target.value)}
-                className="w-full rounded-2xl border border-border/50 bg-surface p-2.5 text-foreground focus:outline-none"
+                className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 text-xs text-foreground focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20 font-mono"
               />
             </div>
 
             <div>
-              <label className="block font-bold text-foreground-muted mb-1">انتهاء الضمان</label>
+              <label className="block text-xs font-bold text-foreground mb-1.5">انتهاء الضمان</label>
               <input
                 type="date"
                 value={warrantyExpiry}
                 onChange={(e) => setWarrantyExpiry(e.target.value)}
-                className="w-full rounded-2xl border border-border/50 bg-surface p-2.5 text-foreground focus:outline-none"
+                className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 text-xs text-foreground focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20 font-mono"
               />
             </div>
           </div>
 
           {/* Initial Assignment */}
           <div className="pt-2 border-t border-border/30">
-            <label className="block font-bold text-foreground mb-1">
+            <label className="block text-xs font-bold text-foreground mb-1.5">
               تسليم كعهدة فورية لموظف (اختياري)
             </label>
             <select
               value={assigneeId}
               onChange={(e) => setAssigneeId(e.target.value)}
-              className="w-full rounded-2xl border border-border/50 bg-surface p-2.5 text-foreground focus:outline-none"
+              className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 text-xs text-foreground focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20"
             >
               <option value="">-- حفظ في المخزن كأصل متاح --</option>
               {employees.map((emp) => (
@@ -876,7 +887,7 @@ function CreateAssetModal({
 
           {assigneeId && (
             <div>
-              <label className="block font-bold text-foreground-muted mb-1">
+              <label className="block text-xs font-bold text-foreground mb-1.5">
                 ملاحظات حالة الجهاز عند التسليم
               </label>
               <input
@@ -884,39 +895,40 @@ function CreateAssetModal({
                 placeholder="مثال: تسليم بحالة المصنع مع الشاحن والملحقات كاملة"
                 value={conditionNotes}
                 onChange={(e) => setConditionNotes(e.target.value)}
-                className="w-full rounded-2xl border border-border/50 bg-surface p-2.5 text-foreground focus:outline-none"
+                className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 text-xs text-foreground placeholder:text-foreground-subtle focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </div>
           )}
 
           <div>
-            <label className="block font-bold text-foreground-muted mb-1">ملاحظات ومواصفات إضافية</label>
+            <label className="block text-xs font-bold text-foreground mb-1.5">ملاحظات ومواصفات إضافية</label>
             <textarea
               rows={2}
               placeholder="مثال: 64GB RAM, 1TB SSD, لون رمادي فلكي..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full rounded-2xl border border-border/50 bg-surface p-2.5 text-foreground focus:outline-none"
+              className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 p-3 text-xs text-foreground placeholder:text-foreground-subtle focus:bg-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
             />
           </div>
-
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/30">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-2xl border border-border bg-surface px-4 py-2 font-bold text-foreground hover:bg-surface-hover"
-            >
-              إلغاء
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="rounded-2xl bg-primary hover:bg-primary-hover px-5 py-2 font-black text-primary-foreground shadow-md active:scale-95 disabled:opacity-50"
-            >
-              {isSubmitting ? 'جاري الحفظ...' : 'حفظ وإضافة الأصل'}
-            </button>
-          </div>
         </form>
+
+        <div className="px-6 py-4 border-t border-border/30 dark:border-white/10 bg-surface/60 dark:bg-white/[0.02] backdrop-blur-xl flex items-center justify-end gap-3 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-2xl border border-border/80 bg-surface px-5 py-2.5 text-xs font-bold text-foreground hover:bg-surface-hover transition-colors shadow-xs"
+          >
+            إلغاء
+          </button>
+          <button
+            form="add-asset-form"
+            type="submit"
+            disabled={isSubmitting}
+            className="rounded-2xl btn-glow-primary px-6 py-2.5 text-xs font-black text-brand-stone-950 shadow-md active:scale-95 disabled:opacity-50 transition-all"
+          >
+            {isSubmitting ? 'جاري الحفظ...' : 'حفظ وإضافة الأصل'}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -962,39 +974,50 @@ function AssignAssetModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in">
-      <div className="relative overflow-hidden w-full max-w-md rounded-3xl border border-white/60 dark:border-white/15 bg-white/85 dark:bg-black/90 backdrop-blur-2xl p-6 shadow-2xl space-y-4">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/80 dark:via-white/20 to-transparent" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 sm:p-6 animate-in fade-in duration-200">
+      <div className="relative overflow-hidden w-full max-w-md max-h-[85vh] flex flex-col rounded-3xl border border-white/30 dark:border-white/10 bg-white/90 dark:bg-[#141411]/95 backdrop-blur-3xl shadow-2xl">
+        {/* Top Specular Rim */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent z-10" />
 
-        <div className="flex items-center justify-between border-b border-border/30 pb-3">
-          <h3 className="text-sm font-black text-foreground flex items-center gap-2">
-            <FiUserCheck className="h-4 w-4 text-emerald-500" />
-            <span>تسليم عهدة لموظف</span>
-          </h3>
-          <button onClick={onClose} className="text-foreground-muted hover:text-foreground p-1">
+        <div className="px-6 py-5 border-b border-border/30 dark:border-white/10 flex items-center justify-between bg-surface/40 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 flex items-center justify-center shadow-inner">
+              <FiUserCheck className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-foreground">تسليم عهدة لموظف</h3>
+              <p className="text-[11px] text-foreground-muted">نقل مسؤولية الأصل إلى عهدة الموظف</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-8 w-8 rounded-xl flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+            title="إغلاق"
+          >
             <FiX className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Asset Brief */}
-        <div className="p-3 rounded-2xl bg-surface border border-border/40 text-xs space-y-1">
-          <div className="font-extrabold text-foreground">{asset.name}</div>
-          <div className="text-[11px] text-foreground-muted font-mono flex items-center justify-between">
-            <span>S/N: {asset.serialNumber}</span>
-            <span>{asset.manufacturer || ''}</span>
+        <form id="assign-asset-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-5 space-y-4 text-xs">
+          {/* Asset Brief */}
+          <div className="p-3.5 rounded-2xl bg-surface/80 border border-border/60 dark:border-white/5 text-xs space-y-1">
+            <div className="font-extrabold text-foreground">{asset.name}</div>
+            <div className="text-[11px] text-foreground-muted font-mono flex items-center justify-between">
+              <span>S/N: {asset.serialNumber}</span>
+              <span>{asset.manufacturer || ''}</span>
+            </div>
           </div>
-        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3 text-xs">
           <div>
-            <label className="block font-bold text-foreground-muted mb-1">
+            <label className="block text-xs font-bold text-foreground mb-1.5">
               الموظف المستلم للعهدة <span className="text-rose-500">*</span>
             </label>
             <select
               required
               value={employeeId}
               onChange={(e) => setEmployeeId(e.target.value)}
-              className="w-full rounded-2xl border border-border/50 bg-surface p-2.5 text-foreground focus:outline-none"
+              className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 text-xs text-foreground focus:bg-surface focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
             >
               <option value="" disabled>
                 اختر الموظف...
@@ -1008,7 +1031,7 @@ function AssignAssetModal({
           </div>
 
           <div>
-            <label className="block font-bold text-foreground-muted mb-1">
+            <label className="block text-xs font-bold text-foreground mb-1.5">
               ملاحظات حالة الجهاز عند التسليم
             </label>
             <textarea
@@ -1016,27 +1039,28 @@ function AssignAssetModal({
               placeholder="مثال: تم فحص الجهاز ويعمل بكفاءة 100% مع الشاحن الأصلي وحقيبة الحمل..."
               value={conditionNotes}
               onChange={(e) => setConditionNotes(e.target.value)}
-              className="w-full rounded-2xl border border-border/50 bg-surface p-2.5 text-foreground focus:outline-none"
+              className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 p-3 text-xs text-foreground placeholder:text-foreground-subtle focus:bg-surface focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none"
             />
           </div>
-
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/30">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-2xl border border-border bg-surface px-4 py-2 font-bold text-foreground"
-            >
-              إلغاء
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="rounded-2xl bg-emerald-600 hover:bg-emerald-700 px-5 py-2 font-black text-white shadow-md active:scale-95 disabled:opacity-50"
-            >
-              {isSubmitting ? 'جاري التسليم...' : 'تأكيد تسليم العهدة'}
-            </button>
-          </div>
         </form>
+
+        <div className="px-6 py-4 border-t border-border/30 dark:border-white/10 bg-surface/60 dark:bg-white/[0.02] backdrop-blur-xl flex items-center justify-end gap-3 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-2xl border border-border/80 bg-surface px-5 py-2.5 text-xs font-bold text-foreground hover:bg-surface-hover transition-colors shadow-xs"
+          >
+            إلغاء
+          </button>
+          <button
+            form="assign-asset-form"
+            type="submit"
+            disabled={isSubmitting}
+            className="rounded-2xl bg-emerald-600 hover:bg-emerald-700 px-6 py-2.5 text-xs font-black text-white shadow-md active:scale-95 disabled:opacity-50 transition-all"
+          >
+            {isSubmitting ? 'جاري التسليم...' : 'تأكيد تسليم العهدة'}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -1075,47 +1099,58 @@ function ReturnAssetModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in">
-      <div className="relative overflow-hidden w-full max-w-md rounded-3xl border border-white/60 dark:border-white/15 bg-white/85 dark:bg-black/90 backdrop-blur-2xl p-6 shadow-2xl space-y-4">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/80 dark:via-white/20 to-transparent" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 sm:p-6 animate-in fade-in duration-200">
+      <div className="relative overflow-hidden w-full max-w-md max-h-[85vh] flex flex-col rounded-3xl border border-white/30 dark:border-white/10 bg-white/90 dark:bg-[#141411]/95 backdrop-blur-3xl shadow-2xl">
+        {/* Top Specular Rim */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent z-10" />
 
-        <div className="flex items-center justify-between border-b border-border/30 pb-3">
-          <h3 className="text-sm font-black text-foreground flex items-center gap-2">
-            <FiUserMinus className="h-4 w-4 text-amber-500" />
-            <span>استرجاع عهدة وفحص الجهاز</span>
-          </h3>
-          <button onClick={onClose} className="text-foreground-muted hover:text-foreground p-1">
+        <div className="px-6 py-5 border-b border-border/30 dark:border-white/10 flex items-center justify-between bg-surface/40 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center shadow-inner">
+              <FiUserMinus className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-foreground">استرجاع عهدة وفحص الجهاز</h3>
+              <p className="text-[11px] text-foreground-muted">إعادة الأصل إلى المخزن وتحديث حالته</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-8 w-8 rounded-xl flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+            title="إغلاق"
+          >
             <FiX className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Current Holder Brief */}
-        <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs space-y-1">
-          <div className="font-extrabold text-foreground">{asset.name}</div>
-          <div className="text-[11px] text-amber-700 dark:text-amber-300">
-            عهدة حالياً لدى: <span className="font-bold">{asset.assignee?.fullName}</span> (
-            {asset.assignee?.employeeCode})
+        <form id="return-asset-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-5 space-y-4 text-xs">
+          {/* Current Holder Brief */}
+          <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs space-y-1">
+            <div className="font-extrabold text-foreground">{asset.name}</div>
+            <div className="text-[11px] text-amber-700 dark:text-amber-300">
+              عهدة حالياً لدى: <span className="font-bold">{asset.assignee?.fullName}</span> (
+              {asset.assignee?.employeeCode})
+            </div>
           </div>
-        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3 text-xs">
           <div>
-            <label className="block font-bold text-foreground-muted mb-1">
-              حالة الأصل بعد الاسترجاع والفحص
+            <label className="block text-xs font-bold text-foreground mb-1.5">
+              حالة الأصل بعد الاسترجاع والفحص <span className="text-rose-500">*</span>
             </label>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as AssetStatus)}
-              className="w-full rounded-2xl border border-border/50 bg-surface p-2.5 text-foreground focus:outline-none"
+              className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 text-xs text-foreground focus:bg-surface focus:outline-none focus:ring-2 focus:ring-amber-500/20"
             >
-              <option value="AVAILABLE">متاح وسليم بالمخزن (جاهز للتسليم مجدداً)</option>
-              <option value="IN_MAINTENANCE">يحتاج صيانة وفحص فني</option>
-              <option value="RETIRED">تالف / خارج الخدمة نهائياً</option>
+              <option value="AVAILABLE">✅ متاح وسليم بالمخزن (جاهز للتسليم مجدداً)</option>
+              <option value="IN_MAINTENANCE">🛠️ يحتاج صيانة وفحص فني</option>
+              <option value="RETIRED">⛔ تالف / خارج الخدمة نهائياً</option>
             </select>
           </div>
 
           <div>
-            <label className="block font-bold text-foreground-muted mb-1">
+            <label className="block text-xs font-bold text-foreground mb-1.5">
               تقرير الفحص وملاحظات الاستلام
             </label>
             <textarea
@@ -1123,27 +1158,28 @@ function ReturnAssetModal({
               placeholder="مثال: تم الاستلام بحالة ممتازة مع كافة الملحقات وتم عمل مسح للبيانات..."
               value={conditionNotes}
               onChange={(e) => setConditionNotes(e.target.value)}
-              className="w-full rounded-2xl border border-border/50 bg-surface p-2.5 text-foreground focus:outline-none"
+              className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 p-3 text-xs text-foreground placeholder:text-foreground-subtle focus:bg-surface focus:outline-none focus:ring-2 focus:ring-amber-500/20 resize-none"
             />
           </div>
-
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/30">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-2xl border border-border bg-surface px-4 py-2 font-bold text-foreground"
-            >
-              إلغاء
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="rounded-2xl bg-amber-500 hover:bg-amber-600 px-5 py-2 font-black text-black shadow-md active:scale-95 disabled:opacity-50"
-            >
-              {isSubmitting ? 'جاري الاسترجاع...' : 'تأكيد استرجاع العهدة'}
-            </button>
-          </div>
         </form>
+
+        <div className="px-6 py-4 border-t border-border/30 dark:border-white/10 bg-surface/60 dark:bg-white/[0.02] backdrop-blur-xl flex items-center justify-end gap-3 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-2xl border border-border/80 bg-surface px-5 py-2.5 text-xs font-bold text-foreground hover:bg-surface-hover transition-colors shadow-xs"
+          >
+            إلغاء
+          </button>
+          <button
+            form="return-asset-form"
+            type="submit"
+            disabled={isSubmitting}
+            className="rounded-2xl bg-amber-500 hover:bg-amber-600 px-6 py-2.5 text-xs font-black text-brand-stone-950 shadow-md active:scale-95 disabled:opacity-50 transition-all"
+          >
+            {isSubmitting ? 'جاري الاسترجاع...' : 'تأكيد استرجاع العهدة'}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -1165,26 +1201,34 @@ function AssetHistoryModal({
   const history = selected.assignmentHistory || [];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in">
-      <div className="relative overflow-hidden w-full max-w-lg rounded-3xl border border-white/60 dark:border-white/15 bg-white/85 dark:bg-black/90 backdrop-blur-2xl p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/80 dark:via-white/20 to-transparent" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 sm:p-6 animate-in fade-in duration-200">
+      <div className="relative overflow-hidden w-full max-w-xl max-h-[85vh] flex flex-col rounded-3xl border border-white/30 dark:border-white/10 bg-white/90 dark:bg-[#141411]/95 backdrop-blur-3xl shadow-2xl">
+        {/* Top Specular Rim */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent z-10" />
 
-        <div className="flex items-center justify-between border-b border-border/30 pb-3">
-          <div>
-            <h3 className="text-sm font-black text-foreground flex items-center gap-2">
-              <FiClock className="h-4 w-4 text-brand-gold" />
-              <span>السجل التاريخي للعهدة وحركات الأصل</span>
-            </h3>
-            <p className="text-[11px] text-foreground-muted font-mono mt-0.5">
-              {asset.name} • S/N: {asset.serialNumber}
-            </p>
+        <div className="px-6 py-5 border-b border-border/30 dark:border-white/10 flex items-center justify-between bg-surface/40 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-2xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shadow-inner">
+              <FiClock className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-foreground">السجل التاريخي للعهدة</h3>
+              <p className="text-[11px] text-foreground-muted font-mono truncate max-w-[280px]">
+                {asset.name} • S/N: {asset.serialNumber}
+              </p>
+            </div>
           </div>
-          <button onClick={onClose} className="text-foreground-muted hover:text-foreground p-1">
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-8 w-8 rounded-xl flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+            title="إغلاق"
+          >
             <FiX className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-3">
           {isLoading ? (
             <div className="py-16 text-center text-xs text-foreground-muted animate-pulse">
               جاري تحميل السجل التاريخي وحركات العهدة...
@@ -1197,11 +1241,11 @@ function AssetHistoryModal({
             history.map((record, index) => (
               <div
                 key={record.id || index}
-                className="relative p-4 rounded-2xl border border-border/40 bg-surface/80 text-xs space-y-2"
+                className="relative p-4 rounded-2xl border border-border/60 dark:border-white/5 bg-surface/80 text-xs space-y-2"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-brand-gold" />
+                    <span className="h-2 w-2 rounded-full bg-primary" />
                     <span className="font-extrabold text-foreground">
                       {record.employee?.fullName || 'موظف'}
                     </span>
@@ -1211,11 +1255,11 @@ function AssetHistoryModal({
                   </div>
 
                   {record.returnedAt ? (
-                    <span className="px-2 py-0.5 rounded-md bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 text-[10px] font-bold border border-zinc-500/20">
+                    <span className="px-2.5 py-1 rounded-xl bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 text-[10px] font-bold border border-zinc-500/20">
                       تم الاسترجاع
                     </span>
                   ) : (
-                    <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold border border-emerald-500/20">
+                    <span className="px-2.5 py-1 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold border border-emerald-500/20">
                       عهدة نشطة حالياً
                     </span>
                   )}
@@ -1239,7 +1283,7 @@ function AssetHistoryModal({
                 </div>
 
                 {record.conditionNotes && (
-                  <div className="p-2.5 rounded-xl bg-surface-raised/60 text-[11px] text-foreground">
+                  <div className="p-3 rounded-xl bg-surface-raised/60 text-[11px] text-foreground border border-border/20">
                     <span className="font-bold text-foreground-muted block mb-0.5">ملاحظات الفحص والحالة:</span>
                     {record.conditionNotes}
                   </div>
@@ -1255,10 +1299,11 @@ function AssetHistoryModal({
           )}
         </div>
 
-        <div className="pt-3 border-t border-border/30 flex justify-end">
+        <div className="px-6 py-4 border-t border-border/30 dark:border-white/10 bg-surface/60 dark:bg-white/[0.02] backdrop-blur-xl flex justify-end shrink-0">
           <button
+            type="button"
             onClick={onClose}
-            className="rounded-2xl border border-border bg-surface px-5 py-2 text-xs font-bold text-foreground hover:bg-surface-hover"
+            className="rounded-2xl border border-border/80 bg-surface px-5 py-2.5 text-xs font-bold text-foreground hover:bg-surface-hover transition-colors shadow-xs"
           >
             إغلاق
           </button>
@@ -1313,51 +1358,66 @@ function EditAssetModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in">
-      <div className="relative overflow-hidden w-full max-w-lg rounded-3xl border border-white/60 dark:border-white/15 bg-white/85 dark:bg-black/90 backdrop-blur-2xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/80 dark:via-white/20 to-transparent" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 sm:p-6 animate-in fade-in duration-200">
+      <div className="relative overflow-hidden w-full max-w-xl max-h-[88vh] flex flex-col rounded-3xl border border-white/30 dark:border-white/10 bg-white/90 dark:bg-[#141411]/95 backdrop-blur-3xl shadow-2xl">
+        {/* Top Specular Rim */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent z-10" />
 
-        <div className="flex items-center justify-between border-b border-border/30 pb-3">
-          <h3 className="text-sm font-black text-foreground flex items-center gap-2">
-            <FiEdit3 className="h-4 w-4 text-brand-gold" />
-            <span>تعديل بيانات الأصل</span>
-          </h3>
-          <button onClick={onClose} className="text-foreground-muted hover:text-foreground p-1">
+        <div className="px-6 py-5 border-b border-border/30 dark:border-white/10 flex items-center justify-between bg-surface/40 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-2xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shadow-inner">
+              <FiEdit3 className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-foreground">تعديل بيانات الأصل</h3>
+              <p className="text-[11px] text-foreground-muted">تحديث المواصفات والحالة الفنية</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-8 w-8 rounded-xl flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+            title="إغلاق"
+          >
             <FiX className="h-4 w-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
+        <form id="edit-asset-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-5 space-y-4 text-xs">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block font-bold text-foreground-muted mb-1">اسم الأصل</label>
+              <label className="block text-xs font-bold text-foreground mb-1.5">
+                اسم الأصل <span className="text-rose-500">*</span>
+              </label>
               <input
                 type="text"
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-2xl border border-border/50 bg-surface p-2.5 text-foreground focus:outline-none"
+                className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 text-xs text-foreground placeholder:text-foreground-subtle focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </div>
             <div>
-              <label className="block font-bold text-foreground-muted mb-1">الرقم التسلسلي (S/N)</label>
+              <label className="block text-xs font-bold text-foreground mb-1.5">
+                الرقم التسلسلي (S/N) <span className="text-rose-500">*</span>
+              </label>
               <input
                 type="text"
                 required
                 value={serialNumber}
                 onChange={(e) => setSerialNumber(e.target.value)}
-                className="w-full rounded-2xl border border-border/50 bg-surface p-2.5 font-mono text-foreground focus:outline-none"
+                className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 text-xs font-mono text-foreground focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block font-bold text-foreground-muted mb-1">النوع</label>
+              <label className="block text-xs font-bold text-foreground mb-1.5">النوع</label>
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value as AssetType)}
-                className="w-full rounded-2xl border border-border/50 bg-surface p-2.5 text-foreground focus:outline-none"
+                className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-3.5 py-2.5 text-xs text-foreground focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
                 <option value="HARDWARE">أجهزة ومعدات</option>
                 <option value="SOFTWARE">تراخيص وبرمجيات</option>
@@ -1366,11 +1426,11 @@ function EditAssetModal({
               </select>
             </div>
             <div>
-              <label className="block font-bold text-foreground-muted mb-1">الحالة</label>
+              <label className="block text-xs font-bold text-foreground mb-1.5">الحالة</label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value as AssetStatus)}
-                className="w-full rounded-2xl border border-border/50 bg-surface p-2.5 text-foreground focus:outline-none"
+                className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-3.5 py-2.5 text-xs text-foreground focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
                 <option value="AVAILABLE">متاح بالمخزن</option>
                 <option value="ASSIGNED">مسلّم كعهدة</option>
@@ -1382,64 +1442,65 @@ function EditAssetModal({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block font-bold text-foreground-muted mb-1">الشركة المصنعة</label>
+              <label className="block text-xs font-bold text-foreground mb-1.5">الشركة المصنعة</label>
               <input
                 type="text"
                 value={manufacturer}
                 onChange={(e) => setManufacturer(e.target.value)}
-                className="w-full rounded-2xl border border-border/50 bg-surface p-2.5 text-foreground focus:outline-none"
+                className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 text-xs text-foreground focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </div>
             <div>
-              <label className="block font-bold text-foreground-muted mb-1">الموديل</label>
+              <label className="block text-xs font-bold text-foreground mb-1.5">الموديل</label>
               <input
                 type="text"
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
-                className="w-full rounded-2xl border border-border/50 bg-surface p-2.5 text-foreground focus:outline-none"
+                className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 text-xs text-foreground focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </div>
           </div>
 
           <div>
-            <label className="block font-bold text-foreground-muted mb-1">تكلفة الشراء (EGP)</label>
+            <label className="block text-xs font-bold text-foreground mb-1.5">تكلفة الشراء (EGP)</label>
             <input
               type="number"
               min="0"
               step="0.01"
               value={purchaseCost}
               onChange={(e) => setPurchaseCost(e.target.value)}
-              className="w-full rounded-2xl border border-border/50 bg-surface p-2.5 font-mono text-foreground focus:outline-none"
+              className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 text-xs font-mono text-foreground focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
           </div>
 
           <div>
-            <label className="block font-bold text-foreground-muted mb-1">ملاحظات ومواصفات</label>
+            <label className="block text-xs font-bold text-foreground mb-1.5">ملاحظات ومواصفات</label>
             <textarea
               rows={2}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full rounded-2xl border border-border/50 bg-surface p-2.5 text-foreground focus:outline-none"
+              className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 p-3 text-xs text-foreground placeholder:text-foreground-subtle focus:bg-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
             />
           </div>
-
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/30">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-2xl border border-border bg-surface px-4 py-2 font-bold text-foreground"
-            >
-              إلغاء
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="rounded-2xl bg-primary hover:bg-primary-hover px-5 py-2 font-black text-primary-foreground shadow-md active:scale-95 disabled:opacity-50"
-            >
-              {isSubmitting ? 'جاري الحفظ...' : 'تحديث البيانات'}
-            </button>
-          </div>
         </form>
+
+        <div className="px-6 py-4 border-t border-border/30 dark:border-white/10 bg-surface/60 dark:bg-white/[0.02] backdrop-blur-xl flex items-center justify-end gap-3 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-2xl border border-border/80 bg-surface px-5 py-2.5 text-xs font-bold text-foreground hover:bg-surface-hover transition-colors shadow-xs"
+          >
+            إلغاء
+          </button>
+          <button
+            form="edit-asset-form"
+            type="submit"
+            disabled={isSubmitting}
+            className="rounded-2xl btn-glow-primary px-6 py-2.5 text-xs font-black text-brand-stone-950 shadow-md active:scale-95 disabled:opacity-50 transition-all"
+          >
+            {isSubmitting ? 'جاري الحفظ...' : 'تحديث البيانات'}
+          </button>
+        </div>
       </div>
     </div>
   );

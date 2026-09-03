@@ -23,6 +23,7 @@ import {
   FiTrash2,
   FiAlertCircle,
   FiX,
+  FiTrendingUp,
 } from 'react-icons/fi';
 import { BiBuildingHouse } from 'react-icons/bi';
 
@@ -400,24 +401,34 @@ export default function OrganizationPage() {
       {/* MODAL: CREATE DEPARTMENT                                              */}
       {/* ===================================================================== */}
       {isDeptModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="relative overflow-hidden w-full max-w-md rounded-3xl border border-white/40 dark:border-white/10 bg-white/85 dark:bg-black/90 backdrop-blur-2xl p-6 shadow-2xl space-y-4">
-            {/* Top Specular Rim Highlight */}
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/80 dark:via-white/20 to-transparent z-10" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative overflow-hidden w-full max-w-md max-h-[85vh] flex flex-col rounded-3xl border border-white/30 dark:border-white/10 bg-white/90 dark:bg-[#141411]/95 backdrop-blur-3xl shadow-2xl">
+            {/* Top Specular Rim */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent z-10" />
 
-            <div className="flex items-center justify-between border-b border-border/30 pb-3">
-              <h2 className="text-sm font-black text-foreground">إضافة قسم تنظيمي جديد</h2>
+            <div className="px-6 py-5 border-b border-border/30 dark:border-white/10 flex items-center justify-between bg-surface/40 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-2xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shadow-inner">
+                  <BiBuildingHouse className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-black text-foreground">إضافة قسم تنظيمي جديد</h2>
+                  <p className="text-[11px] text-foreground-muted">إنشاء وحدة إدارية جديدة في الهيكل التنظيمي</p>
+                </div>
+              </div>
               <button
+                type="button"
                 onClick={() => setIsDeptModalOpen(false)}
-                className="p-1 rounded-xl text-foreground-muted hover:text-foreground"
+                className="h-8 w-8 rounded-xl flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                title="إغلاق"
               >
-                <FiX className="h-5 w-5" />
+                <FiX className="h-4 w-4" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateDept} className="space-y-4">
+            <form id="create-dept-form" onSubmit={handleCreateDept} className="flex-1 overflow-y-auto px-6 py-5 space-y-4 text-xs">
               <div>
-                <label className="block text-xs font-bold text-foreground-muted mb-1">
+                <label className="block text-xs font-bold text-foreground mb-1.5">
                   اسم القسم <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -426,12 +437,12 @@ export default function OrganizationPage() {
                   value={deptForm.name}
                   onChange={(e) => setDeptForm({ ...deptForm, name: e.target.value })}
                   placeholder="مثال: إدارة تكنولوجيا المعلومات"
-                  className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground placeholder-foreground-subtle focus:border-primary focus:outline-none"
+                  className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 text-xs text-foreground placeholder:text-foreground-subtle focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-foreground-muted mb-1">
+                <label className="block text-xs font-bold text-foreground mb-1.5">
                   كود القسم (Code) <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -440,38 +451,39 @@ export default function OrganizationPage() {
                   value={deptForm.code}
                   onChange={(e) => setDeptForm({ ...deptForm, code: e.target.value })}
                   placeholder="مثال: IT / HR / FIN"
-                  className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground font-mono placeholder-foreground-subtle uppercase focus:border-primary focus:outline-none"
+                  className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 text-xs text-foreground font-mono placeholder:text-foreground-subtle uppercase focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-foreground-muted mb-1">الوصف (اختياري)</label>
+                <label className="block text-xs font-bold text-foreground mb-1.5">الوصف (اختياري)</label>
                 <textarea
                   value={deptForm.description}
                   onChange={(e) => setDeptForm({ ...deptForm, description: e.target.value })}
-                  placeholder="نبذة عن مهام القسم والمسؤوليات..."
-                  rows={2}
-                  className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:outline-none resize-none"
+                  placeholder="نبذة عن مهام القسم والمسؤوليات الأساسية..."
+                  rows={3}
+                  className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 text-xs text-foreground placeholder:text-foreground-subtle focus:bg-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
                 />
               </div>
-
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
-                <button
-                  type="button"
-                  onClick={() => setIsDeptModalOpen(false)}
-                  className="rounded-2xl border border-border bg-surface px-4 py-2 text-xs font-bold text-foreground"
-                >
-                  إلغاء
-                </button>
-                <button
-                  type="submit"
-                  disabled={createDeptMutation.isPending}
-                  className="rounded-2xl bg-primary hover:bg-primary-hover px-5 py-2 text-xs font-black text-primary-foreground shadow-md active:scale-95 disabled:opacity-50"
-                >
-                  {createDeptMutation.isPending ? 'جاري الإنشاء...' : 'إنشاء القسم'}
-                </button>
-              </div>
             </form>
+
+            <div className="px-6 py-4 border-t border-border/30 dark:border-white/10 bg-surface/60 dark:bg-white/[0.02] backdrop-blur-xl flex items-center justify-end gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsDeptModalOpen(false)}
+                className="rounded-2xl border border-border/80 bg-surface px-5 py-2.5 text-xs font-bold text-foreground hover:bg-surface-hover transition-colors shadow-xs"
+              >
+                إلغاء
+              </button>
+              <button
+                form="create-dept-form"
+                type="submit"
+                disabled={createDeptMutation.isPending}
+                className="rounded-2xl btn-glow-primary px-6 py-2.5 text-xs font-black text-brand-stone-950 shadow-md active:scale-95 disabled:opacity-50 transition-all"
+              >
+                {createDeptMutation.isPending ? 'جاري الإنشاء...' : 'إنشاء القسم'}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -480,24 +492,34 @@ export default function OrganizationPage() {
       {/* MODAL: CREATE POSITION                                                */}
       {/* ===================================================================== */}
       {isPosModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="relative overflow-hidden w-full max-w-md rounded-3xl border border-white/40 dark:border-white/10 bg-white/85 dark:bg-black/90 backdrop-blur-2xl p-6 shadow-2xl space-y-4">
-            {/* Top Specular Rim Highlight */}
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/80 dark:via-white/20 to-transparent z-10" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative overflow-hidden w-full max-w-md max-h-[85vh] flex flex-col rounded-3xl border border-white/30 dark:border-white/10 bg-white/90 dark:bg-[#141411]/95 backdrop-blur-3xl shadow-2xl">
+            {/* Top Specular Rim */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent z-10" />
 
-            <div className="flex items-center justify-between border-b border-border/30 pb-3">
-              <h2 className="text-sm font-black text-foreground">إضافة مسمى وظيفي للقسم</h2>
+            <div className="px-6 py-5 border-b border-border/30 dark:border-white/10 flex items-center justify-between bg-surface/40 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-2xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shadow-inner">
+                  <FiLayers className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-black text-foreground">إضافة مسمى وظيفي للقسم</h2>
+                  <p className="text-[11px] text-foreground-muted">تعريف الدور الوظيفي ومسؤولياته</p>
+                </div>
+              </div>
               <button
+                type="button"
                 onClick={() => setIsPosModalOpen(false)}
-                className="p-1 rounded-xl text-foreground-muted hover:text-foreground"
+                className="h-8 w-8 rounded-xl flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                title="إغلاق"
               >
-                <FiX className="h-5 w-5" />
+                <FiX className="h-4 w-4" />
               </button>
             </div>
 
-            <form onSubmit={handleCreatePos} className="space-y-4">
+            <form id="create-pos-form" onSubmit={handleCreatePos} className="flex-1 overflow-y-auto px-6 py-5 space-y-4 text-xs">
               <div>
-                <label className="block text-xs font-bold text-foreground-muted mb-1">
+                <label className="block text-xs font-bold text-foreground mb-1.5">
                   المسمى الوظيفي <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -506,38 +528,39 @@ export default function OrganizationPage() {
                   value={posForm.name}
                   onChange={(e) => setPosForm({ ...posForm, name: e.target.value })}
                   placeholder="مثال: مهندس برمجيات أول (Senior Software Engineer)"
-                  className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground placeholder-foreground-subtle focus:border-primary focus:outline-none"
+                  className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 text-xs text-foreground placeholder:text-foreground-subtle focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-foreground-muted mb-1">الوصف (اختياري)</label>
+                <label className="block text-xs font-bold text-foreground mb-1.5">الوصف (اختياري)</label>
                 <textarea
                   value={posForm.description}
                   onChange={(e) => setPosForm({ ...posForm, description: e.target.value })}
-                  placeholder="المتطلبات والمسؤوليات الأساسية..."
-                  rows={2}
-                  className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:outline-none resize-none"
+                  placeholder="المتطلبات والمسؤوليات الأساسية للدور..."
+                  rows={3}
+                  className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 text-xs text-foreground placeholder:text-foreground-subtle focus:bg-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
                 />
               </div>
-
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
-                <button
-                  type="button"
-                  onClick={() => setIsPosModalOpen(false)}
-                  className="rounded-2xl border border-border bg-surface px-4 py-2 text-xs font-bold text-foreground"
-                >
-                  إلغاء
-                </button>
-                <button
-                  type="submit"
-                  disabled={createPosMutation.isPending}
-                  className="rounded-2xl bg-primary hover:bg-primary-hover px-5 py-2 text-xs font-black text-primary-foreground shadow-md active:scale-95 disabled:opacity-50"
-                >
-                  {createPosMutation.isPending ? 'جاري الإضافة...' : 'إضافة المسمى'}
-                </button>
-              </div>
             </form>
+
+            <div className="px-6 py-4 border-t border-border/30 dark:border-white/10 bg-surface/60 dark:bg-white/[0.02] backdrop-blur-xl flex items-center justify-end gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsPosModalOpen(false)}
+                className="rounded-2xl border border-border/80 bg-surface px-5 py-2.5 text-xs font-bold text-foreground hover:bg-surface-hover transition-colors shadow-xs"
+              >
+                إلغاء
+              </button>
+              <button
+                form="create-pos-form"
+                type="submit"
+                disabled={createPosMutation.isPending}
+                className="rounded-2xl btn-glow-primary px-6 py-2.5 text-xs font-black text-brand-stone-950 shadow-md active:scale-95 disabled:opacity-50 transition-all"
+              >
+                {createPosMutation.isPending ? 'جاري الإضافة...' : 'إضافة المسمى'}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -546,24 +569,34 @@ export default function OrganizationPage() {
       {/* MODAL: CREATE LEVEL                                                   */}
       {/* ===================================================================== */}
       {isLvlModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="relative overflow-hidden w-full max-w-md rounded-3xl border border-white/40 dark:border-white/10 bg-white/85 dark:bg-black/90 backdrop-blur-2xl p-6 shadow-2xl space-y-4">
-            {/* Top Specular Rim Highlight */}
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/80 dark:via-white/20 to-transparent z-10" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative overflow-hidden w-full max-w-md max-h-[85vh] flex flex-col rounded-3xl border border-white/30 dark:border-white/10 bg-white/90 dark:bg-[#141411]/95 backdrop-blur-3xl shadow-2xl">
+            {/* Top Specular Rim */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent z-10" />
 
-            <div className="flex items-center justify-between border-b border-border/30 pb-3">
-              <h2 className="text-sm font-black text-foreground">إضافة درجة / مستوى وظيفي</h2>
+            <div className="px-6 py-5 border-b border-border/30 dark:border-white/10 flex items-center justify-between bg-surface/40 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-2xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shadow-inner">
+                  <FiTrendingUp className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-black text-foreground">إضافة درجة / مستوى وظيفي</h2>
+                  <p className="text-[11px] text-foreground-muted">تحديد رتب ومسارات الترقي الوظيفي</p>
+                </div>
+              </div>
               <button
+                type="button"
                 onClick={() => setIsLvlModalOpen(false)}
-                className="p-1 rounded-xl text-foreground-muted hover:text-foreground"
+                className="h-8 w-8 rounded-xl flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                title="إغلاق"
               >
-                <FiX className="h-5 w-5" />
+                <FiX className="h-4 w-4" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateLvl} className="space-y-4">
+            <form id="create-lvl-form" onSubmit={handleCreateLvl} className="flex-1 overflow-y-auto px-6 py-5 space-y-4 text-xs">
               <div>
-                <label className="block text-xs font-bold text-foreground-muted mb-1">
+                <label className="block text-xs font-bold text-foreground mb-1.5">
                   اسم المستوى <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -572,12 +605,12 @@ export default function OrganizationPage() {
                   value={lvlForm.name}
                   onChange={(e) => setLvlForm({ ...lvlForm, name: e.target.value })}
                   placeholder="مثال: مبتدئ (Junior) / خبير (Lead)"
-                  className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground placeholder-foreground-subtle focus:border-primary focus:outline-none"
+                  className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 text-xs text-foreground placeholder:text-foreground-subtle focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-foreground-muted mb-1">
+                <label className="block text-xs font-bold text-foreground mb-1.5">
                   الرتبة الرقمية (Rank) <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -587,38 +620,39 @@ export default function OrganizationPage() {
                   value={lvlForm.rank}
                   onChange={(e) => setLvlForm({ ...lvlForm, rank: Number(e.target.value) })}
                   placeholder="1"
-                  className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground font-mono focus:border-primary focus:outline-none"
+                  className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 text-xs text-foreground font-mono focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-foreground-muted mb-1">الوصف (اختياري)</label>
+                <label className="block text-xs font-bold text-foreground mb-1.5">الوصف (اختياري)</label>
                 <textarea
                   value={lvlForm.description}
                   onChange={(e) => setLvlForm({ ...lvlForm, description: e.target.value })}
-                  placeholder="سنوات الخبرة أو المعايير المطلوبة..."
-                  rows={2}
-                  className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:outline-none resize-none"
+                  placeholder="سنوات الخبرة أو المعايير المطلوبة للمستوى..."
+                  rows={3}
+                  className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 text-xs text-foreground placeholder:text-foreground-subtle focus:bg-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
                 />
               </div>
-
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
-                <button
-                  type="button"
-                  onClick={() => setIsLvlModalOpen(false)}
-                  className="rounded-2xl border border-border bg-surface px-4 py-2 text-xs font-bold text-foreground"
-                >
-                  إلغاء
-                </button>
-                <button
-                  type="submit"
-                  disabled={createLvlMutation.isPending}
-                  className="rounded-2xl bg-primary hover:bg-primary-hover px-5 py-2 text-xs font-black text-primary-foreground shadow-md active:scale-95 disabled:opacity-50"
-                >
-                  {createLvlMutation.isPending ? 'جاري الإضافة...' : 'إضافة المستوى'}
-                </button>
-              </div>
             </form>
+
+            <div className="px-6 py-4 border-t border-border/30 dark:border-white/10 bg-surface/60 dark:bg-white/[0.02] backdrop-blur-xl flex items-center justify-end gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsLvlModalOpen(false)}
+                className="rounded-2xl border border-border/80 bg-surface px-5 py-2.5 text-xs font-bold text-foreground hover:bg-surface-hover transition-colors shadow-xs"
+              >
+                إلغاء
+              </button>
+              <button
+                form="create-lvl-form"
+                type="submit"
+                disabled={createLvlMutation.isPending}
+                className="rounded-2xl btn-glow-primary px-6 py-2.5 text-xs font-black text-brand-stone-950 shadow-md active:scale-95 disabled:opacity-50 transition-all"
+              >
+                {createLvlMutation.isPending ? 'جاري الإضافة...' : 'إضافة المستوى'}
+              </button>
+            </div>
           </div>
         </div>
       )}

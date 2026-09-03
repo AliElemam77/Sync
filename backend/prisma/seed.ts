@@ -214,8 +214,9 @@ async function main() {
   });
 
   await prisma.employeeProfile.upsert({
-    where: { userId: adminUser.id },
+    where: { employeeCode: 'TAR0000' },
     update: {
+      userId: adminUser.id,
       departmentId: engDept.id,
       positionId: adminPos.id,
     },
@@ -282,9 +283,10 @@ async function main() {
     },
   });
 
-  await prisma.employeeProfile.upsert({
-    where: { userId: sampleUser.id },
+  const sampleEmp = await prisma.employeeProfile.upsert({
+    where: { employeeCode: 'TAR0001' },
     update: {
+      userId: sampleUser.id,
       departmentId: engDept.id,
       positionId: swEngPos.id,
       levelId: swSeniorLevel.id,
@@ -308,25 +310,13 @@ async function main() {
       status: EmployeeStatus.ACTIVE,
       address: 'Nasr City, Cairo, Egypt',
       altPhone: '+20 111 987 6543',
-      emergencyContact: {
-        create: {
-          name: 'Ibrahim Mansour',
-          relationship: EmergencyRelationship.BROTHER,
-          phone: '+20 100 999 8888',
-        },
-      },
-      bankInfo: {
-        create: {
-          bankName: 'Commercial International Bank (CIB)',
-          accountHolder: 'Ahmed Mansour',
-          accountNumber: '100029384756',
-          iban: 'EG3800020001000000100029384756',
-          swift: 'CIBEEGCX',
-          branch: 'Nasr City Branch',
-          basicSalary: 35000.0,
-        },
-      },
     },
+  });
+
+  // 9. Assign Head to Engineering Department
+  await prisma.department.update({
+    where: { id: engDept.id },
+    data: { headId: sampleEmp.id },
   });
 
   // 9. Seed UI/UX Positions & Levels
@@ -374,8 +364,9 @@ async function main() {
   });
 
   await prisma.employeeProfile.upsert({
-    where: { userId: omarUser.id },
+    where: { employeeCode: 'TAR0002' },
     update: {
+      userId: omarUser.id,
       departmentId: engDept.id,
       positionId: swEngPos.id,
     },
@@ -412,8 +403,9 @@ async function main() {
   });
 
   await prisma.employeeProfile.upsert({
-    where: { userId: saraUser.id },
+    where: { employeeCode: 'TAR0003' },
     update: {
+      userId: saraUser.id,
       departmentId: uiDept.id,
       positionId: uiLeadPos.id,
     },
@@ -450,8 +442,9 @@ async function main() {
   });
 
   await prisma.employeeProfile.upsert({
-    where: { userId: karimUser.id },
+    where: { employeeCode: 'TAR0004' },
     update: {
+      userId: karimUser.id,
       departmentId: uiDept.id,
       positionId: uiDesignerPos.id,
     },

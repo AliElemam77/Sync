@@ -930,35 +930,46 @@ function CreateTransactionModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in">
-      <div className="relative overflow-hidden w-full max-w-lg rounded-3xl border border-white/60 dark:border-white/15 bg-white/85 dark:bg-black/90 backdrop-blur-2xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/80 dark:via-white/20 to-transparent" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 sm:p-6 animate-in fade-in duration-200">
+      <div className="relative overflow-hidden w-full max-w-xl max-h-[88vh] flex flex-col rounded-3xl border border-white/30 dark:border-white/10 bg-white/90 dark:bg-[#141411]/95 backdrop-blur-3xl shadow-2xl">
+        {/* Top Specular Rim */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent z-10" />
 
-        <div className="flex items-center justify-between border-b border-border/30 pb-3">
-          <h3 className="text-sm font-black text-foreground flex items-center gap-2">
-            <FiPlus className="h-4 w-4 text-brand-gold" />
-            <span>تسجيل قيد مالي جديد (دفتر اليومية)</span>
-          </h3>
-          <button onClick={onClose} className="text-foreground-muted hover:text-foreground p-1">
+        <div className="px-6 py-5 border-b border-border/30 dark:border-white/10 flex items-center justify-between bg-surface/40 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-2xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shadow-inner">
+              <FiDollarSign className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-foreground">تسجيل قيد مالي جديد</h3>
+              <p className="text-[11px] text-foreground-muted">توثيق الإيرادات والمصروفات في دفتر اليومية العام</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-8 w-8 rounded-xl flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+            title="إغلاق"
+          >
             <FiX className="h-4 w-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
+        <form id="record-transaction-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-5 space-y-4 text-xs">
           {/* Type Toggle & Amount */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block font-bold text-foreground-muted mb-1">
+              <label className="block text-xs font-bold text-foreground mb-1.5">
                 نوع القيد <span className="text-rose-500">*</span>
               </label>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setType('INCOME')}
-                  className={`py-2 rounded-xl font-black text-xs transition-all border ${
+                  className={`py-2.5 rounded-2xl font-black text-xs transition-all border ${
                     type === 'INCOME'
                       ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/50 shadow-xs'
-                      : 'bg-surface text-foreground-muted border-border/40'
+                      : 'bg-surface text-foreground-muted border-border/80 dark:border-white/10'
                   }`}
                 >
                   إيراد (+)
@@ -966,10 +977,10 @@ function CreateTransactionModal({
                 <button
                   type="button"
                   onClick={() => setType('EXPENSE')}
-                  className={`py-2 rounded-xl font-black text-xs transition-all border ${
+                  className={`py-2.5 rounded-2xl font-black text-xs transition-all border ${
                     type === 'EXPENSE'
                       ? 'bg-rose-500/20 text-rose-600 dark:text-rose-400 border-rose-500/50 shadow-xs'
-                      : 'bg-surface text-foreground-muted border-border/40'
+                      : 'bg-surface text-foreground-muted border-border/80 dark:border-white/10'
                   }`}
                 >
                   مصروف (-)
@@ -978,7 +989,7 @@ function CreateTransactionModal({
             </div>
 
             <div>
-              <label className="block font-bold text-foreground-muted mb-1">
+              <label className="block text-xs font-bold text-foreground mb-1.5">
                 المبلغ المالي (EGP) <span className="text-rose-500">*</span>
               </label>
               <input
@@ -989,7 +1000,7 @@ function CreateTransactionModal({
                 placeholder="0.00"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="w-full rounded-2xl border border-border/50 bg-surface p-2.5 font-mono text-sm font-black text-foreground focus:outline-none focus:border-primary"
+                className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 font-mono text-sm font-black text-foreground placeholder:text-foreground-subtle focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </div>
           </div>
@@ -997,13 +1008,13 @@ function CreateTransactionModal({
           {/* Category & Payment Method */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block font-bold text-foreground-muted mb-1">
+              <label className="block text-xs font-bold text-foreground mb-1.5">
                 بند / تصنيف المعاملة <span className="text-rose-500">*</span>
               </label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value as TransactionCategory)}
-                className="w-full rounded-2xl border border-border/50 bg-surface p-2.5 text-foreground focus:outline-none"
+                className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-3.5 py-2.5 text-xs text-foreground focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
                 <option value="CLIENT_PAYMENT">تحصيلات عملاء (CLIENT_PAYMENT)</option>
                 <option value="PAYROLL">الرواتب والأجور (PAYROLL)</option>
@@ -1017,11 +1028,11 @@ function CreateTransactionModal({
             </div>
 
             <div>
-              <label className="block font-bold text-foreground-muted mb-1">طريقة الدفع</label>
+              <label className="block text-xs font-bold text-foreground mb-1.5">طريقة الدفع</label>
               <select
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                className="w-full rounded-2xl border border-border/50 bg-surface p-2.5 text-foreground focus:outline-none"
+                className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-3.5 py-2.5 text-xs text-foreground focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
                 <option value="BANK_TRANSFER">تحويل بنكي</option>
                 <option value="CASH">نقدي (كاش)</option>
@@ -1035,7 +1046,7 @@ function CreateTransactionModal({
 
           {/* Description */}
           <div>
-            <label className="block font-bold text-foreground-muted mb-1">
+            <label className="block text-xs font-bold text-foreground mb-1.5">
               البيان وشرح المعاملة <span className="text-rose-500">*</span>
             </label>
             <input
@@ -1044,24 +1055,24 @@ function CreateTransactionModal({
               placeholder="مثال: سداد فاتورة استضافة الخوادم لشهر سبتمبر..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full rounded-2xl border border-border/50 bg-surface p-2.5 text-foreground focus:outline-none focus:border-primary"
+              className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 text-xs text-foreground placeholder:text-foreground-subtle focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
           </div>
 
           {/* Transaction Date & Reference */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block font-bold text-foreground-muted mb-1">تاريخ المعاملة</label>
+              <label className="block text-xs font-bold text-foreground mb-1.5">تاريخ المعاملة</label>
               <input
                 type="date"
                 value={transactionDate}
                 onChange={(e) => setTransactionDate(e.target.value)}
-                className="w-full rounded-2xl border border-border/50 bg-surface p-2.5 text-foreground focus:outline-none"
+                className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-3.5 py-2.5 text-xs text-foreground focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20 font-mono"
               />
             </div>
 
             <div>
-              <label className="block font-bold text-foreground-muted mb-1">
+              <label className="block text-xs font-bold text-foreground mb-1.5">
                 رقم المرجع / الفاتورة (اختياري)
               </label>
               <input
@@ -1069,19 +1080,19 @@ function CreateTransactionModal({
                 placeholder="مثال: INV-2026-089"
                 value={referenceId}
                 onChange={(e) => setReferenceId(e.target.value)}
-                className="w-full rounded-2xl border border-border/50 bg-surface p-2.5 font-mono text-foreground focus:outline-none"
+                className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 text-xs font-mono text-foreground placeholder:text-foreground-subtle focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </div>
           </div>
 
           {/* Attachment File Picker & Preview */}
           <div className="space-y-1.5">
-            <label className="block font-bold text-foreground-muted">
+            <label className="block text-xs font-bold text-foreground">
               إرفاق صورة الإيصال أو المستند (اختياري)
             </label>
 
             {attachmentUrl ? (
-              <div className="relative group rounded-2xl overflow-hidden border border-border/50 bg-surface p-2.5 flex items-center justify-between">
+              <div className="relative group rounded-2xl overflow-hidden border border-border/60 dark:border-white/10 bg-surface/80 p-2.5 flex items-center justify-between">
                 <div className="flex items-center gap-3 min-w-0">
                   <img
                     src={attachmentUrl}
@@ -1113,7 +1124,7 @@ function CreateTransactionModal({
                 </button>
               </div>
             ) : (
-              <label className="flex flex-col items-center justify-center border-2 border-dashed border-border/60 hover:border-primary/50 bg-surface/50 hover:bg-surface rounded-2xl p-4 cursor-pointer transition-all">
+              <label className="flex flex-col items-center justify-center border-2 border-dashed border-border/60 dark:border-white/10 hover:border-primary/50 bg-surface/50 hover:bg-surface rounded-2xl p-4 cursor-pointer transition-all">
                 <FiImage className="h-6 w-6 text-foreground-muted mb-1.5" />
                 <span className="text-xs font-bold text-foreground">
                   {isUploadingImg
@@ -1133,24 +1144,25 @@ function CreateTransactionModal({
               </label>
             )}
           </div>
-
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/30">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-2xl border border-border bg-surface px-4 py-2 font-bold text-foreground hover:bg-surface-hover"
-            >
-              إلغاء
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="rounded-2xl bg-primary hover:bg-primary-hover px-5 py-2 font-black text-primary-foreground shadow-md active:scale-95 disabled:opacity-50"
-            >
-              {isSubmitting ? 'جاري التسجيل...' : 'ترحيل وتسجيل القيد'}
-            </button>
-          </div>
         </form>
+
+        <div className="px-6 py-4 border-t border-border/30 dark:border-white/10 bg-surface/60 dark:bg-white/[0.02] backdrop-blur-xl flex items-center justify-end gap-3 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-2xl border border-border/80 bg-surface px-5 py-2.5 text-xs font-bold text-foreground hover:bg-surface-hover transition-colors shadow-xs"
+          >
+            إلغاء
+          </button>
+          <button
+            form="record-transaction-form"
+            type="submit"
+            disabled={isSubmitting}
+            className="rounded-2xl btn-glow-primary px-6 py-2.5 text-xs font-black text-brand-stone-950 shadow-md active:scale-95 disabled:opacity-50 transition-all"
+          >
+            {isSubmitting ? 'جاري التسجيل...' : 'ترحيل وتسجيل القيد'}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -1190,37 +1202,48 @@ function ReverseTransactionModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in">
-      <div className="relative overflow-hidden w-full max-w-md rounded-3xl border border-rose-500/30 bg-white/85 dark:bg-black/90 backdrop-blur-2xl p-6 shadow-2xl space-y-4">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-rose-500 to-transparent" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 sm:p-6 animate-in fade-in duration-200">
+      <div className="relative overflow-hidden w-full max-w-md max-h-[85vh] flex flex-col rounded-3xl border border-white/30 dark:border-white/10 bg-white/90 dark:bg-[#141411]/95 backdrop-blur-3xl shadow-2xl">
+        {/* Top Specular Rim */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-rose-500/50 to-transparent z-10" />
 
-        <div className="flex items-center justify-between border-b border-border/30 pb-3">
-          <h3 className="text-sm font-black text-foreground flex items-center gap-2">
-            <FiRefreshCw className="h-4 w-4 text-rose-500" />
-            <span>إجراء قيد تسوية عكسي (Reversal Entry)</span>
-          </h3>
-          <button onClick={onClose} className="text-foreground-muted hover:text-foreground p-1">
+        <div className="px-6 py-5 border-b border-border/30 dark:border-white/10 flex items-center justify-between bg-surface/40 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center shadow-inner">
+              <FiRefreshCw className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-foreground">إجراء قيد تسوية عكسي</h3>
+              <p className="text-[11px] text-foreground-muted">Reversal Entry لإلغاء الأثر المالي للقيد</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-8 w-8 rounded-xl flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+            title="إغلاق"
+          >
             <FiX className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Transaction Summary */}
-        <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-xs space-y-1.5">
-          <div className="font-black text-foreground">{transaction.description}</div>
-          <div className="flex items-center justify-between text-[11px] font-mono font-black">
-            <span className="text-foreground-muted">المبلغ المراد عكسه:</span>
-            <span className="text-rose-500">
-              {Number(transaction.amount).toLocaleString()} EGP
-            </span>
+        <form id="reverse-transaction-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-5 space-y-4 text-xs">
+          {/* Transaction Summary */}
+          <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-xs space-y-1.5">
+            <div className="font-black text-foreground">{transaction.description}</div>
+            <div className="flex items-center justify-between text-[11px] font-mono font-black">
+              <span className="text-foreground-muted">المبلغ المراد عكسه:</span>
+              <span className="text-rose-500">
+                {Number(transaction.amount).toLocaleString()} EGP
+              </span>
+            </div>
+            <p className="text-[10px] text-foreground-muted leading-relaxed">
+              وفقاً للمعايير المحاسبية الدقيقة، لا يتم حذف القيد، بل سيتم تسجيل قيد عكسي موازٍ لإلغاء الأثر المالي مع توثيق الأسباب.
+            </p>
           </div>
-          <p className="text-[10px] text-foreground-muted leading-relaxed">
-            وفقاً للمعايير المحاسبية الدقيقة، لا يتم حذف القيد، بل سيتم تسجيل قيد عكسي موازٍ لإلغاء الأثر المالي مع توثيق الأسباب.
-          </p>
-        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3 text-xs">
           <div>
-            <label className="block font-bold text-foreground-muted mb-1">
+            <label className="block text-xs font-bold text-foreground mb-1.5">
               سبب إلغاء القيد المالي <span className="text-rose-500">*</span>
             </label>
             <textarea
@@ -1229,27 +1252,28 @@ function ReverseTransactionModal({
               placeholder="مثال: تم إدخال المبلغ بالخطأ أو تكرار تسجيل الفاتورة..."
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className="w-full rounded-2xl border border-border/50 bg-surface p-2.5 text-foreground focus:outline-none focus:border-rose-500"
+              className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 p-3 text-xs text-foreground placeholder:text-foreground-subtle focus:bg-surface focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 resize-none"
             />
           </div>
-
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/30">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-2xl border border-border bg-surface px-4 py-2 font-bold text-foreground"
-            >
-              إلغاء
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="rounded-2xl bg-rose-600 hover:bg-rose-700 px-5 py-2 font-black text-white shadow-md active:scale-95 disabled:opacity-50"
-            >
-              {isSubmitting ? 'جاري العكس...' : 'تأكيد القيد العكسي'}
-            </button>
-          </div>
         </form>
+
+        <div className="px-6 py-4 border-t border-border/30 dark:border-white/10 bg-surface/60 dark:bg-white/[0.02] backdrop-blur-xl flex items-center justify-end gap-3 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-2xl border border-border/80 bg-surface px-5 py-2.5 text-xs font-bold text-foreground hover:bg-surface-hover transition-colors shadow-xs"
+          >
+            إلغاء
+          </button>
+          <button
+            form="reverse-transaction-form"
+            type="submit"
+            disabled={isSubmitting}
+            className="rounded-2xl bg-rose-600 hover:bg-rose-700 px-6 py-2.5 text-xs font-black text-white shadow-md active:scale-95 disabled:opacity-50 transition-all"
+          >
+            {isSubmitting ? 'جاري العكس...' : 'تأكيد القيد العكسي'}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -1271,23 +1295,34 @@ function TransactionDetailsModal({
   const isIncome = transaction.type === 'INCOME';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in">
-      <div className="relative overflow-hidden w-full max-w-md rounded-3xl border border-white/60 dark:border-white/15 bg-white/85 dark:bg-black/90 backdrop-blur-2xl p-6 shadow-2xl space-y-4">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/80 dark:via-white/20 to-transparent" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 sm:p-6 animate-in fade-in duration-200">
+      <div className="relative overflow-hidden w-full max-w-md max-h-[85vh] flex flex-col rounded-3xl border border-white/30 dark:border-white/10 bg-white/90 dark:bg-[#141411]/95 backdrop-blur-3xl shadow-2xl">
+        {/* Top Specular Rim */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent z-10" />
 
-        <div className="flex items-center justify-between border-b border-border/30 pb-3">
-          <h3 className="text-sm font-black text-foreground flex items-center gap-2">
-            <FiFileText className="h-4 w-4 text-brand-gold" />
-            <span>تفاصيل السند والقيد المالي</span>
-          </h3>
-          <button onClick={onClose} className="text-foreground-muted hover:text-foreground p-1">
+        <div className="px-6 py-5 border-b border-border/30 dark:border-white/10 flex items-center justify-between bg-surface/40 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-2xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shadow-inner">
+              <FiFileText className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-foreground">تفاصيل السند والقيد المالي</h3>
+              <p className="text-[11px] text-foreground-muted">مراجعة كامل بنود القيد والمرفقات</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-8 w-8 rounded-xl flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+            title="إغلاق"
+          >
             <FiX className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="space-y-3 text-xs">
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4 text-xs">
           {/* Header Amount */}
-          <div className="p-4 rounded-2xl bg-surface border border-border/40 text-center space-y-1">
+          <div className="p-4 rounded-2xl bg-surface/80 border border-border/60 dark:border-white/5 text-center space-y-1">
             <span className="text-[11px] text-foreground-muted font-bold block">
               قيمة المعاملة المسجلة
             </span>
@@ -1314,7 +1349,7 @@ function TransactionDetailsModal({
           </div>
 
           {/* Details Table */}
-          <div className="space-y-2 p-3 rounded-2xl bg-surface/60 border border-border/30 divide-y divide-border/20">
+          <div className="space-y-2 p-3.5 rounded-2xl bg-surface/60 border border-border/40 dark:border-white/5 divide-y divide-border/20">
             <div className="flex justify-between py-1">
               <span className="text-foreground-muted">البيان:</span>
               <span className="font-bold text-foreground text-left max-w-[200px]">
@@ -1351,7 +1386,7 @@ function TransactionDetailsModal({
 
           {/* Reversal Notice if any */}
           {transaction.isReversed && (
-            <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 space-y-1">
+            <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 space-y-1">
               <span className="font-black block">معلومات القيد العكسي والتسوية:</span>
               <p className="text-[11px]">{transaction.reversalReason}</p>
               {transaction.reversedAt && (
@@ -1364,12 +1399,12 @@ function TransactionDetailsModal({
 
           {/* Attachment Preview if URL */}
           {transaction.attachmentUrl && (
-            <div className="pt-2">
+            <div className="pt-1">
               <a
                 href={transaction.attachmentUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center justify-center gap-2 w-full p-2.5 rounded-2xl border border-primary/30 bg-primary/10 text-primary font-black text-xs hover:bg-primary/20 transition-all"
+                className="inline-flex items-center justify-center gap-2 w-full p-3 rounded-2xl border border-primary/30 bg-primary/10 text-primary font-black text-xs hover:bg-primary/20 transition-all shadow-xs"
               >
                 <FiEye className="h-4 w-4" />
                 <span>عرض إيصال أو مستند القيد</span>
@@ -1378,10 +1413,11 @@ function TransactionDetailsModal({
           )}
         </div>
 
-        <div className="pt-3 border-t border-border/30 flex justify-end">
+        <div className="px-6 py-4 border-t border-border/30 dark:border-white/10 bg-surface/60 dark:bg-white/[0.02] backdrop-blur-xl flex justify-end shrink-0">
           <button
+            type="button"
             onClick={onClose}
-            className="rounded-2xl border border-border bg-surface px-5 py-2 text-xs font-bold text-foreground hover:bg-surface-hover"
+            className="rounded-2xl border border-border/80 bg-surface px-5 py-2.5 text-xs font-bold text-foreground hover:bg-surface-hover transition-colors shadow-xs"
           >
             إغلاق
           </button>

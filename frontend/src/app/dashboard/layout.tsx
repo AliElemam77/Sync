@@ -379,93 +379,93 @@ export default function DashboardLayout({
         {/* ================================================================= */}
         <aside className="hidden md:flex shrink-0 z-30 h-full select-none relative">
           {/* TIER 1: NARROW ICON RAIL (Minimalist Vertical Bar) */}
-          <div className="w-[74px] h-full bg-white/30 dark:bg-black/40 backdrop-blur-2xl border-e border-white/40 dark:border-white/10 flex flex-col items-center justify-between py-5 px-2.5 z-20 shadow-2xl">
+          <div className="w-20 min-w-20 shrink-0 h-full bg-white/30 dark:bg-black/40 backdrop-blur-2xl border-e border-white/40 dark:border-white/10 flex flex-col items-center justify-between py-4 px-2 z-20 shadow-2xl">
             {/* Top: Circular Avatar with Sparkle / Online Status */}
-            <div className="flex flex-col items-center gap-6">
+            <div className="flex flex-col items-center gap-4 w-full shrink-0">
               <div className="relative group cursor-pointer" onClick={() => router.push('/dashboard')}>
-                <div className="h-12 w-12 rounded-full overflow-hidden border border-white/[0.1] group-hover:border-primary/50 transition-all p-0.5 bg-surface shadow-md">
-                    {user?.employee?.avatarUrl ? (
-                      <img
-                        src={user.employee.avatarUrl}
-                        alt="Profile"
-                        className="h-full w-full object-cover rounded-full"
-                      />
-                    ) : (
-                      <div className="h-full w-full rounded-full bg-gradient-to-tr from-brand-taupe to-brand-gold dark:from-brand-gold dark:to-brand-champagne flex items-center justify-center text-white dark:text-brand-stone-950 font-black text-sm">
-                        {user?.employee?.fullName?.slice(0, 1) || user?.email?.slice(0, 1) || 'U'}
-                      </div>
-                    )}
-                  </div>
-                  {/* Status Indicator Sparkle */}
-                  <span className="absolute -bottom-0.5 -start-0.5 h-3.5 w-3.5 rounded-full bg-emerald-500 ring-2 ring-card shadow-xs flex items-center justify-center">
-                    <span className="h-1.5 w-1.5 rounded-full bg-white animate-ping opacity-75" />
-                  </span>
-                </div>
-
-                {/* Vertical Stack of Minimalist Outline Icons */}
-                <nav className="flex flex-col items-center gap-2.5">
-                  {accessibleSections.map((section) => {
-                    const isSelected = activeSectionId === section.id;
-
-                    return (
-                      <button
-                        key={section.id}
-                        type="button"
-                        onClick={() => handleRailItemClick(section)}
-                        className={`h-11 w-11 rounded-2xl flex items-center justify-center transition-all duration-200 group relative ${
-                          isSelected
-                            ? 'bg-surface-raised text-foreground font-black shadow-xs scale-105'
-                            : 'text-foreground-muted hover:text-foreground hover:bg-surface-hover hover:scale-105'
-                        }`}
-                        title={section.label}
-                      >
-                        <section.icon
-                          className={`h-5 w-5 transition-transform duration-200 ${
-                            isSelected
-                              ? 'text-primary scale-110'
-                              : 'text-foreground-muted group-hover:text-primary'
-                          }`}
-                        />
-
-                        {/* Tooltip on Hover */}
-                        <div className="absolute start-full ms-3 px-3 py-1.5 rounded-xl bg-surface-raised border border-border text-foreground text-xs font-black shadow-xl whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50">
-                          {section.label}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </nav>
-              </div>
-
-              {/* Bottom Quick Controls (Logout & Panel Toggle) */}
-              <div className="flex flex-col items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsSubPanelOpen(!isSubPanelOpen)}
-                  className="h-10 w-10 rounded-2xl bg-surface hover:bg-surface-hover text-foreground-muted hover:text-foreground flex items-center justify-center transition-all"
-                  title={isSubPanelOpen ? 'إخفاء دليل الصفحة' : 'إظهار دليل الصفحة'}
-                >
-                  {isSubPanelOpen ? (
-                    <FiChevronRight className="h-4 w-4" />
+                <div className="h-11 w-11 rounded-full overflow-hidden border-2 border-white/40 dark:border-white/10 group-hover:border-primary/50 transition-all p-0.5 bg-surface shadow-md flex items-center justify-center">
+                  {user?.employee?.avatarUrl ? (
+                    <img
+                      src={user.employee.avatarUrl}
+                      alt="Profile"
+                      className="h-full w-full object-cover rounded-full"
+                    />
                   ) : (
-                    <FiChevronLeft className="h-4 w-4" />
+                    <div className="h-full w-full rounded-full bg-gradient-to-tr from-brand-taupe to-brand-gold dark:from-brand-gold dark:to-brand-champagne flex items-center justify-center text-white dark:text-brand-stone-950 font-black text-sm">
+                      {user?.employee?.fullName?.slice(0, 1) || user?.email?.slice(0, 1) || 'U'}
+                    </div>
                   )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={logout}
-                  className="h-10 w-10 rounded-2xl bg-surface hover:bg-rose-500/10 text-foreground-muted hover:text-rose-500 flex items-center justify-center transition-colors"
-                  title="تسجيل الخروج"
-                >
-                  <FiLogOut className="h-4 w-4" />
-                </button>
+                </div>
+                {/* Status Indicator Sparkle */}
+                <span className="absolute bottom-0 end-0 h-3.5 w-3.5 rounded-full bg-emerald-500 ring-2 ring-card shadow-xs flex items-center justify-center">
+                  <span className="h-1.5 w-1.5 rounded-full bg-white animate-ping opacity-75" />
+                </span>
               </div>
             </div>
 
-            {/* TIER 2: EXPLANATORY PAGE PURPOSE & INSIGHT PANEL (FROSTED GLASS) */}
-            {isSubPanelOpen && (
-              <div className="w-72 h-full bg-white/40 dark:bg-black/45 backdrop-blur-2xl border-e border-white/40 dark:border-white/10 flex flex-col justify-between p-5 z-10 animate-in slide-in-from-right duration-200 shadow-2xl overflow-y-auto no-scrollbar">
+            {/* Vertical Stack of Minimalist Outline Icons */}
+            <nav className="flex flex-col items-center gap-2 w-full flex-1 justify-center py-2 overflow-y-auto no-scrollbar">
+              {accessibleSections.map((section) => {
+                const isSelected = activeSectionId === section.id;
+
+                return (
+                  <button
+                    key={section.id}
+                    type="button"
+                    onClick={() => handleRailItemClick(section)}
+                    className={`h-11 w-11 rounded-2xl flex items-center justify-center transition-all duration-200 group relative shrink-0 ${
+                      isSelected
+                        ? 'bg-surface-raised text-foreground font-black shadow-md border border-white/40 dark:border-white/10 scale-105'
+                        : 'text-foreground-muted hover:text-foreground hover:bg-surface-hover hover:scale-105'
+                    }`}
+                    title={section.label}
+                  >
+                    <section.icon
+                      className={`h-5 w-5 transition-transform duration-200 ${
+                        isSelected
+                          ? 'text-primary scale-110'
+                          : 'text-foreground-muted group-hover:text-primary'
+                      }`}
+                    />
+
+                    {/* Tooltip on Hover */}
+                    <div className="absolute end-full me-3 px-3 py-1.5 rounded-xl bg-surface-raised border border-border text-foreground text-xs font-black shadow-xl whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50">
+                      {section.label}
+                    </div>
+                  </button>
+                );
+              })}
+            </nav>
+
+            {/* Bottom Quick Controls (Logout & Panel Toggle) */}
+            <div className="flex flex-col items-center gap-2 w-full shrink-0 pt-2 border-t border-border/20">
+              <button
+                type="button"
+                onClick={() => setIsSubPanelOpen(!isSubPanelOpen)}
+                className="h-10 w-10 rounded-2xl bg-surface hover:bg-surface-hover text-foreground-muted hover:text-foreground flex items-center justify-center transition-all shadow-xs border border-white/20 dark:border-white/5 shrink-0"
+                title={isSubPanelOpen ? 'إخفاء دليل الصفحة' : 'إظهار دليل الصفحة'}
+              >
+                {isSubPanelOpen ? (
+                  <FiChevronRight className="h-4 w-4" />
+                ) : (
+                  <FiChevronLeft className="h-4 w-4" />
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={logout}
+                className="h-10 w-10 rounded-2xl bg-surface hover:bg-rose-500/10 text-foreground-muted hover:text-rose-500 flex items-center justify-center transition-colors shadow-xs border border-white/20 dark:border-white/5 shrink-0"
+                title="تسجيل الخروج"
+              >
+                <FiLogOut className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* TIER 2: EXPLANATORY PAGE PURPOSE & INSIGHT PANEL (FROSTED GLASS) */}
+          {isSubPanelOpen && (
+            <div className="w-72 min-w-72 shrink-0 h-full bg-white/40 dark:bg-black/45 backdrop-blur-2xl border-e border-white/40 dark:border-white/10 flex flex-col justify-between p-5 z-10 animate-in slide-in-from-right duration-200 shadow-2xl overflow-y-auto no-scrollbar">
                 <div className="space-y-5">
                   {/* Top Module Header */}
                   <div className="space-y-1.5 border-b border-border/30 pb-4">

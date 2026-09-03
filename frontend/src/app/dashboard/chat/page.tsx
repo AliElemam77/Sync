@@ -1657,30 +1657,49 @@ export default function ChatPage() {
       {/* ===================================================================== */}
       {/* MODAL 1: NEW DIRECT MESSAGE MODAL */}
       {/* ===================================================================== */}
+      {/* ===================================================================== */}
+      {/* MODAL 1: DIRECT CHAT MODAL                                            */}
+      {/* ===================================================================== */}
       {isDirectModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="w-full max-w-md rounded-3xl border border-card-border bg-card p-6 shadow-2xl">
-            <div className="flex items-center justify-between pb-3 border-b border-border mb-4">
-              <h3 className="text-sm font-black text-foreground flex items-center gap-2">
-                <FiMessageSquare className="h-4 w-4 text-primary" />
-                <span>بدء محادثة مباشرة جديدة</span>
-              </h3>
-              <button onClick={() => setIsDirectModalOpen(false)} className="text-foreground-muted hover:text-foreground">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 sm:p-6 animate-in fade-in duration-200">
+          <div className="relative overflow-hidden w-full max-w-md max-h-[85vh] flex flex-col rounded-3xl border border-white/30 dark:border-white/10 bg-white/90 dark:bg-[#141411]/95 backdrop-blur-3xl shadow-2xl">
+            {/* Top Specular Rim */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent z-10" />
+
+            <div className="px-6 py-5 border-b border-border/30 dark:border-white/10 flex items-center justify-between bg-surface/40 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-2xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shadow-inner">
+                  <FiMessageSquare className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-foreground">بدء محادثة مباشرة</h3>
+                  <p className="text-[11px] text-foreground-muted">اختر زميل العمل لبدء التواصل الفوري</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDirectModalOpen(false)}
+                className="h-8 w-8 rounded-xl flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                title="إغلاق"
+              >
                 <FiX className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="mb-4">
-              <input
-                type="text"
-                placeholder="ابحث بالاسم أو القسم أو الوظيفة..."
-                value={directSearch}
-                onChange={(e) => setDirectSearch(e.target.value)}
-                className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground placeholder-foreground-subtle focus:border-primary focus:outline-none"
-              />
+            <div className="px-6 py-4 border-b border-border/20 bg-surface/20 shrink-0">
+              <div className="relative">
+                <FiSearch className="absolute start-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground-muted" />
+                <input
+                  type="text"
+                  placeholder="ابحث بالاسم أو القسم أو المسمى الوظيفي..."
+                  value={directSearch}
+                  onChange={(e) => setDirectSearch(e.target.value)}
+                  className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 ps-10 pe-4 py-2.5 text-xs text-foreground placeholder:text-foreground-subtle focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
             </div>
 
-            <div className="max-h-60 overflow-y-auto space-y-1.5 divide-y divide-border/15">
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-1.5 divide-y divide-border/10">
               {employeesData?.data
                 ?.filter((emp) => emp.user?.id !== user?.id)
                 ?.filter((emp) => emp.fullName.toLowerCase().includes(directSearch.toLowerCase()))
@@ -1688,21 +1707,33 @@ export default function ChatPage() {
                   <button
                     key={emp.id}
                     onClick={() => emp.user?.id && handleStartDirectChat(emp.user.id)}
-                    className="w-full flex items-center justify-between p-2.5 rounded-2xl hover:bg-surface-hover transition-colors text-start"
+                    className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-surface-hover transition-all text-start group border border-transparent hover:border-border/40"
                   >
-                    <div className="flex items-center gap-2.5">
-                      <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center text-xs font-bold">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-2xl bg-gradient-to-tr from-brand-taupe to-brand-gold dark:from-brand-gold dark:to-brand-champagne text-white dark:text-brand-stone-950 flex items-center justify-center text-xs font-black shadow-xs">
                         {emp.fullName.slice(0, 1)}
                       </div>
                       <div>
-                        <div className="font-bold text-xs text-foreground">{emp.fullName}</div>
-                        <div className="text-[10px] text-foreground-muted">{emp.position?.name} • {emp.department?.name}</div>
+                        <div className="font-bold text-xs text-foreground group-hover:text-primary transition-colors">{emp.fullName}</div>
+                        <div className="text-[11px] text-foreground-muted">{emp.position?.name || 'موظف'} • {emp.department?.name || 'الشركة'}</div>
                       </div>
                     </div>
 
-                    <span className="text-[11px] text-primary font-bold">مراسلة</span>
+                    <span className="text-xs text-primary font-black px-3 py-1 rounded-xl bg-primary/10 border border-primary/20 group-hover:bg-primary group-hover:text-brand-stone-950 transition-all">
+                      مراسلة
+                    </span>
                   </button>
                 ))}
+            </div>
+
+            <div className="px-6 py-4 border-t border-border/30 dark:border-white/10 bg-surface/60 dark:bg-white/[0.02] backdrop-blur-xl flex items-center justify-end shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsDirectModalOpen(false)}
+                className="rounded-2xl border border-border/80 bg-surface px-5 py-2.5 text-xs font-bold text-foreground hover:bg-surface-hover transition-colors shadow-xs"
+              >
+                إلغاء
+              </button>
             </div>
           </div>
         </div>
@@ -1712,77 +1743,101 @@ export default function ChatPage() {
       {/* MODAL 2: CREATE GROUP CHAT MODAL */}
       {/* ===================================================================== */}
       {isGroupModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="w-full max-w-lg rounded-3xl border border-card-border bg-card p-6 shadow-2xl">
-            <div className="flex items-center justify-between pb-3 border-b border-border mb-4">
-              <h3 className="text-sm font-black text-foreground flex items-center gap-2">
-                <FiUsers className="h-4 w-4 text-primary" />
-                <span>إنشاء مجموعة عمل أو قناة عامة</span>
-              </h3>
-              <button onClick={() => setIsGroupModalOpen(false)} className="text-foreground-muted hover:text-foreground">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 sm:p-6 animate-in fade-in duration-200">
+          <div className="relative overflow-hidden w-full max-w-lg max-h-[88vh] flex flex-col rounded-3xl border border-white/30 dark:border-white/10 bg-white/90 dark:bg-[#141411]/95 backdrop-blur-3xl shadow-2xl">
+            {/* Top Specular Rim */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent z-10" />
+
+            <div className="px-6 py-5 border-b border-border/30 dark:border-white/10 flex items-center justify-between bg-surface/40 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-2xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shadow-inner">
+                  <FiUsers className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-foreground">إنشاء مجموعة عمل أو قناة عامة</h3>
+                  <p className="text-[11px] text-foreground-muted">مساحة عمل مخصصة للفرق والأقسام والمشاريع</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsGroupModalOpen(false)}
+                className="h-8 w-8 rounded-xl flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                title="إغلاق"
+              >
                 <FiX className="h-4 w-4" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateGroupSubmit} className="space-y-4 text-xs">
+            <form id="create-group-form" onSubmit={handleCreateGroupSubmit} className="flex-1 overflow-y-auto px-6 py-5 space-y-4 text-xs">
               <div>
-                <label className="block text-foreground-muted font-bold mb-1">اسم المجموعة / القناة</label>
+                <label className="block text-foreground font-bold mb-1.5">
+                  اسم المجموعة / القناة <span className="text-rose-500">*</span>
+                </label>
                 <input
                   type="text"
                   required
                   value={groupTitle}
                   onChange={(e) => setGroupTitle(e.target.value)}
                   placeholder="مثال: فريق الهندسة والتطوير، أو # الإعلانات العامة"
-                  className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-foreground focus:border-primary focus:outline-none"
+                  className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 text-xs text-foreground placeholder:text-foreground-subtle focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />
               </div>
 
-              <div>
-                <label className="block text-foreground-muted font-bold mb-1">نوع القناة</label>
-                <select
-                  value={groupType}
-                  onChange={(e) => setGroupType(e.target.value as any)}
-                  className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-foreground focus:border-primary focus:outline-none"
-                >
-                  <option value="WORK_GROUP">مجموعة عمل خاصة (تتطلب دعوة الأعضاء)</option>
-                  <option value="PUBLIC_GROUP">قناة عامة للشركة (متاحة لكافة الموظفين)</option>
-                </select>
-              </div>
-
-              {groupType === 'WORK_GROUP' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-foreground-muted font-bold mb-1">القسم المرتبط (اختياري)</label>
+                  <label className="block text-foreground font-bold mb-1.5">نوع القناة</label>
                   <select
-                    value={groupDepartmentId}
-                    onChange={(e) => setGroupDepartmentId(e.target.value)}
-                    className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-foreground focus:border-primary focus:outline-none"
+                    value={groupType}
+                    onChange={(e) => setGroupType(e.target.value as any)}
+                    className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-3.5 py-2.5 text-xs text-foreground focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20"
                   >
-                    <option value="">عام لكافة الأقسام</option>
-                    {departments.map((dept) => (
-                      <option key={dept.id} value={dept.id}>
-                        {dept.name} ({dept.code})
-                      </option>
-                    ))}
+                    <option value="WORK_GROUP">🔒 مجموعة خاصة (بدعوة الأعضاء)</option>
+                    <option value="PUBLIC_GROUP">🌐 قناة عامة (متاحة للجميع)</option>
                   </select>
                 </div>
-              )}
+
+                {groupType === 'WORK_GROUP' && (
+                  <div>
+                    <label className="block text-foreground font-bold mb-1.5">القسم المرتبط (اختياري)</label>
+                    <select
+                      value={groupDepartmentId}
+                      onChange={(e) => setGroupDepartmentId(e.target.value)}
+                      className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-3.5 py-2.5 text-xs text-foreground focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    >
+                      <option value="">عام لكافة الأقسام</option>
+                      {departments.map((dept) => (
+                        <option key={dept.id} value={dept.id}>
+                          {dept.name} ({dept.code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
 
               <div>
-                <label className="block text-foreground-muted font-bold mb-1">الوصف والهدف</label>
+                <label className="block text-foreground font-bold mb-1.5">الوصف والهدف</label>
                 <textarea
                   rows={2}
                   value={groupDescription}
                   onChange={(e) => setGroupDescription(e.target.value)}
                   placeholder="اكتب نبذة عن موضوع وغرض هذه المجموعة..."
-                  className="w-full rounded-2xl border border-border bg-surface p-3 text-foreground focus:border-primary focus:outline-none resize-none"
+                  className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 p-3 text-xs text-foreground placeholder:text-foreground-subtle focus:bg-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
                 />
               </div>
 
               {/* Members Selection */}
               {groupType === 'WORK_GROUP' && (
-                <div>
-                  <label className="block text-foreground-muted font-bold mb-1">إضافة أعضاء للبدء</label>
-                  <div className="max-h-40 overflow-y-auto space-y-1 p-2 rounded-2xl border border-border bg-surface">
+                <div className="space-y-2 p-3.5 rounded-2xl bg-surface/40 border border-border/40 dark:border-white/5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <FiUsers className="h-3.5 w-3.5 text-primary" />
+                      <span>اختيار أعضاء المجموعة ({selectedEmployeeIds.length})</span>
+                    </label>
+                    <span className="text-[11px] text-foreground-muted">حدد الأعضاء المنضمين</span>
+                  </div>
+
+                  <div className="max-h-48 overflow-y-auto space-y-1 p-2 rounded-2xl border border-border/60 bg-surface">
                     {employeesData?.data
                       ?.filter((emp) => emp.user?.id !== user?.id)
                       ?.map((emp) => {
@@ -1791,46 +1846,56 @@ export default function ChatPage() {
                         return (
                           <label
                             key={emp.id}
-                            className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-surface-hover cursor-pointer"
+                            className={`flex items-center justify-between p-2.5 rounded-xl transition-all cursor-pointer ${
+                              isSelected
+                                ? 'bg-primary/10 border border-primary/20 text-primary'
+                                : 'hover:bg-surface-hover text-foreground'
+                            }`}
                           >
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedEmployeeIds((prev) => [...prev, targetId]);
-                                } else {
-                                  setSelectedEmployeeIds((prev) => prev.filter((id) => id !== targetId));
-                                }
-                              }}
-                              className="rounded border-border text-primary focus:ring-primary"
-                            />
-                            <span className="font-bold text-foreground">{emp.fullName}</span>
-                            <span className="text-[10px] text-foreground-muted">({emp.department?.name})</span>
+                            <div className="flex items-center gap-2.5">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedEmployeeIds((prev) => [...prev, targetId]);
+                                  } else {
+                                    setSelectedEmployeeIds((prev) => prev.filter((id) => id !== targetId));
+                                  }
+                                }}
+                                className="rounded-md border-border text-primary focus:ring-primary h-4 w-4"
+                              />
+                              <div>
+                                <span className="font-bold text-xs">{emp.fullName}</span>
+                                <span className="text-[10px] text-foreground-muted block">({emp.department?.name || 'الشركة'})</span>
+                              </div>
+                            </div>
+                            <span className="text-[10px] font-mono text-foreground-muted">{emp.position?.name || ''}</span>
                           </label>
                         );
                       })}
                   </div>
                 </div>
               )}
-
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
-                <button
-                  type="button"
-                  onClick={() => setIsGroupModalOpen(false)}
-                  className="px-4 py-2.5 rounded-2xl border border-border text-foreground hover:bg-surface-hover font-bold"
-                >
-                  إلغاء
-                </button>
-                <button
-                  type="submit"
-                  disabled={createGroupMutation.isPending}
-                  className="px-5 py-2.5 rounded-2xl bg-primary hover:bg-primary-hover text-primary-foreground font-black shadow-md shadow-primary/25"
-                >
-                  {createGroupMutation.isPending ? 'جاري الإنشاء...' : 'إنشاء المجموعة'}
-                </button>
-              </div>
             </form>
+
+            <div className="px-6 py-4 border-t border-border/30 dark:border-white/10 bg-surface/60 dark:bg-white/[0.02] backdrop-blur-xl flex items-center justify-end gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsGroupModalOpen(false)}
+                className="rounded-2xl border border-border/80 bg-surface px-5 py-2.5 text-xs font-bold text-foreground hover:bg-surface-hover transition-colors shadow-xs"
+              >
+                إلغاء
+              </button>
+              <button
+                form="create-group-form"
+                type="submit"
+                disabled={createGroupMutation.isPending}
+                className="rounded-2xl btn-glow-primary px-6 py-2.5 text-xs font-black text-brand-stone-950 shadow-md active:scale-95 disabled:opacity-50 transition-all"
+              >
+                {createGroupMutation.isPending ? 'جاري الإنشاء...' : 'إنشاء المجموعة'}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1839,20 +1904,33 @@ export default function ChatPage() {
       {/* MODAL 3: ADD MEMBERS MODAL */}
       {/* ===================================================================== */}
       {isAddMembersModalOpen && activeConversation && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="w-full max-w-md rounded-3xl border border-card-border bg-card p-6 shadow-2xl">
-            <div className="flex items-center justify-between pb-3 border-b border-border mb-4">
-              <h3 className="text-sm font-black text-foreground flex items-center gap-2">
-                <FiUserPlus className="h-4 w-4 text-primary" />
-                <span>إضافة أعضاء إلى {activeConversation.title}</span>
-              </h3>
-              <button onClick={() => setIsAddMembersModalOpen(false)} className="text-foreground-muted hover:text-foreground">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 sm:p-6 animate-in fade-in duration-200">
+          <div className="relative overflow-hidden w-full max-w-md max-h-[85vh] flex flex-col rounded-3xl border border-white/30 dark:border-white/10 bg-white/90 dark:bg-[#141411]/95 backdrop-blur-3xl shadow-2xl">
+            {/* Top Specular Rim */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent z-10" />
+
+            <div className="px-6 py-5 border-b border-border/30 dark:border-white/10 flex items-center justify-between bg-surface/40 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-2xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shadow-inner">
+                  <FiUserPlus className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-foreground">إضافة أعضاء جدد</h3>
+                  <p className="text-[11px] text-foreground-muted truncate max-w-[220px]">إلى {activeConversation.title}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddMembersModalOpen(false)}
+                className="h-8 w-8 rounded-xl flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                title="إغلاق"
+              >
                 <FiX className="h-4 w-4" />
               </button>
             </div>
 
-            <form onSubmit={handleAddMembersSubmit} className="space-y-4 text-xs">
-              <div className="max-h-60 overflow-y-auto space-y-1 p-2 rounded-2xl border border-border bg-surface">
+            <form id="add-members-form" onSubmit={handleAddMembersSubmit} className="flex-1 overflow-y-auto px-6 py-5 space-y-4 text-xs">
+              <div className="max-h-64 overflow-y-auto space-y-1.5 p-2 rounded-2xl border border-border/60 bg-surface">
                 {employeesData?.data
                   ?.filter((emp) => !activeConversation.participants?.some((p) => p.userId === emp.user?.id || p.employeeId === emp.id))
                   ?.map((emp) => {
@@ -1861,49 +1939,57 @@ export default function ChatPage() {
                     return (
                       <label
                         key={emp.id}
-                        className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-surface-hover cursor-pointer"
+                        className={`flex items-center justify-between p-2.5 rounded-xl transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-primary/10 border border-primary/20 text-primary'
+                            : 'hover:bg-surface-hover text-foreground'
+                        }`}
                       >
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedEmployeeIds((prev) => [...prev, targetId]);
-                            } else {
-                              setSelectedEmployeeIds((prev) => prev.filter((id) => id !== targetId));
-                            }
-                          }}
-                          className="rounded border-border text-primary focus:ring-primary"
-                        />
-                        <div>
-                          <div className="font-bold text-foreground">{emp.fullName}</div>
-                          <div className="text-[10px] text-foreground-muted">{emp.position?.name} • {emp.department?.name}</div>
+                        <div className="flex items-center gap-2.5">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedEmployeeIds((prev) => [...prev, targetId]);
+                              } else {
+                                setSelectedEmployeeIds((prev) => prev.filter((id) => id !== targetId));
+                              }
+                            }}
+                            className="rounded-md border-border text-primary focus:ring-primary h-4 w-4"
+                          />
+                          <div>
+                            <div className="font-bold text-xs">{emp.fullName}</div>
+                            <div className="text-[10px] text-foreground-muted">{emp.position?.name || 'موظف'} • {emp.department?.name || 'الشركة'}</div>
+                          </div>
                         </div>
                       </label>
                     );
                   })}
               </div>
-
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
-                <button
-                  type="button"
-                  onClick={() => setIsAddMembersModalOpen(false)}
-                  className="px-4 py-2.5 rounded-2xl border border-border text-foreground hover:bg-surface-hover font-bold"
-                >
-                  إلغاء
-                </button>
-                <button
-                  type="submit"
-                  disabled={selectedEmployeeIds.length === 0 || addParticipantsMutation.isPending}
-                  className="px-5 py-2.5 rounded-2xl bg-primary hover:bg-primary-hover text-primary-foreground font-black shadow-md shadow-primary/25 disabled:opacity-50"
-                >
-                  {addParticipantsMutation.isPending ? 'جاري الإضافة...' : `إضافة (${selectedEmployeeIds.length})`}
-                </button>
-              </div>
             </form>
+
+            <div className="px-6 py-4 border-t border-border/30 dark:border-white/10 bg-surface/60 dark:bg-white/[0.02] backdrop-blur-xl flex items-center justify-end gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsAddMembersModalOpen(false)}
+                className="rounded-2xl border border-border/80 bg-surface px-5 py-2.5 text-xs font-bold text-foreground hover:bg-surface-hover transition-colors shadow-xs"
+              >
+                إلغاء
+              </button>
+              <button
+                form="add-members-form"
+                type="submit"
+                disabled={selectedEmployeeIds.length === 0 || addParticipantsMutation.isPending}
+                className="rounded-2xl btn-glow-primary px-6 py-2.5 text-xs font-black text-brand-stone-950 shadow-md active:scale-95 disabled:opacity-50 transition-all"
+              >
+                {addParticipantsMutation.isPending ? 'جاري الإضافة...' : `إضافة (${selectedEmployeeIds.length})`}
+              </button>
+            </div>
           </div>
         </div>
       )}
     </div>
   );
 }
+

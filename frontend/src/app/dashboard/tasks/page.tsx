@@ -744,52 +744,56 @@ export default function TasksKanbanPage() {
 
       {/* REVISION EXPLANATION MODAL */}
       {revisionModalTask && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in">
-          <div className="relative overflow-hidden w-full max-w-md rounded-3xl border border-rose-500/30 bg-white/85 dark:bg-black/90 backdrop-blur-2xl p-6 shadow-2xl space-y-4">
-            {/* Top Specular Rim Highlight */}
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-rose-400/60 to-transparent" />
-            <div className="flex items-center justify-between border-b border-border/40 pb-3">
-              <h3 className="text-sm font-black text-foreground flex items-center gap-2">
-                <FiAlertCircle className="h-4 w-4 text-rose-500" />
-                <span>طلب تعديلات وإعادة المهمة</span>
-              </h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 sm:p-6 animate-in fade-in duration-200">
+          <div className="relative overflow-hidden w-full max-w-md max-h-[85vh] flex flex-col rounded-3xl border border-white/30 dark:border-white/10 bg-white/90 dark:bg-[#141411]/95 backdrop-blur-3xl shadow-2xl">
+            {/* Top Specular Rim */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-rose-500/50 to-transparent z-10" />
+
+            <div className="px-6 py-5 border-b border-border/30 dark:border-white/10 flex items-center justify-between bg-surface/40 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center shadow-inner">
+                  <FiAlertCircle className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-foreground">طلب تعديلات وإعادة المهمة</h3>
+                  <p className="text-[11px] text-foreground-muted">توضيح متطلبات وملاحظات الجودة للمسؤول</p>
+                </div>
+              </div>
               <button
+                type="button"
                 onClick={() => setRevisionModalTask(null)}
-                className="text-foreground-muted hover:text-foreground p-1"
+                className="h-8 w-8 rounded-xl flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                title="إغلاق"
               >
                 <FiX className="h-4 w-4" />
               </button>
             </div>
 
-            <p className="text-xs text-foreground-muted">
-              يرجى توضيح أسباب إعادة المهمة للتعديل وملاحظات الجودة المطلوبة.
-            </p>
-
-            <form onSubmit={handleRevisionSubmit(onConfirmRevision)} className="space-y-3">
+            <form id="revision-form" onSubmit={handleRevisionSubmit(onConfirmRevision)} className="flex-1 overflow-y-auto px-6 py-5 space-y-4 text-xs">
               <div>
-                <label className="block text-xs font-bold text-foreground-muted mb-1">
+                <label className="block text-xs font-bold text-foreground mb-1.5">
                   تفاصيل وملاحظات التعديل <span className="text-rose-500">*</span>
                 </label>
                 <textarea
                   rows={3}
                   {...registerRevision('comment')}
-                  placeholder="مثال: يرجى تعديل ألوان الأزرار لتطابق هوية النظام..."
-                  className={`w-full rounded-2xl border bg-surface p-3 text-xs text-foreground placeholder-foreground-subtle focus:outline-none ${
-                    revisionErrors.comment ? 'border-rose-500' : 'border-border focus:border-rose-500'
+                  placeholder="مثال: يرجى تعديل ألوان الأزرار لتطابق هوية النظام والتأكد من التجاوب مع الجوال..."
+                  className={`w-full rounded-2xl border bg-surface/80 p-3 text-xs text-foreground placeholder:text-foreground-subtle focus:bg-surface focus:outline-none focus:ring-2 focus:ring-rose-500/20 resize-none ${
+                    revisionErrors.comment ? 'border-rose-500' : 'border-border/80 dark:border-white/10 focus:border-rose-500'
                   }`}
                 />
                 {revisionErrors.comment && (
-                  <p className="text-[10px] text-rose-500 mt-1">{revisionErrors.comment.message}</p>
+                  <p className="text-[10px] text-rose-500 mt-1 font-bold">{revisionErrors.comment.message}</p>
                 )}
               </div>
 
               {/* ImgBB Attachment upload in Revision */}
-              <div>
-                <label className="block text-[11px] font-bold text-foreground-muted mb-1.5">
-                  إرفاق لقطة شاشة للتوضيح (ImgBB)
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-foreground">
+                  إرفاق لقطة شاشة للتوضيح (اختياري)
                 </label>
                 <div className="flex items-center gap-2">
-                  <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-2xl border border-border bg-surface px-3 py-1.5 text-xs text-foreground hover:bg-surface-hover">
+                  <label className="cursor-pointer inline-flex items-center gap-2 rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2 text-xs font-bold text-foreground hover:bg-surface-hover transition-colors shadow-xs">
                     <FiImage className="h-4 w-4 text-primary" />
                     <span>رفع صورة</span>
                     <input
@@ -800,7 +804,7 @@ export default function TasksKanbanPage() {
                     />
                   </label>
                   {isUploadingRevisionImg && (
-                    <span className="text-[10px] text-primary animate-pulse font-mono">جاري الرفع...</span>
+                    <span className="text-[11px] text-primary animate-pulse font-mono font-bold">جاري الرفع...</span>
                   )}
                 </div>
 
@@ -808,37 +812,38 @@ export default function TasksKanbanPage() {
                   <div className="mt-2 flex gap-2 overflow-x-auto py-1">
                     {revisionAttachmentUrls.map((url, idx) => (
                       <div key={idx} className="relative group">
-                        <img src={url} alt="Attachment" className="h-12 w-12 object-cover rounded-xl border border-border" />
+                        <img src={url} alt="Attachment" className="h-14 w-14 object-cover rounded-2xl border border-border/60 shadow-xs" />
                         <button
                           type="button"
                           onClick={() => setRevisionAttachmentUrls(prev => prev.filter((_, i) => i !== idx))}
-                          className="absolute -top-1 -right-1 bg-rose-500 text-white rounded-full h-4 w-4 flex items-center justify-center shadow"
+                          className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white rounded-full h-5 w-5 flex items-center justify-center shadow-md hover:bg-rose-600 transition-colors"
                         >
-                          <FiX className="h-2.5 w-2.5" />
+                          <FiX className="h-3 w-3" />
                         </button>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
-
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
-                <button
-                  type="button"
-                  onClick={() => setRevisionModalTask(null)}
-                  className="rounded-2xl border border-border bg-surface px-4 py-2 text-xs font-bold text-foreground"
-                >
-                  إلغاء
-                </button>
-                <button
-                  type="submit"
-                  disabled={isRevisionSubmitting || updateStatusMutation.isPending}
-                  className="rounded-2xl bg-rose-500 hover:bg-rose-600 px-5 py-2 text-xs font-black text-white shadow-md active:scale-95 disabled:opacity-50"
-                >
-                  إرسال طلب التعديل
-                </button>
-              </div>
             </form>
+
+            <div className="px-6 py-4 border-t border-border/30 dark:border-white/10 bg-surface/60 dark:bg-white/[0.02] backdrop-blur-xl flex items-center justify-end gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setRevisionModalTask(null)}
+                className="rounded-2xl border border-border/80 bg-surface px-5 py-2.5 text-xs font-bold text-foreground hover:bg-surface-hover transition-colors shadow-xs"
+              >
+                إلغاء
+              </button>
+              <button
+                form="revision-form"
+                type="submit"
+                disabled={isRevisionSubmitting || updateStatusMutation.isPending}
+                className="rounded-2xl bg-rose-500 hover:bg-rose-600 px-6 py-2.5 text-xs font-black text-white shadow-md active:scale-95 disabled:opacity-50 transition-all"
+              >
+                إرسال طلب التعديل
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -983,44 +988,58 @@ function CreateTaskModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in">
-      <div className="relative overflow-hidden w-full max-w-lg max-h-[92vh] flex flex-col rounded-3xl border border-white/40 dark:border-white/10 bg-white/85 dark:bg-black/90 backdrop-blur-2xl shadow-2xl">
-        {/* Top Specular Rim Highlight */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/80 dark:via-white/20 to-transparent z-10" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 sm:p-6 animate-in fade-in duration-200">
+      <div className="relative overflow-hidden w-full max-w-xl max-h-[88vh] flex flex-col rounded-3xl border border-white/30 dark:border-white/10 bg-white/90 dark:bg-[#141411]/95 backdrop-blur-3xl shadow-2xl">
+        {/* Specular Rim Light */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent z-10" />
 
-        <div className="p-5 border-b border-border/40 flex items-center justify-between">
-          <h2 className="text-base font-black text-foreground flex items-center gap-2">
-            <FiPlus className="h-4 w-4 text-primary" />
-            <span>إنشاء مهمة عمل جديدة</span>
-          </h2>
-          <button onClick={onClose} className="text-foreground-muted hover:text-foreground p-1">
+        {/* Modal Header */}
+        <div className="px-6 py-5 border-b border-border/30 dark:border-white/10 flex items-center justify-between bg-surface/40 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-2xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shadow-inner">
+              <FiPlus className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-sm font-black text-foreground">إنشاء مهمة عمل جديدة</h2>
+              <p className="text-[11px] text-foreground-muted">تحديد تفاصيل ومخرجات المهمة وإسنادها للمعين</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-8 w-8 rounded-xl flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+            title="إغلاق"
+          >
             <FiX className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        {/* Form Body with Smooth Scroll */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
           {submitError && (
-            <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-500 dark:text-rose-400">
-              {submitError}
+            <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-3.5 text-xs text-rose-500 dark:text-rose-400 flex items-center gap-2">
+              <FiAlertCircle className="h-4 w-4 shrink-0" />
+              <span>{submitError}</span>
             </div>
           )}
 
           <form id="create-task-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            {/* Assignment Routing Mode Toggle */}
-            <div>
-              <label className="block text-xs font-bold text-foreground-muted mb-1.5">
-                نوع توجيه المهمة
+            {/* Section 1: Assignment Routing */}
+            <div className="space-y-2 p-3.5 rounded-2xl bg-surface/40 border border-border/40 dark:border-white/5">
+              <label className="block text-xs font-black text-foreground">
+                مسار وتوجيه المهمة <span className="text-rose-500">*</span>
               </label>
-              <div className="grid grid-cols-2 gap-2 rounded-2xl bg-surface p-1 border border-border">
+              
+              <div className="grid grid-cols-2 gap-2 rounded-xl bg-surface p-1 border border-border/60">
                 <button
                   type="button"
                   onClick={() => {
                     setValue('assignmentType', 'SELF_OR_TEAM');
                     setValue('targetId', currentEmployee?.id || employees[0]?.id || '');
                   }}
-                  className={`py-2 rounded-xl text-xs font-bold transition-all ${
+                  className={`py-2 rounded-lg text-xs font-bold transition-all ${
                     assignmentType === 'SELF_OR_TEAM'
-                      ? 'bg-primary text-primary-foreground shadow-md font-black'
+                      ? 'bg-primary text-primary-foreground shadow-sm font-black'
                       : 'text-foreground-muted hover:text-foreground'
                   }`}
                 >
@@ -1032,7 +1051,7 @@ function CreateTaskModal({
                   ) : (
                     <span className="inline-flex items-center gap-1.5">
                       <FiUser className="h-3.5 w-3.5" />
-                      <span>إسناد لنفسي</span>
+                      <span>إسناد ذاتي (لنفسي)</span>
                     </span>
                   )}
                 </button>
@@ -1042,119 +1061,147 @@ function CreateTaskModal({
                     setValue('assignmentType', 'DEPARTMENT');
                     setValue('targetId', availableDepartments[0]?.id || '');
                   }}
-                  className={`py-2 rounded-xl text-xs font-bold transition-all ${
+                  className={`py-2 rounded-lg text-xs font-bold transition-all ${
                     assignmentType === 'DEPARTMENT'
-                      ? 'bg-primary text-primary-foreground shadow-md font-black'
+                      ? 'bg-primary text-primary-foreground shadow-sm font-black'
                       : 'text-foreground-muted hover:text-foreground'
                   }`}
                 >
                   <span className="inline-flex items-center gap-1.5">
                     <BiBuildingHouse className="h-3.5 w-3.5" />
-                    <span>توجيه إلى قسم آخر</span>
+                    <span>توجيه لقسم آخر</span>
                   </span>
                 </button>
               </div>
-            </div>
 
-            {/* Dynamic Target Selector */}
-            <div>
-              <label className="block text-xs font-bold text-foreground-muted mb-1">
-                {assignmentType === 'DEPARTMENT'
-                  ? 'القسم المستهدف'
-                  : isTeamLeaderOrAdmin
-                  ? 'المعين بالمهمة (نفسك أو عضو بالفريق)'
-                  : 'المعين'} <span className="text-rose-500">*</span>
-              </label>
-              {assignmentType === 'DEPARTMENT' ? (
-                <select
-                  {...register('targetId')}
-                  className={`w-full rounded-2xl border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:outline-none ${
-                    errors.targetId ? 'border-rose-500' : 'border-border focus:border-primary'
-                  }`}
-                >
-                  <option value="">اختر القسم المستهدف...</option>
-                  {availableDepartments.map((dept) => (
-                    <option key={dept.id} value={dept.id}>
-                      {dept.name} ({dept.code})
-                    </option>
-                  ))}
-                </select>
-              ) : isTeamLeaderOrAdmin ? (
-                <select
-                  {...register('targetId')}
-                  className={`w-full rounded-2xl border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:outline-none ${
-                    errors.targetId ? 'border-rose-500' : 'border-border focus:border-primary'
-                  }`}
-                >
-                  <option value="">اختر الموظف المعين...</option>
-                  {selectableEmployees.map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.fullName} ({emp.employeeCode}) {emp.id === currentEmployee?.id ? '(أنت)' : ''}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <div className="flex items-center justify-between rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="font-bold">{currentEmployee?.fullName || 'أنت'}</span>
-                    <span className="text-foreground-muted font-mono text-[11px]">({currentEmployee?.employeeCode || 'Self'})</span>
+              {/* Dynamic Target Selector */}
+              <div className="pt-1">
+                {assignmentType === 'DEPARTMENT' ? (
+                  <select
+                    {...register('targetId')}
+                    className={`w-full rounded-xl border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 ${
+                      errors.targetId ? 'border-rose-500' : 'border-border focus:border-primary'
+                    }`}
+                  >
+                    <option value="">اختر القسم المستهدف...</option>
+                    {availableDepartments.map((dept) => (
+                      <option key={dept.id} value={dept.id}>
+                        {dept.name} ({dept.code})
+                      </option>
+                    ))}
+                  </select>
+                ) : isTeamLeaderOrAdmin ? (
+                  <select
+                    {...register('targetId')}
+                    className={`w-full rounded-xl border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 ${
+                      errors.targetId ? 'border-rose-500' : 'border-border focus:border-primary'
+                    }`}
+                  >
+                    <option value="">اختر الموظف المعين بالمهمة...</option>
+                    {selectableEmployees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.fullName} ({emp.employeeCode}) {emp.id === currentEmployee?.id ? '(أنت)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="flex items-center justify-between rounded-xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="font-bold">{currentEmployee?.fullName || 'أنت'}</span>
+                      <span className="text-foreground-muted font-mono text-[11px]">({currentEmployee?.employeeCode || 'Self'})</span>
+                    </div>
+                    <span className="text-[10px] text-primary bg-primary/10 px-2.5 py-0.5 rounded-md border border-primary/20 font-bold">
+                      إسناد ذاتي
+                    </span>
+                    <input type="hidden" {...register('targetId')} value={currentEmployee?.id || ''} />
                   </div>
-                  <span className="text-[10px] text-primary bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20 font-bold">
-                    إسناد ذاتي
-                  </span>
-                  <input type="hidden" {...register('targetId')} value={currentEmployee?.id || ''} />
-                </div>
-              )}
-              {errors.targetId && (
-                <p className="text-[10px] text-rose-500 mt-1">{errors.targetId.message}</p>
-              )}
+                )}
+                {errors.targetId && (
+                  <p className="text-[10px] text-rose-500 mt-1">{errors.targetId.message}</p>
+                )}
+              </div>
             </div>
 
-            {/* Title */}
-            <div>
-              <label className="block text-xs font-bold text-foreground-muted mb-1">
-                عنوان المهمة <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
-                {...register('title')}
-                placeholder="مثال: تصميم واجهة الدفع على الهاتف..."
-                className={`w-full rounded-2xl border bg-surface px-3.5 py-2.5 text-xs text-foreground placeholder-foreground-subtle focus:outline-none ${
-                  errors.title ? 'border-rose-500' : 'border-border focus:border-primary'
-                }`}
-              />
-              {errors.title && (
-                <p className="text-[10px] text-rose-500 mt-1">{errors.title.message}</p>
-              )}
+            {/* Section 2: Task Information */}
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-foreground mb-1.5">
+                  عنوان المهمة <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  {...register('title')}
+                  placeholder="مثال: تصميم شاشة الدفع الإلكتروني وتكامل الـ API..."
+                  className={`w-full rounded-2xl border bg-surface/80 px-4 py-2.5 text-xs text-foreground placeholder:text-foreground-subtle focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20 ${
+                    errors.title ? 'border-rose-500' : 'border-border focus:border-primary'
+                  }`}
+                />
+                {errors.title && (
+                  <p className="text-[10px] text-rose-500 mt-1">{errors.title.message}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-foreground mb-1.5">
+                  الوصف والمخرجات المطلوبة
+                </label>
+                <textarea
+                  rows={3}
+                  {...register('description')}
+                  placeholder="المتطلبات، المخرجات المستهدفة، وروابط المراجع والملاحظات..."
+                  className="w-full rounded-2xl border border-border bg-surface/80 px-4 py-2.5 text-xs text-foreground placeholder:text-foreground-subtle focus:bg-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+                />
+              </div>
             </div>
 
-            {/* Description */}
-            <div>
-              <label className="block text-xs font-bold text-foreground-muted mb-1">الوصف والتفاصيل</label>
-              <textarea
-                rows={3}
-                {...register('description')}
-                placeholder="المتطلبات، المخرجات المطلوبة، وروابط المراجع..."
-                className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground placeholder-foreground-subtle focus:border-primary focus:outline-none resize-none"
-              />
+            {/* Section 3: Priority & Due Date Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="block text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <FiAlertCircle className="h-3.5 w-3.5 text-primary" />
+                  <span>درجة الأولوية</span>
+                </label>
+                <select
+                  {...register('priority')}
+                  className="w-full rounded-2xl border border-border bg-surface/80 px-3.5 py-2.5 text-xs text-foreground focus:bg-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="LOW">🟢 منخفضة</option>
+                  <option value="MEDIUM">🟡 متوسطة</option>
+                  <option value="HIGH">🟠 مرتفعة</option>
+                  <option value="URGENT">🔴 عاجلة جداً</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <FiCalendar className="h-3.5 w-3.5 text-primary" />
+                  <span>الموعد النهائي (Due Date)</span>
+                </label>
+                <input
+                  type="date"
+                  {...register('dueDate')}
+                  className="w-full rounded-2xl border border-border bg-surface/80 px-3.5 py-2.5 text-xs text-foreground focus:bg-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 font-mono"
+                />
+              </div>
             </div>
 
-            {/* ImgBB Images Upload */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-bold text-foreground-muted">
-                  المرفقات والصور التوضيحية (ImgBB)
+            {/* Section 4: ImgBB Images Upload */}
+            <div className="space-y-2 p-3.5 rounded-2xl bg-surface/40 border border-border/40 dark:border-white/5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <FiImage className="h-3.5 w-3.5 text-primary" />
+                  <span>المرفقات والصور التوضيحية</span>
                 </label>
                 {isUploading && (
-                  <span className="text-[10px] text-primary animate-pulse font-mono">
+                  <span className="text-[10px] text-primary animate-pulse font-mono font-bold">
                     جاري الرفع إلى ImgBB...
                   </span>
                 )}
               </div>
 
               <div className="flex items-center gap-3">
-                <label className="cursor-pointer inline-flex items-center gap-2 rounded-2xl border border-dashed border-primary/40 bg-primary/5 px-4 py-2.5 text-xs font-bold text-primary hover:bg-primary/10 transition-all">
+                <label className="cursor-pointer inline-flex items-center gap-2 rounded-2xl border border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10 px-4 py-2 text-xs font-bold text-primary transition-all active:scale-95 shadow-xs">
                   <FiImage className="h-4 w-4" />
                   <span>اختر الصور المرفقة</span>
                   <input
@@ -1166,61 +1213,37 @@ function CreateTaskModal({
                     className="hidden"
                   />
                 </label>
-                <span className="text-[10px] text-foreground-subtle">PNG, JPG, WebP</span>
+                <span className="text-[11px] text-foreground-muted">PNG, JPG, WebP (تخزين سحابي مباشر)</span>
               </div>
 
               {/* Uploaded Thumbnails */}
               {attachmentUrls.length > 0 && (
-                <div className="mt-3 grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5 pt-2">
                   {attachmentUrls.map((url, idx) => (
-                    <div key={idx} className="relative group rounded-xl overflow-hidden border border-border bg-surface aspect-video">
-                      <img src={url} alt="Uploaded attachment" className="w-full h-full object-cover" />
+                    <div key={idx} className="relative group rounded-xl overflow-hidden border border-border bg-surface aspect-video shadow-xs">
+                      <img src={url} alt={`Attachment ${idx + 1}`} className="w-full h-full object-cover" />
                       <button
                         type="button"
                         onClick={() => removeAttachment(idx)}
-                        className="absolute top-1 right-1 bg-rose-500 text-white rounded-full p-1 text-[9px] shadow flex items-center justify-center"
+                        className="absolute top-1 end-1 bg-rose-500 hover:bg-rose-600 text-white rounded-full p-1 text-[10px] shadow-md flex items-center justify-center transition-transform hover:scale-110"
+                        title="حذف الصورة"
                       >
-                        <FiX className="h-2.5 w-2.5" />
+                        <FiX className="h-3 w-3" />
                       </button>
                     </div>
                   ))}
                 </div>
               )}
             </div>
-
-            {/* Priority & Due Date Row */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-foreground-muted mb-1">درجة الأولوية</label>
-                <select
-                  {...register('priority')}
-                  className="w-full rounded-2xl border border-border bg-surface px-3 py-2 text-xs text-foreground focus:border-primary focus:outline-none"
-                >
-                  <option value="LOW">منخفضة</option>
-                  <option value="MEDIUM">متوسطة</option>
-                  <option value="HIGH">مرتفعة</option>
-                  <option value="URGENT">عاجلة جداً</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-foreground-muted mb-1">الموعد النهائي (Due Date)</label>
-                <input
-                  type="date"
-                  {...register('dueDate')}
-                  className="w-full rounded-2xl border border-border bg-surface px-3 py-2 text-xs text-foreground focus:border-primary focus:outline-none font-mono"
-                />
-              </div>
-            </div>
           </form>
         </div>
 
-        {/* Footer */}
-        <div className="p-4 border-t border-border bg-surface-raised/40 flex items-center justify-end gap-2">
+        {/* Modal Footer */}
+        <div className="px-6 py-4 border-t border-border/30 dark:border-white/10 bg-surface/60 dark:bg-white/[0.02] backdrop-blur-xl flex items-center justify-end gap-3 shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-2xl border border-border bg-surface px-4 py-2 text-xs font-bold text-foreground hover:bg-surface-hover"
+            className="rounded-2xl border border-border/80 bg-surface px-5 py-2.5 text-xs font-bold text-foreground hover:bg-surface-hover transition-colors shadow-xs"
           >
             إلغاء
           </button>
@@ -1228,9 +1251,9 @@ function CreateTaskModal({
             form="create-task-form"
             type="submit"
             disabled={isSubmitting || isUploading}
-            className="rounded-2xl bg-primary hover:bg-primary-hover px-5 py-2 text-xs font-black text-primary-foreground shadow-md active:scale-95 disabled:opacity-50"
+            className="rounded-2xl btn-glow-primary px-6 py-2.5 text-xs font-black text-brand-stone-950 shadow-md active:scale-95 disabled:opacity-50 transition-all"
           >
-            {isSubmitting ? 'جاري الإنشاء...' : 'إنشاء المهمة'}
+            {isSubmitting ? 'جاري إنشاء المهمة...' : 'إنشاء المهمة'}
           </button>
         </div>
       </div>
@@ -1362,17 +1385,17 @@ function TaskDetailsModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in">
-      <div className="relative overflow-hidden w-full max-w-2xl max-h-[90vh] flex flex-col rounded-3xl border border-white/40 dark:border-white/10 bg-white/85 dark:bg-black/90 backdrop-blur-2xl shadow-2xl">
-        {/* Top Specular Rim Highlight */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/80 dark:via-white/20 to-transparent z-10" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 sm:p-6 animate-in fade-in duration-200">
+      <div className="relative overflow-hidden w-full max-w-2xl max-h-[88vh] flex flex-col rounded-3xl border border-white/30 dark:border-white/10 bg-white/90 dark:bg-[#141411]/95 backdrop-blur-3xl shadow-2xl">
+        {/* Specular Rim Highlight */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent z-10" />
 
-        {/* Header */}
-        <div className="p-5 border-b border-border/40 flex items-center justify-between bg-surface-raised/40">
+        {/* Modal Header */}
+        <div className="px-6 py-5 border-b border-border/30 dark:border-white/10 flex items-center justify-between bg-surface/40 shrink-0">
           <div>
             <div className="flex items-center gap-2 text-[10px] text-foreground-muted mb-1 font-bold">
               <span>الحالة:</span>
-              <span className="font-mono text-primary">{task.status}</span>
+              <span className="font-mono text-primary bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20">{task.status}</span>
               {task.targetDepartment && (
                 <>
                   <span>•</span>
@@ -1382,13 +1405,18 @@ function TaskDetailsModal({
             </div>
             <h2 className="text-base font-black text-foreground">{task.title}</h2>
           </div>
-          <button onClick={onClose} className="text-foreground-muted hover:text-foreground p-1">
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-8 w-8 rounded-xl flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+            title="إغلاق"
+          >
             <FiX className="h-4 w-4" />
           </button>
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
           {/* Creator State Machine Action Bar */}
           {isCreator && ['REVIEW', 'WAITING_FOR_CLIENT'].includes(task.status) && (
             <div className="rounded-3xl border border-primary/30 bg-primary/10 p-5 space-y-3">
@@ -1489,7 +1517,7 @@ function TaskDetailsModal({
           )}
 
           {/* Quick Info Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-surface p-4 rounded-3xl border border-border text-xs">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-surface/50 p-4 rounded-3xl border border-border text-xs">
             <div>
               <span className="text-[10px] text-foreground-muted block font-bold">مقدم الطلب</span>
               <span className="text-foreground font-extrabold">{task.creator?.fullName || 'الإدارة'}</span>
@@ -1635,7 +1663,7 @@ function TaskDetailsModal({
                 <button
                   type="submit"
                   disabled={(!commentValue?.trim() && commentAttachmentUrls.length === 0) || isUploadingCommentImg}
-                  className="rounded-2xl bg-primary hover:bg-primary-hover px-5 py-2.5 text-xs font-black text-primary-foreground shadow-md disabled:opacity-50"
+                  className="rounded-2xl btn-glow-primary px-5 py-2.5 text-xs font-black text-brand-stone-950 shadow-md disabled:opacity-50"
                 >
                   إرسال
                 </button>
@@ -1666,7 +1694,7 @@ function TaskDetailsModal({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-border bg-surface-raised/40 flex items-center justify-between">
+        <div className="px-6 py-4 border-t border-border/30 dark:border-white/10 bg-surface/60 dark:bg-white/[0.02] backdrop-blur-xl flex items-center justify-between shrink-0">
           {(isAdmin || (isCreator && task.status === 'TODO')) ? (
             <button
               onClick={onDelete}
@@ -1681,7 +1709,7 @@ function TaskDetailsModal({
 
           <button
             onClick={onClose}
-            className="rounded-2xl border border-border bg-surface px-5 py-2 text-xs font-bold text-foreground hover:bg-surface-hover"
+            className="rounded-2xl border border-border/80 bg-surface px-5 py-2.5 text-xs font-bold text-foreground hover:bg-surface-hover transition-colors shadow-xs"
           >
             إغلاق
           </button>

@@ -1133,94 +1133,109 @@ function CreateLeaveModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in">
-      <div className="relative overflow-hidden w-full max-w-md rounded-3xl border border-white/40 dark:border-white/10 bg-white/85 dark:bg-black/90 backdrop-blur-2xl p-6 shadow-2xl space-y-4">
-        {/* Top Specular Rim Highlight */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/80 dark:via-white/20 to-transparent z-10" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="relative overflow-hidden w-full max-w-md max-h-[85vh] flex flex-col rounded-3xl border border-white/30 dark:border-white/10 bg-white/90 dark:bg-[#141411]/95 backdrop-blur-3xl shadow-2xl">
+        {/* Top Specular Rim */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent z-10" />
 
-        <div className="flex items-center justify-between border-b border-border/30 pb-3">
-          <h2 className="text-sm font-black text-foreground">تقديم طلب إجازة رسمية</h2>
-          <button onClick={onClose} className="p-1 rounded-xl text-foreground-muted hover:text-foreground">
-            <FiX className="h-5 w-5" />
+        <div className="px-6 py-5 border-b border-border/30 dark:border-white/10 flex items-center justify-between bg-surface/40 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-2xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shadow-inner">
+              <FiCalendar className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-sm font-black text-foreground">تقديم طلب إجازة رسمية</h2>
+              <p className="text-[11px] text-foreground-muted">تسجيل رصيد وفترة الإجازة للاعتماد</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-8 w-8 rounded-xl flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+            title="إغلاق"
+          >
+            <FiX className="h-4 w-4" />
           </button>
         </div>
 
-        {errorMsg && (
-          <div className="rounded-2xl bg-rose-500/10 p-3 text-xs text-rose-500 dark:text-rose-400">
-            {errorMsg}
-          </div>
-        )}
+        <form id="create-leave-form" onSubmit={handleSubmit(onSubmit)} className="flex-1 overflow-y-auto px-6 py-5 space-y-4 text-xs">
+          {errorMsg && (
+            <div className="rounded-2xl bg-rose-500/10 border border-rose-500/30 p-3.5 text-xs text-rose-500 dark:text-rose-400 flex items-center gap-2">
+              <FiAlertCircle className="h-4 w-4 shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-foreground-muted mb-1">نوع الإجازة</label>
+            <label className="block text-xs font-bold text-foreground mb-1.5">نوع الإجازة <span className="text-rose-500">*</span></label>
             <select
               {...register('type')}
-              className="w-full rounded-2xl bg-surface px-3.5 py-2.5 text-xs text-foreground focus:ring-2 focus:ring-primary/20 focus:outline-none cursor-pointer"
+              className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 text-xs text-foreground focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
             >
-              <option value="ANNUAL">إجازة اعتيادية سنوية (خصم من الرصيد)</option>
-              <option value="SICK">إجازة مرضية (بتقرير طبي)</option>
-              <option value="UNPAID">إجازة بدون راتب</option>
-              <option value="MATERNITY">إجازة رعاية طفل / وضع</option>
+              <option value="ANNUAL">🏖️ إجازة اعتيادية سنوية (خصم من الرصيد)</option>
+              <option value="SICK">🩺 إجازة مرضية (بتقرير طبي معتمد)</option>
+              <option value="UNPAID">💼 إجازة بدون راتب</option>
+              <option value="MATERNITY">👶 إجازة رعاية طفل / وضع</option>
             </select>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-foreground-muted mb-1">من تاريخ</label>
+              <label className="block text-xs font-bold text-foreground mb-1.5">من تاريخ</label>
               <input
                 type="date"
                 {...register('startDate')}
-                className="w-full rounded-2xl bg-surface px-3.5 py-2.5 text-xs text-foreground focus:ring-2 focus:ring-primary/20 focus:outline-none font-mono"
+                className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-3.5 py-2.5 text-xs text-foreground focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20 font-mono"
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-foreground-muted mb-1">إلى تاريخ</label>
+              <label className="block text-xs font-bold text-foreground mb-1.5">إلى تاريخ</label>
               <input
                 type="date"
                 {...register('endDate')}
-                className="w-full rounded-2xl bg-surface px-3.5 py-2.5 text-xs text-foreground focus:ring-2 focus:ring-primary/20 focus:outline-none font-mono"
+                className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-3.5 py-2.5 text-xs text-foreground focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20 font-mono"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-foreground-muted mb-1">إجمالي الأيام المطلوبة</label>
+            <label className="block text-xs font-bold text-foreground mb-1.5">إجمالي الأيام المطلوبة</label>
             <input
               type="number"
               readOnly
               {...register('totalDaysRequested', { valueAsNumber: true })}
-              className="w-full rounded-2xl bg-surface-raised px-3.5 py-2.5 text-xs text-primary font-black font-mono focus:outline-none"
+              className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface-raised px-4 py-2.5 text-xs text-primary font-black font-mono focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-foreground-muted mb-1">السبب / الملاحظات (اختياري)</label>
+            <label className="block text-xs font-bold text-foreground mb-1.5">السبب / الملاحظات (اختياري)</label>
             <textarea
               rows={2}
               {...register('reason')}
-              placeholder="اكتب أسباب الإجازة إن وجدت..."
-              className="w-full rounded-2xl bg-surface p-2.5 text-xs text-foreground focus:ring-2 focus:ring-primary/20 focus:outline-none resize-none"
+              placeholder="اكتب أسباب الإجازة أو الملاحظات إن وجدت..."
+              className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 text-xs text-foreground placeholder:text-foreground-subtle focus:bg-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
             />
           </div>
-
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-border/30">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-2xl bg-surface hover:bg-surface-hover px-4 py-2 text-xs font-bold text-foreground"
-            >
-              إلغاء
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="rounded-2xl bg-primary hover:bg-primary-hover px-5 py-2 text-xs font-black text-primary-foreground shadow-md active:scale-95 disabled:opacity-50"
-            >
-              {isSubmitting ? 'جاري التقديم...' : 'تقديم الطلب'}
-            </button>
-          </div>
         </form>
+
+        <div className="px-6 py-4 border-t border-border/30 dark:border-white/10 bg-surface/60 dark:bg-white/[0.02] backdrop-blur-xl flex items-center justify-end gap-3 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-2xl border border-border/80 bg-surface px-5 py-2.5 text-xs font-bold text-foreground hover:bg-surface-hover transition-colors shadow-xs"
+          >
+            إلغاء
+          </button>
+          <button
+            form="create-leave-form"
+            type="submit"
+            disabled={isSubmitting}
+            className="rounded-2xl btn-glow-primary px-6 py-2.5 text-xs font-black text-brand-stone-950 shadow-md active:scale-95 disabled:opacity-50 transition-all"
+          >
+            {isSubmitting ? 'جاري التقديم...' : 'تقديم الطلب'}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -1284,91 +1299,106 @@ function CreatePermissionModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in">
-      <div className="relative overflow-hidden w-full max-w-md rounded-3xl border border-white/40 dark:border-white/10 bg-white/85 dark:bg-black/90 backdrop-blur-2xl p-6 shadow-2xl space-y-4">
-        {/* Top Specular Rim Highlight */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/80 dark:via-white/20 to-transparent z-10" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="relative overflow-hidden w-full max-w-md max-h-[85vh] flex flex-col rounded-3xl border border-white/30 dark:border-white/10 bg-white/90 dark:bg-[#141411]/95 backdrop-blur-3xl shadow-2xl">
+        {/* Top Specular Rim */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent z-10" />
 
-        <div className="flex items-center justify-between border-b border-border/30 pb-3">
-          <h2 className="text-sm font-black text-foreground">تقديم طلب إذن عمل ساعي</h2>
-          <button onClick={onClose} className="p-1 rounded-xl text-foreground-muted hover:text-foreground">
-            <FiX className="h-5 w-5" />
+        <div className="px-6 py-5 border-b border-border/30 dark:border-white/10 flex items-center justify-between bg-surface/40 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-2xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shadow-inner">
+              <FiClock className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-sm font-black text-foreground">تقديم طلب إذن ساعي</h2>
+              <p className="text-[11px] text-foreground-muted">طلب خروج أو تأخير لعدد محدد من الساعات</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-8 w-8 rounded-xl flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+            title="إغلاق"
+          >
+            <FiX className="h-4 w-4" />
           </button>
         </div>
 
-        {errorMsg && (
-          <div className="rounded-2xl bg-rose-500/10 p-3 text-xs text-rose-500 dark:text-rose-400">
-            {errorMsg}
-          </div>
-        )}
+        <form id="create-permission-form" onSubmit={handleSubmit(onSubmit)} className="flex-1 overflow-y-auto px-6 py-5 space-y-4 text-xs">
+          {errorMsg && (
+            <div className="rounded-2xl bg-rose-500/10 border border-rose-500/30 p-3.5 text-xs text-rose-500 dark:text-rose-400 flex items-center gap-2">
+              <FiAlertCircle className="h-4 w-4 shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-foreground-muted mb-1">تاريخ الإذن</label>
+            <label className="block text-xs font-bold text-foreground mb-1.5">تاريخ الإذن <span className="text-rose-500">*</span></label>
             <input
               type="date"
               {...register('date')}
-              className="w-full rounded-2xl bg-surface px-3.5 py-2.5 text-xs text-foreground focus:ring-2 focus:ring-primary/20 focus:outline-none font-mono"
+              className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 text-xs text-foreground focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20 font-mono"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-foreground-muted mb-1">من الساعة</label>
+              <label className="block text-xs font-bold text-foreground mb-1.5">من الساعة</label>
               <input
                 type="time"
                 {...register('startTime')}
-                className="w-full rounded-2xl bg-surface px-3.5 py-2.5 text-xs text-foreground focus:ring-2 focus:ring-primary/20 focus:outline-none font-mono"
+                className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-3.5 py-2.5 text-xs text-foreground focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20 font-mono"
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-foreground-muted mb-1">إلى الساعة</label>
+              <label className="block text-xs font-bold text-foreground mb-1.5">إلى الساعة</label>
               <input
                 type="time"
                 {...register('endTime')}
-                className="w-full rounded-2xl bg-surface px-3.5 py-2.5 text-xs text-foreground focus:ring-2 focus:ring-primary/20 focus:outline-none font-mono"
+                className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-3.5 py-2.5 text-xs text-foreground focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20 font-mono"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-foreground-muted mb-1">إجمالي الساعات المطلوبة</label>
+            <label className="block text-xs font-bold text-foreground mb-1.5">إجمالي الساعات المطلوبة</label>
             <input
               type="number"
               step="0.5"
               readOnly
               {...register('hoursRequested', { valueAsNumber: true })}
-              className="w-full rounded-2xl bg-surface-raised px-3.5 py-2.5 text-xs text-primary font-black font-mono focus:outline-none"
+              className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface-raised px-4 py-2.5 text-xs text-primary font-black font-mono focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-foreground-muted mb-1">سبب الإذن</label>
+            <label className="block text-xs font-bold text-foreground mb-1.5">سبب الإذن</label>
             <textarea
               rows={2}
               {...register('reason')}
-              placeholder="اكتب سبب طلب الإذن..."
-              className="w-full rounded-2xl bg-surface p-2.5 text-xs text-foreground focus:ring-2 focus:ring-primary/20 focus:outline-none resize-none"
+              placeholder="اكتب سبب طلب الإذن بوضوح..."
+              className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 text-xs text-foreground placeholder:text-foreground-subtle focus:bg-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
             />
           </div>
-
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-border/30">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-2xl bg-surface hover:bg-surface-hover px-4 py-2 text-xs font-bold text-foreground"
-            >
-              إلغاء
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="rounded-2xl bg-primary hover:bg-primary-hover px-5 py-2 text-xs font-black text-primary-foreground shadow-md active:scale-95 disabled:opacity-50"
-            >
-              {isSubmitting ? 'جاري التقديم...' : 'تقديم طلب الإذن'}
-            </button>
-          </div>
         </form>
+
+        <div className="px-6 py-4 border-t border-border/30 dark:border-white/10 bg-surface/60 dark:bg-white/[0.02] backdrop-blur-xl flex items-center justify-end gap-3 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-2xl border border-border/80 bg-surface px-5 py-2.5 text-xs font-bold text-foreground hover:bg-surface-hover transition-colors shadow-xs"
+          >
+            إلغاء
+          </button>
+          <button
+            form="create-permission-form"
+            type="submit"
+            disabled={isSubmitting}
+            className="rounded-2xl btn-glow-primary px-6 py-2.5 text-xs font-black text-brand-stone-950 shadow-md active:scale-95 disabled:opacity-50 transition-all"
+          >
+            {isSubmitting ? 'جاري التقديم...' : 'تقديم طلب الإذن'}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -1402,24 +1432,34 @@ function RejectModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in">
-      <div className="relative overflow-hidden w-full max-w-md rounded-3xl border border-white/40 dark:border-white/10 bg-white/85 dark:bg-black/90 backdrop-blur-2xl p-6 shadow-2xl space-y-4">
-        {/* Top Specular Rim Highlight */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/80 dark:via-white/20 to-transparent z-10" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="relative overflow-hidden w-full max-w-md max-h-[85vh] flex flex-col rounded-3xl border border-white/30 dark:border-white/10 bg-white/90 dark:bg-[#141411]/95 backdrop-blur-3xl shadow-2xl">
+        {/* Top Specular Rim */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-rose-500/50 to-transparent z-10" />
 
-        <div className="flex items-center justify-between border-b border-border/30 pb-3">
-          <h2 className="text-sm font-black text-foreground flex items-center gap-2">
-            <FiAlertCircle className="h-4 w-4 text-rose-500" />
-            <span>رفض الطلب: {item.title}</span>
-          </h2>
-          <button onClick={onClose} className="p-1 rounded-xl text-foreground-muted hover:text-foreground">
-            <FiX className="h-5 w-5" />
+        <div className="px-6 py-5 border-b border-border/30 dark:border-white/10 flex items-center justify-between bg-surface/40 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center shadow-inner">
+              <FiAlertCircle className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-sm font-black text-foreground">رفض الطلب</h2>
+              <p className="text-[11px] text-foreground-muted truncate max-w-[200px]">{item.title}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-8 w-8 rounded-xl flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+            title="إغلاق"
+          >
+            <FiX className="h-4 w-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form id="reject-modal-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-5 space-y-4 text-xs">
           <div>
-            <label className="block text-xs font-bold text-foreground-muted mb-1">
+            <label className="block text-xs font-bold text-foreground mb-1.5">
               سبب الرفض الإداري <span className="text-rose-500">*</span>
             </label>
             <textarea
@@ -1428,27 +1468,28 @@ function RejectModal({
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="اكتب أسباب رفض الطلب ليتم إبلاغ الموظف بها..."
-              className="w-full rounded-2xl border border-border bg-surface p-2.5 text-xs text-foreground focus:border-rose-500 focus:outline-none resize-none"
+              className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 p-3 text-xs text-foreground placeholder:text-foreground-subtle focus:bg-surface focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500/20 resize-none"
             />
           </div>
-
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-2xl border border-border bg-surface px-4 py-2 text-xs font-bold text-foreground"
-            >
-              إلغاء
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting || !reason.trim()}
-              className="rounded-2xl bg-rose-500 hover:bg-rose-600 px-5 py-2 text-xs font-black text-white shadow-md active:scale-95 disabled:opacity-50"
-            >
-              {isSubmitting ? 'جاري الرفض...' : 'تأكيد الرفض'}
-            </button>
-          </div>
         </form>
+
+        <div className="px-6 py-4 border-t border-border/30 dark:border-white/10 bg-surface/60 dark:bg-white/[0.02] backdrop-blur-xl flex items-center justify-end gap-3 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-2xl border border-border/80 bg-surface px-5 py-2.5 text-xs font-bold text-foreground hover:bg-surface-hover transition-colors shadow-xs"
+          >
+            إلغاء
+          </button>
+          <button
+            form="reject-modal-form"
+            type="submit"
+            disabled={isSubmitting || !reason.trim()}
+            className="rounded-2xl bg-rose-500 hover:bg-rose-600 px-6 py-2.5 text-xs font-black text-white shadow-md active:scale-95 disabled:opacity-50 transition-all"
+          >
+            {isSubmitting ? 'جاري الرفض...' : 'تأكيد الرفض'}
+          </button>
+        </div>
       </div>
     </div>
   );

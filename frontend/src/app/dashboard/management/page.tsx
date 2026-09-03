@@ -796,74 +796,88 @@ export default function ManagementCommandCenterPage() {
       {/* 4. DIRECT ACTION CONFIRMATION MODAL                                    */}
       {/* ===================================================================== */}
       {selectedItemForAction && overrideActionType && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-md rounded-3xl glass-card border border-white/30 dark:border-white/10 p-6 space-y-4 shadow-2xl animate-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-border/20 pb-3">
-              <h3 className="text-sm font-black text-foreground flex items-center gap-2">
-                {overrideActionType === 'APPROVE' ? (
-                  <FiCheckCircle className="h-5 w-5 text-emerald-500" />
-                ) : (
-                  <FiXCircle className="h-5 w-5 text-rose-500" />
-                )}
-                <span>
-                  {overrideActionType === 'APPROVE'
-                    ? 'تأكيد الاعتماد الإداري الفوري'
-                    : 'تأكيد الرفض الإداري للطلب'}
-                </span>
-              </h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative overflow-hidden w-full max-w-md max-h-[85vh] flex flex-col rounded-3xl border border-white/30 dark:border-white/10 bg-white/90 dark:bg-[#141411]/95 backdrop-blur-3xl shadow-2xl">
+            {/* Top Specular Rim */}
+            <div className={`pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent ${overrideActionType === 'APPROVE' ? 'via-emerald-500/50' : 'via-rose-500/50'} to-transparent z-10`} />
+
+            <div className="px-6 py-5 border-b border-border/30 dark:border-white/10 flex items-center justify-between bg-surface/40 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className={`h-10 w-10 rounded-2xl flex items-center justify-center shadow-inner ${overrideActionType === 'APPROVE' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-500' : 'bg-rose-500/10 border border-rose-500/20 text-rose-500'}`}>
+                  {overrideActionType === 'APPROVE' ? (
+                    <FiCheckCircle className="h-5 w-5" />
+                  ) : (
+                    <FiXCircle className="h-5 w-5" />
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-foreground">
+                    {overrideActionType === 'APPROVE'
+                      ? 'تأكيد الاعتماد الإداري الفوري'
+                      : 'تأكيد الرفض الإداري للطلب'}
+                  </h3>
+                  <p className="text-[11px] text-foreground-muted">صلاحيات الإدارة التنفيذية المباشرة</p>
+                </div>
+              </div>
               <button
+                type="button"
                 onClick={() => {
                   setSelectedItemForAction(null);
                   setOverrideActionType(null);
                 }}
-                className="p-1 rounded-lg hover:bg-surface text-foreground-muted"
+                className="h-8 w-8 rounded-xl flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                title="إغلاق"
               >
                 <FiX className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="space-y-2 bg-surface/80 p-3 rounded-2xl border border-border/30 text-xs">
-              <div className="font-extrabold text-foreground">
-                {selectedItemForAction.title}
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4 text-xs">
+              <div className="space-y-2 bg-surface/80 p-3.5 rounded-2xl border border-border/60 dark:border-white/5 text-xs">
+                <div className="font-extrabold text-foreground">
+                  {selectedItemForAction.title}
+                </div>
+                <div className="text-foreground-muted text-[11px]">
+                  مقدم الطلب:{' '}
+                  <span className="font-bold text-foreground">
+                    {selectedItemForAction.requester.fullName}
+                  </span>{' '}
+                  ({selectedItemForAction.department?.name || 'القسم العام'})
+                </div>
               </div>
-              <div className="text-foreground-muted text-[11px]">
-                مقدم الطلب:{' '}
-                <span className="font-bold text-foreground">
-                  {selectedItemForAction.requester.fullName}
-                </span>{' '}
-                ({selectedItemForAction.department?.name || 'القسم العام'})
-              </div>
+
+              {overrideActionType === 'REJECT' && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-foreground block">
+                    سبب الرفض الإداري <span className="text-rose-500">*</span>
+                  </label>
+                  <textarea
+                    value={overrideReason}
+                    onChange={(e) => setOverrideReason(e.target.value)}
+                    placeholder="اكتب توضيحاً لسبب الرفض ليظهر لمقدم الطلب..."
+                    rows={3}
+                    className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 p-3 text-xs text-foreground placeholder:text-foreground-subtle focus:bg-surface focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 resize-none"
+                  />
+                </div>
+              )}
             </div>
 
-            {overrideActionType === 'REJECT' && (
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-foreground-muted block">
-                  سبب الرفض الإداري (اختياري)
-                </label>
-                <textarea
-                  value={overrideReason}
-                  onChange={(e) => setOverrideReason(e.target.value)}
-                  placeholder="اكتب توضيحاً لسبب الرفض ليظهر لمقدم الطلب..."
-                  rows={3}
-                  className="w-full rounded-2xl border border-border bg-surface p-3 text-xs text-foreground focus:outline-none focus:border-rose-500"
-                />
-              </div>
-            )}
-
-            <div className="flex items-center justify-end gap-3 pt-2">
+            <div className="px-6 py-4 border-t border-border/30 dark:border-white/10 bg-surface/60 dark:bg-white/[0.02] backdrop-blur-xl flex items-center justify-end gap-3 shrink-0">
               <button
+                type="button"
                 onClick={() => {
                   setSelectedItemForAction(null);
                   setOverrideActionType(null);
                 }}
-                className="px-4 py-2 rounded-2xl bg-surface hover:bg-surface-hover border border-border text-xs font-bold text-foreground transition-all"
+                className="rounded-2xl border border-border/80 bg-surface px-5 py-2.5 text-xs font-bold text-foreground hover:bg-surface-hover transition-colors shadow-xs"
               >
                 إلغاء
               </button>
               <button
+                type="button"
                 onClick={handleExecuteAction}
-                disabled={overrideMutation.isPending}
-                className={`px-5 py-2 rounded-2xl text-xs font-black text-white shadow-md active:scale-95 transition-all ${
+                disabled={overrideMutation.isPending || (overrideActionType === 'REJECT' && !overrideReason.trim())}
+                className={`rounded-2xl px-6 py-2.5 text-xs font-black text-white shadow-md active:scale-95 disabled:opacity-50 transition-all ${
                   overrideActionType === 'APPROVE'
                     ? 'bg-emerald-500 hover:bg-emerald-600'
                     : 'bg-rose-500 hover:bg-rose-600'
@@ -884,23 +898,33 @@ export default function ManagementCommandCenterPage() {
       {/* 5. ITEM DETAILS MODAL                                                 */}
       {/* ===================================================================== */}
       {detailsModalItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-lg rounded-3xl glass-card border border-white/30 dark:border-white/10 p-6 space-y-4 shadow-2xl animate-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-border/20 pb-3">
-              <h3 className="text-sm font-black text-foreground flex items-center gap-2">
-                <FiFileText className="h-5 w-5 text-primary" />
-                <span>تفاصيل الطلب المعلق</span>
-              </h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative overflow-hidden w-full max-w-lg max-h-[85vh] flex flex-col rounded-3xl border border-white/30 dark:border-white/10 bg-white/90 dark:bg-[#141411]/95 backdrop-blur-3xl shadow-2xl">
+            {/* Top Specular Rim */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent z-10" />
+
+            <div className="px-6 py-5 border-b border-border/30 dark:border-white/10 flex items-center justify-between bg-surface/40 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-2xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shadow-inner">
+                  <FiFileText className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-foreground">تفاصيل الطلب المعلق</h3>
+                  <p className="text-[11px] text-foreground-muted">مراجعة بيانات الطلب قبل اتخاذ القرار</p>
+                </div>
+              </div>
               <button
+                type="button"
                 onClick={() => setDetailsModalItem(null)}
-                className="p-1 rounded-lg hover:bg-surface text-foreground-muted"
+                className="h-8 w-8 rounded-xl flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                title="إغلاق"
               >
                 <FiX className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div className="p-3 rounded-2xl bg-surface/80 border border-border/30 space-y-1.5">
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4 text-xs">
+              <div className="p-3.5 rounded-2xl bg-surface/80 border border-border/60 dark:border-white/5 space-y-1.5">
                 <span className="text-[10px] font-bold text-foreground-subtle block">
                   مقدم الطلب
                 </span>
@@ -925,7 +949,7 @@ export default function ManagementCommandCenterPage() {
                 </div>
               </div>
 
-              <div className="p-3 rounded-2xl bg-surface/80 border border-border/30 space-y-1">
+              <div className="p-3.5 rounded-2xl bg-surface/80 border border-border/60 dark:border-white/5 space-y-1">
                 <span className="text-[10px] font-bold text-foreground-subtle block">
                   موضوع الطلب
                 </span>
@@ -941,7 +965,7 @@ export default function ManagementCommandCenterPage() {
 
               {/* Meta Payload breakdown */}
               {detailsModalItem.meta && (
-                <div className="p-3 rounded-2xl bg-surface/60 border border-border/20 space-y-1">
+                <div className="p-3.5 rounded-2xl bg-surface/60 border border-border/40 dark:border-white/5 space-y-1.5">
                   <span className="text-[10px] font-bold text-foreground-subtle block">
                     بيانات إضافية
                   </span>
@@ -949,7 +973,7 @@ export default function ManagementCommandCenterPage() {
                     {Object.entries(detailsModalItem.meta).map(([key, val]) => (
                       <div
                         key={key}
-                        className="bg-surface p-2 rounded-xl border border-border/20"
+                        className="bg-surface p-2.5 rounded-xl border border-border/40"
                       >
                         <span className="text-foreground-subtle block text-[9px]">
                           {key}
@@ -964,10 +988,11 @@ export default function ManagementCommandCenterPage() {
               )}
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-2 border-t border-border/20">
+            <div className="px-6 py-4 border-t border-border/30 dark:border-white/10 bg-surface/60 dark:bg-white/[0.02] backdrop-blur-xl flex items-center justify-end shrink-0">
               <button
+                type="button"
                 onClick={() => setDetailsModalItem(null)}
-                className="px-5 py-2 rounded-2xl bg-surface hover:bg-surface-hover border border-border text-xs font-bold text-foreground transition-all"
+                className="rounded-2xl border border-border/80 bg-surface px-5 py-2.5 text-xs font-bold text-foreground hover:bg-surface-hover transition-colors shadow-xs"
               >
                 إغلاق
               </button>
@@ -978,3 +1003,4 @@ export default function ManagementCommandCenterPage() {
     </div>
   );
 }
+

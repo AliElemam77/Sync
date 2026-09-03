@@ -219,7 +219,7 @@ export default function DashboardPage() {
               <div className="space-y-1">
                 <span className="text-xs font-bold text-foreground-muted">فريق العمل والكوادر</span>
                 <div className="text-3xl font-black text-foreground tracking-tight font-mono">
-                  {employeesData?.meta?.total ?? employeesData?.data?.length ?? 12}
+                  {employeesData?.meta?.total ?? employeesData?.data?.length ?? 0}
                 </div>
               </div>
               <div className="h-12 w-12 rounded-2xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center text-xl shadow-inner group-hover:scale-110 transition-transform">
@@ -228,7 +228,7 @@ export default function DashboardPage() {
             </div>
             <div className="mt-4 pt-3 border-t border-border/30 flex items-center justify-between text-xs">
               <span className="text-emerald-500 font-bold flex items-center gap-1">
-                <FiTrendingUp className="h-3.5 w-3.5" /> 100% نشط
+                <FiTrendingUp className="h-3.5 w-3.5" /> {(employeesData?.data?.length || 0) > 0 ? '100% نشط' : 'لا يوجد موظفين'}
               </span>
               <Link href="/dashboard/employees" className="text-primary hover:underline font-bold flex items-center gap-0.5">
                 <span>عرض الكل</span>
@@ -301,7 +301,7 @@ export default function DashboardPage() {
               <div className="space-y-1">
                 <span className="text-xs font-bold text-foreground-muted">الأقسام والوحدات الإدارية</span>
                 <div className="text-3xl font-black text-foreground tracking-tight font-mono">
-                  {departments.length || 5}
+                  {departments.length}
                 </div>
               </div>
               <div className="h-12 w-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-500 flex items-center justify-center text-xl shadow-inner group-hover:scale-110 transition-transform">
@@ -310,7 +310,7 @@ export default function DashboardPage() {
             </div>
             <div className="mt-4 pt-3 border-t border-border/30 flex items-center justify-between text-xs">
               <span className="text-foreground-muted font-bold font-mono">
-                {user?.employee?.department?.code || 'CORP'} قسمك الحالي
+                {user?.employee?.department?.code ? `${user.employee.department.code} قسمك الحالي` : 'الهيكل العام'}
               </span>
               <Link href="/dashboard/organization" className="text-primary hover:underline font-bold flex items-center gap-0.5">
                 <span>الهيكل الإداري</span>
