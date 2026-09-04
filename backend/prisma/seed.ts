@@ -42,6 +42,11 @@ const INITIAL_PERMISSIONS = [
   { name: 'accounting.view', module: 'ACCOUNTING', description: 'View financial ledger, income, expenses, and summary reports' },
   { name: 'accounting.manage', module: 'ACCOUNTING', description: 'Book financial transactions, record payroll/asset costs, and perform reversals' },
 
+  // Payroll & Compensation (PHASE 06)
+  { name: 'payroll.view', module: 'PAYROLL', description: 'View payroll cycles and company payslips' },
+  { name: 'payroll.manage', module: 'PAYROLL', description: 'Generate monthly payroll, calculate penalties, and approve cycles' },
+  { name: 'payroll.self', module: 'PAYROLL', description: 'View own payslips and salary breakdown' },
+
   // Audit Logs
   { name: 'audit.view', module: 'AUDIT', description: 'Inspect audit trail logs' },
 ];
@@ -120,7 +125,7 @@ async function main() {
 
   // 5. Attach scoped permissions to HR_MANAGER & EMPLOYEE
   const hrPerms = createdPermissions.filter((p) =>
-    ['ORGANIZATION', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'TASKS'].includes(p.module),
+    ['ORGANIZATION', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'TASKS', 'PAYROLL'].includes(p.module),
   );
   await prisma.rolePermission.createMany({
     data: hrPerms.map((p) => ({ roleId: hrManagerRole.id, permissionId: p.id })),
@@ -128,7 +133,7 @@ async function main() {
   });
 
   const empPerms = createdPermissions.filter((p) =>
-    ['leaves.request', 'attendance.view', 'org.view', 'employees.view', 'tasks.view', 'tasks.create', 'tasks.update'].includes(p.name),
+    ['leaves.request', 'attendance.view', 'org.view', 'employees.view', 'tasks.view', 'tasks.create', 'tasks.update', 'payroll.self'].includes(p.name),
   );
   await prisma.rolePermission.createMany({
     data: empPerms.map((p) => ({ roleId: employeeRole.id, permissionId: p.id })),
@@ -136,7 +141,7 @@ async function main() {
   });
 
   const leadPerms = createdPermissions.filter((p) =>
-    ['leaves.request', 'attendance.view', 'org.view', 'employees.view', 'tasks.view', 'tasks.create', 'tasks.update'].includes(p.name),
+    ['leaves.request', 'attendance.view', 'org.view', 'employees.view', 'tasks.view', 'tasks.create', 'tasks.update', 'payroll.self'].includes(p.name),
   );
   await prisma.rolePermission.createMany({
     data: leadPerms.map((p) => ({ roleId: teamLeaderRole.id, permissionId: p.id })),
@@ -466,6 +471,114 @@ async function main() {
       status: EmployeeStatus.ACTIVE,
     },
   });
+
+  // 13. Seed Salary Profiles (PHASE 06: Compensation Structure)
+  console.log('Seeding employee SalaryProfiles...');
+  const allEmployees = await prisma.employeeProfile.findMany();
+  const salaryMap: Record<string, { base: number; housing: number; transport: number; taxRate: number }> = {
+    TAR0000: { base: 25000, housing: 5000, transport: 2500, taxRate: 10 },
+    TAR0001: { base: 18000, housing: 3500, transport: 2000, taxRate: 10 },
+    TAR0002: { base: 14000, housing: 2500, transport: 1500, taxRate: 10 },
+    TAR0003: { base: 16000, housing: 3000, transport: 2000, taxRate: 10 },
+    TAR0004: { base: 12000, housing: 2000, transport: 1500, taxRate: 10 },
+  };
+
+  for (const emp of allEmployees) {
+    const config = salaryMap[emp.employeeCode] || { base: 10000, housing: 1500, transport: 1000, taxRate: 10 };
+    await prisma.salaryProfile.upsert({
+      where: { employeeId: emp.id },
+      update: {
+        baseSalary: config.base,
+        housingAllowance: config.housing,
+        transportAllowance: config.transport,
+        taxRate: config.taxRate,
+      },
+      create: {
+        employeeId: emp.id,
+        baseSalary: config.base,
+        housingAllowance: config.housing,
+        transportAllowance: config.transport,
+        taxRate: config.taxRate,
+      },
+    });
+  }
+
+  // 14. Seed Sample Attendance Records with Delays for Phase 05 -> 06 Coupling
+  console.log('Seeding sample attendance records with delays for September 2026...');
+  const omarProfile = allEmployees.find((e) => e.employeeCode === 'TAR0002');
+  if (omarProfile) {
+    // 45 mins delay on Sept 02
+    await prisma.attendanceRecord.upsert({
+      where: {
+        employeeId_date: {
+          employeeId: omarProfile.id,
+          date: new Date('2026-09-02T00:00:00.000Z'),
+        },
+      },
+      update: {
+        delayMinutes: 45,
+        status: 'PRESENT' as any,
+      },
+      create: {
+        employeeId: omarProfile.id,
+        date: new Date('2026-09-02T00:00:00.000Z'),
+        checkInTime: new Date('2026-09-02T09:45:00.000Z'),
+        checkOutTime: new Date('2026-09-02T17:00:00.000Z'),
+        status: 'PRESENT' as any,
+        delayMinutes: 45,
+        overtimeMinutes: 0,
+      },
+    });
+
+    // 30 mins delay on Sept 03
+    await prisma.attendanceRecord.upsert({
+      where: {
+        employeeId_date: {
+          employeeId: omarProfile.id,
+          date: new Date('2026-09-03T00:00:00.000Z'),
+        },
+      },
+      update: {
+        delayMinutes: 30,
+        status: 'PRESENT' as any,
+      },
+      create: {
+        employeeId: omarProfile.id,
+        date: new Date('2026-09-03T00:00:00.000Z'),
+        checkInTime: new Date('2026-09-03T09:30:00.000Z'),
+        checkOutTime: new Date('2026-09-03T17:00:00.000Z'),
+        status: 'PRESENT' as any,
+        delayMinutes: 30,
+        overtimeMinutes: 0,
+      },
+    });
+  }
+
+  const karimProfile = allEmployees.find((e) => e.employeeCode === 'TAR0004');
+  if (karimProfile) {
+    // 60 mins delay on Sept 01
+    await prisma.attendanceRecord.upsert({
+      where: {
+        employeeId_date: {
+          employeeId: karimProfile.id,
+          date: new Date('2026-09-01T00:00:00.000Z'),
+        },
+      },
+      update: {
+        delayMinutes: 60,
+        status: 'PRESENT' as any,
+      },
+      create: {
+        employeeId: karimProfile.id,
+        date: new Date('2026-09-01T00:00:00.000Z'),
+        checkInTime: new Date('2026-09-01T10:00:00.000Z'),
+        checkOutTime: new Date('2026-09-01T17:00:00.000Z'),
+        status: 'PRESENT' as any,
+        delayMinutes: 60,
+        overtimeMinutes: 0,
+      },
+    });
+  }
 
   console.log('--- Database Seeding Complete ---');
 }

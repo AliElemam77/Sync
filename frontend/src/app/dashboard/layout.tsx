@@ -25,6 +25,7 @@ import {
   FiTrendingUp,
   FiHardDrive,
   FiDollarSign,
+  FiCreditCard,
 } from 'react-icons/fi';
 import { BiBuildingHouse } from 'react-icons/bi';
 import { SocketProvider } from '../../providers/socket-provider';
@@ -237,6 +238,23 @@ export default function DashboardLayout({
         primaryActionHref: '/dashboard/accounting',
       },
       {
+        id: 'payroll',
+        label: 'مسير الرواتب والمستحقات',
+        category: 'المالية والمحاسبة',
+        href: '/dashboard/payroll',
+        icon: FiCreditCard,
+        purposeTitle: 'محرك الرواتب والخصومات وقسائم الموظفين',
+        purposeDescription:
+          'احتساب مسيرات الرواتب الشهرية وخصومات التأخير اللحظية من سجلات الحضور والانصراف، وإصدار قسائم الراتب التفصيلية للموظفين.',
+        highlights: [
+          { title: 'احتساب الرواتب التلقائي', desc: 'محرك ذكي لاحتساب الأساسي والبدلات والضرائب' },
+          { title: 'خصومات التأخير الدقيقة', desc: 'ربط لحظي مع دقائق التأخير بسجل الحضور' },
+          { title: 'قسائم الراتب الذاتية', desc: 'استعراض قسائم الرواتب وبنود الخصم والإضافي' },
+        ],
+        primaryActionLabel: 'إصدار مسير جديد',
+        primaryActionHref: '/dashboard/payroll',
+      },
+      {
         id: 'management',
         label: 'مركز القيادة والتدقيق',
         category: 'الإدارة العليا',
@@ -264,7 +282,13 @@ export default function DashboardLayout({
       if (section.id === 'employees' && !canAccessEmployees(user)) {
         return false;
       }
-      if (section.requiredPerm && !hasPermission(section.requiredPerm)) {
+      if (section.id === 'payroll') {
+        const canView =
+          hasPermission('payroll.view') ||
+          hasPermission('payroll.self') ||
+          user?.role?.name === 'SUPER_ADMIN';
+        if (!canView) return false;
+      } else if (section.requiredPerm && !hasPermission(section.requiredPerm)) {
         return false;
       }
       return true;
@@ -293,6 +317,8 @@ export default function DashboardLayout({
       setActiveSectionId('assets');
     } else if (pathname.startsWith('/dashboard/accounting')) {
       setActiveSectionId('accounting');
+    } else if (pathname.startsWith('/dashboard/payroll')) {
+      setActiveSectionId('payroll');
     } else if (pathname.startsWith('/dashboard/management')) {
       setActiveSectionId('management');
     }

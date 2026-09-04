@@ -44,6 +44,7 @@ import {
   FiCalendar,
   FiFileText,
   FiLayers,
+  FiCode,
 } from 'react-icons/fi';
 import { BiBuildingHouse } from 'react-icons/bi';
 
@@ -167,123 +168,78 @@ export default function ManagementCommandCenterPage() {
     );
   }
 
-  // Sentence Builder for Timeline
-  const formatAuditSentence = (log: AuditLog) => {
-    const actorName =
-      log.user?.employeeProfile?.fullName || log.user?.email || 'النظام التلقائي';
-    const deptName =
-      log.user?.employeeProfile?.department?.name || 'الإدارة العامة';
-
-    let actionLabel = '';
-    let actionColor = 'text-primary';
-
-    switch (log.action) {
-      case 'CREATE':
-        actionLabel = 'أضاف / أنشأ';
-        actionColor = 'text-emerald-500 font-extrabold';
-        break;
-      case 'UPDATE':
-        actionLabel = 'قام بتحديث';
-        actionColor = 'text-sky-500 font-extrabold';
-        break;
-      case 'DELETE':
-        actionLabel = 'قام بحذف';
-        actionColor = 'text-rose-500 font-extrabold';
-        break;
-      case 'LOGIN':
-        actionLabel = 'سجل الدخول إلى النظام';
-        actionColor = 'text-amber-500 font-extrabold';
-        break;
-      case 'LOGOUT':
-        actionLabel = 'سجل الخروج من النظام';
-        actionColor = 'text-zinc-500 font-extrabold';
-        break;
-      case 'EXPORT':
-        actionLabel = 'قام بتصدير بيانات';
-        actionColor = 'text-purple-500 font-extrabold';
-        break;
-      default:
-        actionLabel = `نفذ إجراء ${log.action}`;
-    }
-
-    const entityLabel = log.entity
-      .replace('Task', 'المهمة')
-      .replace('EmployeeProfile', 'ملف الموظف')
-      .replace('LeaveRequest', 'طلب الإجازة')
-      .replace('PermissionRequest', 'طلب الإذن')
-      .replace('FinancialTransaction', 'المعاملة المالية')
-      .replace('Asset', 'الأصل / العهدة')
-      .replace('Department', 'القسم الإداري')
-      .replace('User', 'المستخدم');
-
-    return (
-      <div className="text-xs leading-relaxed text-foreground">
-        <span className="font-extrabold text-foreground">{actorName}</span>{' '}
-        <span className="text-[11px] text-foreground-muted font-mono">
-          ({deptName})
-        </span>{' '}
-        <span className={actionColor}>{actionLabel}</span>{' '}
-        <span className="font-bold text-foreground underline decoration-border underline-offset-2">
-          {entityLabel}
-        </span>
-        {log.entityId && (
-          <span className="text-[10px] font-mono text-foreground-subtle ml-1">
-            #{log.entityId.slice(0, 8)}
-          </span>
-        )}
-      </div>
-    );
-  };
-
-  const getActionIcon = (action: AuditAction) => {
+  // Action Badge Generator for Clean Table View
+  const getActionBadge = (action: AuditAction) => {
     switch (action) {
       case 'CREATE':
         return (
-          <div className="h-8 w-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-500 flex items-center justify-center shrink-0 shadow-xs">
-            <FiPlus className="h-4 w-4" />
-          </div>
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-black bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-2xs">
+            <FiPlus className="h-3 w-3" />
+            <span>إضافة / إنشاء</span>
+          </span>
         );
       case 'UPDATE':
         return (
-          <div className="h-8 w-8 rounded-xl bg-sky-500/15 border border-sky-500/30 text-sky-500 flex items-center justify-center shrink-0 shadow-xs">
-            <FiEdit3 className="h-4 w-4" />
-          </div>
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-black bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 shadow-2xs">
+            <FiEdit3 className="h-3 w-3" />
+            <span>تعديل</span>
+          </span>
         );
       case 'DELETE':
         return (
-          <div className="h-8 w-8 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-500 flex items-center justify-center shrink-0 shadow-xs">
-            <FiTrash2 className="h-4 w-4" />
-          </div>
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-black bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 shadow-2xs">
+            <FiTrash2 className="h-3 w-3" />
+            <span>حذف</span>
+          </span>
         );
       case 'LOGIN':
         return (
-          <div className="h-8 w-8 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-500 flex items-center justify-center shrink-0 shadow-xs">
-            <FiLogIn className="h-4 w-4" />
-          </div>
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-black bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-2xs">
+            <FiLogIn className="h-3 w-3" />
+            <span>تسجيل دخول</span>
+          </span>
         );
       case 'LOGOUT':
         return (
-          <div className="h-8 w-8 rounded-xl bg-zinc-500/15 border border-zinc-500/30 text-zinc-500 flex items-center justify-center shrink-0 shadow-xs">
-            <FiLogOut className="h-4 w-4" />
-          </div>
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-black bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border border-zinc-500/20 shadow-2xs">
+            <FiLogOut className="h-3 w-3" />
+            <span>تسجيل خروج</span>
+          </span>
         );
       case 'EXPORT':
         return (
-          <div className="h-8 w-8 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-500 flex items-center justify-center shrink-0 shadow-xs">
-            <FiDownload className="h-4 w-4" />
-          </div>
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-black bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 shadow-2xs">
+            <FiDownload className="h-3 w-3" />
+            <span>تصدير</span>
+          </span>
         );
       default:
         return (
-          <div className="h-8 w-8 rounded-xl bg-primary/15 border border-primary/30 text-primary flex items-center justify-center shrink-0">
-            <FiActivity className="h-4 w-4" />
-          </div>
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-black bg-primary/10 text-primary border border-primary/20">
+            <span>{action}</span>
+          </span>
         );
     }
   };
 
+  const getEntityFriendlyName = (entity: string) => {
+    const map: Record<string, string> = {
+      Task: 'مهمة عمل',
+      EmployeeProfile: 'ملف موظف',
+      LeaveRequest: 'طلب إجازة',
+      PermissionRequest: 'طلب إذن',
+      FinancialTransaction: 'معاملة مالية',
+      Asset: 'أصل / عهدة',
+      Department: 'قسم إداري',
+      Position: 'مسمى وظيفي',
+      Level: 'درجة وظيفية',
+      User: 'حساب مستخدم',
+    };
+    return map[entity] || entity;
+  };
+
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16 animate-in fade-in duration-300">
+    <div className="space-y-8 w-full max-w-[1680px] mx-auto px-2 sm:px-4 pb-16 animate-in fade-in duration-300">
       {/* 1. TOP HEADER WITH LIVE PULSE INDICATOR */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/20 pb-5">
         <div>
@@ -414,81 +370,77 @@ export default function ManagementCommandCenterPage() {
         </Card>
       </div>
 
-      {/* 3. MAIN SPLIT: UNIFIED INBOX & GLOBAL ACTIVITY TIMELINE */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* ================================================================= */}
-        {/* SECTION A: THE UNIFIED INBOX (PENDING REQUESTS)                   */}
-        {/* ================================================================= */}
-        <div className="lg:col-span-6 space-y-4">
-          <div className="rounded-3xl glass-card p-5 space-y-4 border border-border/40 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/20 pb-3">
-              <div>
-                <h2 className="text-sm font-black text-foreground flex items-center gap-2">
-                  <FiClock className="h-4 w-4 text-amber-500" />
-                  <span>صندوق الطلبات والموافقات المعلقة (Unified Inbox)</span>
-                  <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-500 text-[10px] font-mono font-bold">
-                    {pendingData?.counts.total || 0}
-                  </span>
-                </h2>
-                <p className="text-[11px] text-foreground-muted mt-0.5">
-                  تجميع متزامن للإجازات، الأذونات، والمهام الخاضعة لمراجعة الإدارة.
-                </p>
-              </div>
-
-              {/* Department Selector Filter */}
-              <select
-                value={selectedDeptId}
-                onChange={(e) => setSelectedDeptId(e.target.value)}
-                className="rounded-xl border border-border/60 bg-surface px-2.5 py-1.5 text-xs text-foreground focus:outline-none font-bold"
-              >
-                <option value="">كافة الأقسام</option>
-                {orgTree?.map((dept) => (
-                  <option key={dept.id} value={dept.id}>
-                    {dept.name}
-                  </option>
-                ))}
-              </select>
+      {/* 3. SECTION A: THE UNIFIED INBOX (PENDING REQUESTS - FULL WIDTH) */}
+      <div className="w-full space-y-4">
+        <div className="rounded-3xl glass-card p-5 sm:p-6 space-y-4 border border-border/40 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/20 pb-3">
+            <div>
+              <h2 className="text-sm font-black text-foreground flex items-center gap-2">
+                <FiClock className="h-4 w-4 text-amber-500" />
+                <span>صندوق الطلبات والموافقات المعلقة (Unified Inbox)</span>
+                <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-500 text-[10px] font-mono font-bold">
+                  {pendingData?.counts.total || 0}
+                </span>
+              </h2>
+              <p className="text-[11px] text-foreground-muted mt-0.5">
+                تجميع متزامن للإجازات، الأذونات، والمهام الخاضعة لمراجعة الإدارة.
+              </p>
             </div>
 
-            {/* Category Filter Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-              {[
-                { id: 'ALL', label: 'الكل', count: pendingData?.counts.total || 0 },
-                {
-                  id: 'LEAVE',
-                  label: 'الإجازات',
-                  count: pendingData?.counts.leaves || 0,
-                },
-                {
-                  id: 'PERMISSION',
-                  label: 'الأذونات',
-                  count: pendingData?.counts.permissions || 0,
-                },
-                {
-                  id: 'TASK_REVIEW',
-                  label: 'مراجعة المهام',
-                  count: pendingData?.counts.tasks || 0,
-                },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setSelectedCategory(tab.id as any)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
-                    selectedCategory === tab.id
-                      ? 'bg-primary text-primary-foreground shadow-xs'
-                      : 'bg-surface/80 text-foreground-muted hover:text-foreground hover:bg-surface'
-                  }`}
-                >
-                  <span>{tab.label}</span>
-                  <span className="px-1.5 py-0.2 rounded-md bg-black/10 dark:bg-white/10 text-[10px] font-mono">
-                    {tab.count}
-                  </span>
-                </button>
+            {/* Department Selector Filter */}
+            <select
+              value={selectedDeptId}
+              onChange={(e) => setSelectedDeptId(e.target.value)}
+              className="rounded-xl border border-border/60 bg-surface px-2.5 py-1.5 text-xs text-foreground focus:outline-none font-bold"
+            >
+              <option value="">كافة الأقسام</option>
+              {orgTree?.map((dept) => (
+                <option key={dept.id} value={dept.id}>
+                  {dept.name}
+                </option>
               ))}
-            </div>
+            </select>
+          </div>
 
-            {/* Pending Requests Cards List */}
-            <div className="space-y-3 max-h-[620px] overflow-y-auto pr-1">
+          {/* Category Filter Pills */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+            {[
+              { id: 'ALL', label: 'الكل', count: pendingData?.counts.total || 0 },
+              {
+                id: 'LEAVE',
+                label: 'الإجازات',
+                count: pendingData?.counts.leaves || 0,
+              },
+              {
+                id: 'PERMISSION',
+                label: 'الأذونات',
+                count: pendingData?.counts.permissions || 0,
+              },
+              {
+                id: 'TASK_REVIEW',
+                label: 'مراجعة المهام',
+                count: pendingData?.counts.tasks || 0,
+              },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setSelectedCategory(tab.id as any)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                  selectedCategory === tab.id
+                    ? 'bg-primary text-primary-foreground shadow-xs'
+                    : 'bg-surface/80 text-foreground-muted hover:text-foreground hover:bg-surface'
+                }`}
+              >
+                <span>{tab.label}</span>
+                <span className="px-1.5 py-0.2 rounded-md bg-black/10 dark:bg-white/10 text-[10px] font-mono">
+                  {tab.count}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {/* Pending Requests Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 max-h-[520px] overflow-y-auto pr-1">
               {isPendingLoading ? (
                 <div className="flex flex-col items-center justify-center py-12 text-foreground-muted space-y-2">
                   <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -630,10 +582,10 @@ export default function ManagementCommandCenterPage() {
           </div>
         </div>
 
-        {/* ================================================================= */}
-        {/* SECTION B: GLOBAL ACTIVITY TIMELINE (AUDIT FEED)                  */}
-        {/* ================================================================= */}
-        <div className="lg:col-span-6 space-y-4">
+      {/* ================================================================= */}
+      {/* 4. SECTION B: GLOBAL ACTIVITY TIMELINE & AUDIT TABLE (FULL WIDTH)  */}
+      {/* ================================================================= */}
+      <div className="w-full space-y-4">
           <div className="rounded-3xl glass-card p-5 space-y-4 border border-border/40 shadow-sm">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/20 pb-3">
               <div>
@@ -691,13 +643,13 @@ export default function ManagementCommandCenterPage() {
               </select>
             </div>
 
-            {/* Timeline Stream */}
-            <div className="space-y-4 max-h-[620px] overflow-y-auto pr-1 relative">
+            {/* Simple Clean Table for Audit Logs */}
+            <div className="space-y-3">
               {isAuditLoading ? (
                 <div className="flex flex-col items-center justify-center py-12 text-foreground-muted space-y-2">
                   <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                   <span className="text-xs font-bold">
-                    جاري تحميل سجل التدقيق الحي...
+                    جاري تحميل سجل الحركات والتدقيق...
                   </span>
                 </div>
               ) : flattenedAuditLogs.length === 0 ? (
@@ -705,75 +657,116 @@ export default function ManagementCommandCenterPage() {
                   لا توجد حركات مطابقة لمعايير البحث الحالية.
                 </div>
               ) : (
-                <div className="relative border-r-2 border-border/40 mr-4 space-y-4 pr-4">
-                  {flattenedAuditLogs.map((log) => (
-                    <div
-                      key={log.id}
-                      className="relative rounded-2xl bg-surface/70 hover:bg-surface border border-border/30 p-3.5 transition-all space-y-2 group shadow-2xs"
-                    >
-                      {/* Timeline Node Icon Indicator */}
-                      <div className="absolute -right-8.5 top-3">
-                        {getActionIcon(log.action)}
-                      </div>
+                <div className="overflow-hidden rounded-2xl border border-border/40 bg-surface/40 shadow-xs">
+                  <div className="overflow-x-auto max-h-[560px] overflow-y-auto">
+                    <table className="w-full text-right text-xs">
+                      <thead className="sticky top-0 z-10">
+                        <tr className="border-b border-border/40 bg-surface/95 dark:bg-[#181814]/95 backdrop-blur-md text-[11px] font-black text-foreground-muted">
+                          <th className="py-3 px-3.5 whitespace-nowrap">الوقت والتاريخ</th>
+                          <th className="py-3 px-3.5 whitespace-nowrap">المستخدم</th>
+                          <th className="py-3 px-3.5 whitespace-nowrap">نوع الإجراء</th>
+                          <th className="py-3 px-3.5 whitespace-nowrap">الكيان / البيان</th>
+                          <th className="py-3 px-3.5 text-center whitespace-nowrap">التفاصيل</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/20">
+                        {flattenedAuditLogs.map((log) => {
+                          const actor =
+                            log.user?.employeeProfile?.fullName || log.user?.email || 'النظام التلقائي';
+                          const dept = log.user?.employeeProfile?.department?.name;
+                          const hasMeta = log.metadata && Object.keys(log.metadata).length > 0;
+                          const isExpanded = expandedLogId === log.id;
 
-                      <div className="flex items-start justify-between gap-2">
-                        {formatAuditSentence(log)}
-                        <span className="font-mono text-[10px] text-foreground-subtle whitespace-nowrap shrink-0">
-                          {new Date(log.createdAt).toLocaleTimeString('ar-EG', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit',
-                          })}
-                        </span>
-                      </div>
+                          return (
+                            <React.Fragment key={log.id}>
+                              <tr className="hover:bg-surface-hover/80 transition-colors group">
+                                {/* Time & Date */}
+                                <td className="py-3 px-3.5 whitespace-nowrap">
+                                  <div className="font-mono text-xs font-black text-foreground">
+                                    {new Date(log.createdAt).toLocaleTimeString('ar-EG', {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    })}
+                                  </div>
+                                  <div className="text-[10px] text-foreground-muted font-mono">
+                                    {new Date(log.createdAt).toLocaleDateString('ar-EG', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                    })}
+                                  </div>
+                                </td>
 
-                      {/* Metadata Accordion Toggle */}
-                      {log.metadata && Object.keys(log.metadata).length > 0 && (
-                        <div className="pt-1">
-                          <button
-                            onClick={() =>
-                              setExpandedLogId(
-                                expandedLogId === log.id ? null : log.id,
-                              )
-                            }
-                            className="inline-flex items-center gap-1 text-[10px] font-bold text-primary hover:underline"
-                          >
-                            <FiChevronDown
-                              className={`h-3 w-3 transition-transform ${
-                                expandedLogId === log.id ? 'rotate-180' : ''
-                              }`}
-                            />
-                            <span>
-                              {expandedLogId === log.id
-                                ? 'إخفاء تفاصيل البيانات'
-                                : 'عرض تفاصيل التغييرات (Metadata)'}
-                            </span>
-                          </button>
+                                {/* User / Actor */}
+                                <td className="py-3 px-3.5 whitespace-nowrap">
+                                  <div className="font-black text-xs text-foreground">{actor}</div>
+                                  {dept && (
+                                    <div className="text-[10px] text-foreground-muted font-medium">{dept}</div>
+                                  )}
+                                </td>
 
-                          {expandedLogId === log.id && (
-                            <pre className="mt-2 p-2.5 rounded-xl bg-black/90 text-emerald-400 font-mono text-[10px] overflow-x-auto max-h-40 border border-white/10 text-left dir-ltr">
-                              {JSON.stringify(log.metadata, null, 2)}
-                            </pre>
-                          )}
-                        </div>
-                      )}
+                                {/* Action Badge */}
+                                <td className="py-3 px-3.5 whitespace-nowrap">
+                                  {getActionBadge(log.action)}
+                                </td>
 
-                      <div className="flex items-center justify-between text-[10px] font-mono text-foreground-subtle pt-1 border-t border-border/20">
-                        <span>
-                          {new Date(log.createdAt).toLocaleDateString('ar-EG', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                          })}
-                        </span>
-                        {log.ipAddress && <span>IP: {log.ipAddress}</span>}
-                      </div>
-                    </div>
-                  ))}
+                                {/* Entity / Target & IP */}
+                                <td className="py-3 px-3.5 min-w-[180px]">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="font-bold text-foreground">
+                                      {getEntityFriendlyName(log.entity)}
+                                    </span>
+                                    {log.entityId && (
+                                      <span className="font-mono text-[10px] text-foreground-subtle bg-surface px-1.5 py-0.5 rounded border border-border/40">
+                                        #{log.entityId.slice(0, 8)}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {log.ipAddress && (
+                                    <div className="text-[10px] font-mono text-foreground-subtle mt-0.5">
+                                      IP: {log.ipAddress}
+                                    </div>
+                                  )}
+                                </td>
+
+                                {/* Metadata Details Toggle */}
+                                <td className="py-3 px-3.5 text-center whitespace-nowrap">
+                                  {hasMeta ? (
+                                    <button
+                                      onClick={() =>
+                                        setExpandedLogId(isExpanded ? null : log.id)
+                                      }
+                                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-bold bg-surface hover:bg-surface-hover border border-border/40 text-primary transition-all shadow-2xs active:scale-95"
+                                      title="عرض البيانات التقنية (Metadata)"
+                                    >
+                                      <FiCode className="h-3 w-3" />
+                                      <span>{isExpanded ? 'إخفاء' : 'عرض'}</span>
+                                    </button>
+                                  ) : (
+                                    <span className="text-foreground-subtle text-[11px]">—</span>
+                                  )}
+                                </td>
+                              </tr>
+
+                              {/* Expandable JSON Metadata Row */}
+                              {isExpanded && hasMeta && (
+                                <tr className="bg-surface/90">
+                                  <td colSpan={5} className="p-3 border-t border-border/20">
+                                    <div className="rounded-xl bg-black/90 p-3 border border-white/10 text-emerald-400 font-mono text-[10px] overflow-x-auto max-h-44 text-left dir-ltr shadow-inner">
+                                      <pre>{JSON.stringify(log.metadata, null, 2)}</pre>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
 
                   {/* Load More Button for Infinite Scroll */}
                   {hasNextPage && (
-                    <div className="text-center pt-2">
+                    <div className="p-3 border-t border-border/20 text-center bg-surface/30">
                       <button
                         onClick={() => fetchNextPage()}
                         disabled={isFetchingNextPage}
@@ -790,7 +783,6 @@ export default function ManagementCommandCenterPage() {
             </div>
           </div>
         </div>
-      </div>
 
       {/* ===================================================================== */}
       {/* 4. DIRECT ACTION CONFIRMATION MODAL                                    */}

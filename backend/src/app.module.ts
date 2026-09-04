@@ -15,6 +15,7 @@ import { ChatModule } from './modules/chat/chat.module';
 import { AssetsModule } from './modules/assets/assets.module';
 import { AccountingModule } from './modules/accounting/accounting.module';
 import { ManagementModule } from './modules/management/management.module';
+import { PayrollModule } from './modules/payroll/payroll.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
@@ -39,6 +40,7 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
     AssetsModule,
     AccountingModule,
     ManagementModule,
+    PayrollModule,
   ],
   providers: [
     {
