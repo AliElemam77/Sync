@@ -11,6 +11,7 @@ import {
   FiPlus,
   FiMoreVertical,
   FiCheck,
+  FiClock,
   FiInfo,
   FiChevronRight,
   FiChevronLeft,
@@ -1231,39 +1232,40 @@ export default function ChatPage() {
                               )}
 
                               {/* Send Error & Resend / Retry Action */}
+                              {/* Send Error & Resend / Retry Action */}
                               {msg.uploadError && (
-                                <div className="mt-2.5 p-2 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-between gap-2 text-rose-600 dark:text-rose-400">
-                                  <div className="flex items-center gap-1.5 text-[11px] font-bold">
-                                    <FiAlertCircle className="h-4 w-4 shrink-0 text-rose-500" />
-                                    <span>{msg.uploadError}</span>
-                                  </div>
+                                <div className="mt-2 pt-1.5 border-t border-rose-500/20 flex items-center justify-between gap-2 text-rose-200">
+                                  <span className="text-[10px] font-bold flex items-center gap-1">
+                                    <FiAlertCircle className="h-3 w-3 text-rose-400 shrink-0" />
+                                    <span>تعذر الإرسال</span>
+                                  </span>
 
-                                  <div className="flex items-center gap-1.5 shrink-0">
+                                  <div className="flex items-center gap-1 shrink-0">
                                     <button
                                       type="button"
                                       onClick={() => handleRetryMessage(msg.id)}
-                                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-[11px] font-extrabold shadow-sm transition-all active:scale-95 cursor-pointer"
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-rose-500 hover:bg-rose-600 text-white text-[10px] font-bold shadow-xs transition-all active:scale-95 cursor-pointer"
                                       title="إعادة إرسال الرسالة"
                                     >
-                                      <FiRotateCw className="h-3 w-3" />
-                                      <span>إعادة الإرسال</span>
+                                      <FiRotateCw className="h-2.5 w-2.5" />
+                                      <span>إعادة المحاولة</span>
                                     </button>
 
                                     <button
                                       type="button"
                                       onClick={() => handleCancelOptimisticMessage(msg.id)}
-                                      className="p-1 rounded-lg hover:bg-rose-500/20 text-rose-500 text-[10px] transition-colors"
+                                      className="p-1 rounded-md hover:bg-rose-500/20 text-rose-300 text-[10px] transition-colors"
                                       title="إلغاء الرسالة"
                                     >
-                                      <FiX className="h-3.5 w-3.5" />
+                                      <FiX className="h-3 w-3" />
                                     </button>
                                   </div>
                                 </div>
                               )}
 
-                              {/* Bottom Time & Delivery Status */}
+                              {/* Bottom Time & Delivery Status (WhatsApp Style: Clock 🕒 -> Check ✔ with 0 layout shift) */}
                               <div
-                                className={`flex items-center gap-1.5 mt-1.5 text-[10px] font-mono ${
+                                className={`flex items-center gap-1 mt-1 text-[10px] font-mono leading-none select-none ${
                                   isMe ? 'text-primary-foreground/75 justify-end' : 'text-foreground-subtle justify-start'
                                 }`}
                               >
@@ -1271,18 +1273,14 @@ export default function ChatPage() {
                                 {msg.isEdited && !msg.isDeleted && (
                                   <span className="text-[9px] font-bold opacity-80">(معدلة)</span>
                                 )}
-                                {isMe && !msg.isUploading && !msg.uploadError && <FiCheck className="h-3.5 w-3.5" />}
+                                {isMe && !msg.isUploading && !msg.uploadError && (
+                                  <FiCheck className="h-3.5 w-3.5 shrink-0" title="تم الإرسال" />
+                                )}
                                 {isMe && msg.isUploading && (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-sans font-bold opacity-90">
-                                    <span>جاري الإرسال</span>
-                                    <div className="h-2.5 w-2.5 animate-spin rounded-full border border-primary-foreground border-t-transparent" />
-                                  </span>
+                                  <FiClock className="h-3 w-3 shrink-0 opacity-80 animate-pulse" title="جاري الإرسال" />
                                 )}
                                 {isMe && msg.uploadError && (
-                                  <span className="inline-flex items-center gap-1 text-rose-300 font-sans font-bold">
-                                    <span>فشل الإرسال</span>
-                                    <FiAlertCircle className="h-3 w-3 text-rose-400" />
-                                  </span>
+                                  <FiAlertCircle className="h-3.5 w-3.5 shrink-0 text-rose-300" title="تعذر الإرسال" />
                                 )}
                               </div>
                             </div>
