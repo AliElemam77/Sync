@@ -178,7 +178,7 @@ export default function LoginPage() {
             <div className="grid grid-cols-2 gap-2.5">
               <button
                 type="button"
-                onClick={() => handleQuickLogin('admin@sync-erp.local', 'Admin123!')}
+                onClick={() => handleQuickLogin('admin@sync-erp.local', 'Admin@Sync2026!')}
                 className="flex flex-col items-center p-3 rounded-2xl border border-border bg-surface hover:bg-surface-hover hover:border-primary/30 transition-all duration-200 group text-center"
               >
                 <div className="flex items-center gap-1.5 text-xs font-bold text-foreground group-hover:text-primary mb-0.5">
@@ -190,7 +190,7 @@ export default function LoginPage() {
 
               <button
                 type="button"
-                onClick={() => handleQuickLogin('sarah.connor@sync-erp.local', 'Staff123!')}
+                onClick={() => handleQuickLogin('ahmed.mansour@sync-erp.local', 'Employee@2026!')}
                 className="flex flex-col items-center p-3 rounded-2xl border border-border bg-surface hover:bg-surface-hover hover:border-primary/30 transition-all duration-200 group text-center"
               >
                 <div className="flex items-center gap-1.5 text-xs font-bold text-foreground group-hover:text-primary mb-0.5">

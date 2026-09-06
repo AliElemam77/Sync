@@ -568,7 +568,44 @@ export default function ChatPage() {
         );
       }
     } else {
-      // Regular text message
+      // Regular text message - Full Optimistic Instant In-Chat Experience
+      const tempId = `temp-${Date.now()}-${Math.random()}`;
+
+      const optimisticMsg: OptimisticMessage = {
+        id: tempId,
+        conversationId: activeConvId,
+        senderId: user?.id || '',
+        senderEmployee: {
+          id: user?.id,
+          fullName: 'أنا',
+          avatarUrl: null,
+          employeeCode: 'ME',
+        },
+        content: textToSend,
+        type: 'TEXT',
+        attachmentUrls: [],
+        replyToId: replyTarget?.id || null,
+        replyTo: replyTarget
+          ? {
+              id: replyTarget.id,
+              content: replyTarget.content,
+              type: replyTarget.type,
+              attachmentUrls: replyTarget.attachmentUrls,
+              senderEmployee: {
+                fullName: replyTarget.senderEmployee?.fullName || 'زميل',
+              },
+            }
+          : null,
+        isUploading: true,
+        reactions: [],
+        createdAt: new Date().toISOString(),
+      };
+
+      // 1. Immediately inject message into the active conversation stream
+      setOptimisticMessages((prev) => [...prev, optimisticMsg]);
+      scrollToBottom();
+
+      // 2. Dispatch to server in background
       try {
         await sendMessageMutation.mutateAsync({
           conversationId: activeConvId,
@@ -577,9 +614,23 @@ export default function ChatPage() {
           attachmentUrls: [],
           replyToId: replyTarget?.id,
         });
-        scrollToBottom();
+
+        // On success: remove temporary optimistic clone (server message is now in cache/feed)
+        setOptimisticMessages((prev) => prev.filter((m) => m.id !== tempId));
       } catch (err: any) {
         console.error('Failed to send text message:', err);
+        // On error: keep message visible in chat, marked as failed with retry action
+        setOptimisticMessages((prev) =>
+          prev.map((m) =>
+            m.id === tempId
+              ? {
+                  ...m,
+                  isUploading: false,
+                  uploadError: 'تعذر إرسال الرسالة',
+                }
+              : m,
+          ),
+        );
       }
     }
   };
@@ -589,7 +640,7 @@ export default function ChatPage() {
     const targetMsg = optimisticMessages.find((m) => m.id === msgId);
     if (!targetMsg || !activeConvId) return;
 
-    // Set isUploading true, clear error
+    // Set isUploading true, clear error to show in-progress loader
     setOptimisticMessages((prev) =>
       prev.map((m) =>
         m.id === msgId ? { ...m, isUploading: true, uploadError: undefined } : m,
@@ -609,7 +660,7 @@ export default function ChatPage() {
       await sendMessageMutation.mutateAsync({
         conversationId: activeConvId,
         content: targetMsg.content,
-        type: (targetMsg.type as any) || 'IMAGE',
+        type: (targetMsg.type as any) || (uploadedUrls.length > 0 ? 'IMAGE' : 'TEXT'),
         attachmentUrls: uploadedUrls,
         replyToId: targetMsg.replyToId || undefined,
       });
@@ -627,7 +678,7 @@ export default function ChatPage() {
             ? {
                 ...m,
                 isUploading: false,
-                uploadError: 'تعذر إرسال الصور',
+                uploadError: targetMsg.attachmentUrls?.length ? 'تعذر إرسال الصور' : 'تعذر إرسال الرسالة',
               }
             : m,
         ),
@@ -1220,8 +1271,19 @@ export default function ChatPage() {
                                 {msg.isEdited && !msg.isDeleted && (
                                   <span className="text-[9px] font-bold opacity-80">(معدلة)</span>
                                 )}
-                                {isMe && !msg.isUploading && <FiCheck className="h-3.5 w-3.5" />}
-                                {msg.isUploading && <div className="h-3 w-3 animate-spin rounded-full border border-primary-foreground border-t-transparent" />}
+                                {isMe && !msg.isUploading && !msg.uploadError && <FiCheck className="h-3.5 w-3.5" />}
+                                {isMe && msg.isUploading && (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-sans font-bold opacity-90">
+                                    <span>جاري الإرسال</span>
+                                    <div className="h-2.5 w-2.5 animate-spin rounded-full border border-primary-foreground border-t-transparent" />
+                                  </span>
+                                )}
+                                {isMe && msg.uploadError && (
+                                  <span className="inline-flex items-center gap-1 text-rose-300 font-sans font-bold">
+                                    <span>فشل الإرسال</span>
+                                    <FiAlertCircle className="h-3 w-3 text-rose-400" />
+                                  </span>
+                                )}
                               </div>
                             </div>
 
