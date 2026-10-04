@@ -84,15 +84,22 @@ export class AccountingService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      // 1. Mark original as reversed
-      const updatedOriginal = await tx.financialTransaction.update({
-        where: { id },
+      // 1. Mark original as reversed, only if it still is not, so concurrent reversals cannot both apply
+      const { count } = await tx.financialTransaction.updateMany({
+        where: { id, isReversed: false },
         data: {
           isReversed: true,
           reversedAt: new Date(),
           reversalReason: dto.reason.trim(),
           reversedById: user.id,
         },
+      });
+      if (count === 0) {
+        throw new BadRequestException('تم عكس وإلغاء هذا القيد المالي مسبقاً.');
+      }
+
+      const updatedOriginal = await tx.financialTransaction.findUniqueOrThrow({
+        where: { id },
         include: {
           recordedBy: {
             select: {
@@ -255,8 +262,9 @@ export class AccountingService {
     const startOfYear = zonedTimeToUtc(currentYear, 1, 1);
     const startOfNextYear = zonedTimeToUtc(currentYear + 1, 1, 1);
 
+    // Reversed entries stay in their own month and their mirror entry offsets them in the month of the
+    // reversal, so closed months never change. Excluding the original as well would count the reversal twice.
     const whereBase: Prisma.FinancialTransactionWhereInput = {
-      isReversed: false,
       transactionDate: {
         gte: query.startDate ? new Date(query.startDate) : startOfYear,
         ...(query.endDate ? { lte: new Date(query.endDate) } : { lt: startOfNextYear }),

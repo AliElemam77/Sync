@@ -425,9 +425,9 @@ export class ManagementService {
       this.prisma.task.count({
         where: { status: { in: [TaskStatus.WAITING_FOR_CLIENT, TaskStatus.REVIEW] } },
       }),
+      // Reversed entries count in their month; their mirror entry offsets them in the month of the reversal
       this.prisma.financialTransaction.aggregate({
         where: {
-          isReversed: false,
           type: TransactionType.INCOME,
           transactionDate: { gte: startOfMonth, lt: startOfNextMonth },
         },
@@ -435,7 +435,6 @@ export class ManagementService {
       }),
       this.prisma.financialTransaction.aggregate({
         where: {
-          isReversed: false,
           type: TransactionType.EXPENSE,
           transactionDate: { gte: startOfMonth, lt: startOfNextMonth },
         },
