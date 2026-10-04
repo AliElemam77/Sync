@@ -15,6 +15,8 @@ import {
   ManagementAction,
 } from './dto/management-override.dto';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+import { LeavesService } from '../leaves/leaves.service';
+import { WorkPermissionsService } from '../work-permissions/work-permissions.service';
 import {
   Prisma,
   RequestStatus,
@@ -50,7 +52,11 @@ export interface ActionableItem {
 
 @Injectable()
 export class ManagementService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly leavesService: LeavesService,
+    private readonly workPermissionsService: WorkPermissionsService,
+  ) {}
 
   // ---------------------------------------------------------------------------
   // 1. GET AUDIT LOGS (TIMELINE & INFINITE SCROLLING)
@@ -472,73 +478,31 @@ export class ManagementService {
 
   async overrideAction(dto: ManagementOverrideDto, user: AuthenticatedUser) {
     const { id, category, action, reason } = dto;
+    const rejection = { rejectionReason: reason?.trim() || 'تم الرفض بواسطة الإدارة العليا' };
 
+    // Leave & permission decisions go through their owning services so status checks,
+    // balance validation/deduction and employee notifications stay identical to the normal flow.
     if (category === RequestCategory.LEAVE) {
-      const leave = await this.prisma.leaveRequest.findUnique({
-        where: { id },
-        include: { employee: true },
-      });
-
-      if (!leave) {
-        throw new NotFoundException('طلب الإجازة غير موجود.');
-      }
-
-      if (action === ManagementAction.APPROVE) {
-        return this.prisma.$transaction(async (tx) => {
-          if (leave.type === LeaveType.ANNUAL) {
-            await tx.employeeProfile.update({
-              where: { id: leave.employeeId },
-              data: {
-                annualLeaveDays: { decrement: leave.totalDaysRequested },
-              },
-            });
-          }
-
-          return tx.leaveRequest.update({
-            where: { id },
-            data: { status: RequestStatus.APPROVED },
-          });
-        });
-      } else {
-        return this.prisma.leaveRequest.update({
-          where: { id },
-          data: {
-            status: RequestStatus.REJECTED,
-            rejectionReason: reason?.trim() || 'تم الرفض بواسطة الإدارة العليا',
-          },
-        });
-      }
+      return action === ManagementAction.APPROVE
+        ? this.leavesService.approveLeaveRequest(id, user)
+        : this.leavesService.rejectLeaveRequest(id, rejection, user);
     }
 
     if (category === RequestCategory.PERMISSION) {
-      const permission = await this.prisma.permissionRequest.findUnique({
-        where: { id },
-      });
-
-      if (!permission) {
-        throw new NotFoundException('طلب الإذن غير موجود.');
-      }
-
-      if (action === ManagementAction.APPROVE) {
-        return this.prisma.permissionRequest.update({
-          where: { id },
-          data: { status: RequestStatus.APPROVED },
-        });
-      } else {
-        return this.prisma.permissionRequest.update({
-          where: { id },
-          data: {
-            status: RequestStatus.REJECTED,
-            rejectionReason: reason?.trim() || 'تم الرفض بواسطة الإدارة العليا',
-          },
-        });
-      }
+      return action === ManagementAction.APPROVE
+        ? this.workPermissionsService.approvePermissionRequest(id, user)
+        : this.workPermissionsService.rejectPermissionRequest(id, rejection, user);
     }
 
     if (category === RequestCategory.TASK) {
       const task = await this.prisma.task.findUnique({ where: { id } });
       if (!task) {
         throw new NotFoundException('المهمة غير موجودة.');
+      }
+
+      // Only tasks surfaced in the management inbox can be overridden
+      if (task.status !== TaskStatus.REVIEW && task.status !== TaskStatus.WAITING_FOR_CLIENT) {
+        throw new BadRequestException('لا يمكن تنفيذ هذا الإجراء على مهمة ليست قيد المراجعة أو بانتظار العميل.');
       }
 
       const nextStatus =

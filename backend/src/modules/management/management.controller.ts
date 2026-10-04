@@ -55,7 +55,7 @@ export class ManagementController {
 
   @Post('override-action')
   @HttpCode(HttpStatus.OK)
-  @RequirePermissions('audit.view')
+  @RequirePermissions('audit.view', 'leaves.approve')
   @Audit({ action: 'UPDATE', entity: 'ManagementOverride' })
   async overrideAction(
     @Body() dto: ManagementOverrideDto,
