@@ -1276,6 +1276,7 @@ function CreatePermissionModal({
 
   const startTime = watch('startTime');
   const endTime = watch('endTime');
+  const hoursRequested = watch('hoursRequested');
 
   // Auto calculate hours (whole hours only; partial hours are flagged by validation)
   useEffect(() => {
@@ -1374,6 +1375,11 @@ function CreatePermissionModal({
               className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface-raised px-4 py-2.5 text-xs text-primary font-black font-mono focus:outline-none"
             />
             <FieldError message={errors.hoursRequested?.message} />
+            {hoursRequested === 4 && (
+              <p className="mt-1 text-[11px] font-bold text-amber-600 dark:text-amber-400">
+                إذن الأربع ساعات يُحسب نصف يوم ويُخصم من رصيد الإجازة السنوية بدلًا من ساعات الأذونات الشهرية.
+              </p>
+            )}
           </div>
 
           <div>

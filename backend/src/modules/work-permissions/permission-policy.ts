@@ -1,8 +1,16 @@
+import { Prisma } from '@prisma/client';
+
 /**
- * Permissions are taken in whole hours: 1, 2 or 3. A 4-hour absence counts as half a day;
- * until half-day leave exists it is still accepted here and counted against the monthly hours.
+ * Permissions are taken in whole hours: 1, 2 or 3 come out of the monthly permission hours.
+ * A 4-hour permission counts as half a day and is taken from the annual leave balance instead.
  */
 export const MAX_PERMISSION_HOURS = 4;
+export const HALF_DAY_PERMISSION_HOURS = 4;
+export const HALF_DAY_LEAVE_DAYS = new Prisma.Decimal('0.5');
+
+export function isHalfDayPermission(hours: number): boolean {
+  return hours === HALF_DAY_PERMISSION_HOURS;
+}
 
 /**
  * Calendar month (as [start, end) date-only values) that a permission date counts against.

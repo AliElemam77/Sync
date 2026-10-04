@@ -12,7 +12,14 @@ import { Prisma, RequestStatus } from '@prisma/client';
 import { EventsGateway } from '../events/events.gateway';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { AccessScopeService } from '../../common/access/access-scope.service';
-import { MAX_PERMISSION_HOURS, permissionMonthRange, wholeHoursBetween } from './permission-policy';
+import {
+  HALF_DAY_LEAVE_DAYS,
+  HALF_DAY_PERMISSION_HOURS,
+  MAX_PERMISSION_HOURS,
+  isHalfDayPermission,
+  permissionMonthRange,
+  wholeHoursBetween,
+} from './permission-policy';
 
 @Injectable()
 export class WorkPermissionsService {
@@ -52,6 +59,8 @@ export class WorkPermissionsService {
         employeeId,
         status: RequestStatus.APPROVED,
         date: { gte: start, lt: end },
+        // Half-day (4-hour) permissions come out of annual leave, not the monthly hours
+        hoursRequested: { lt: HALF_DAY_PERMISSION_HOURS },
       },
       _sum: { hoursRequested: true },
     });
@@ -76,14 +85,23 @@ export class WorkPermissionsService {
       hoursRequested = hours;
     }
 
-    // The allowance renews monthly: compare with what is left in the permission's month
-    const remaining =
-      employee.monthlyPermissionHours -
-      (await this.getApprovedHoursInMonth(this.prisma, employee.id, new Date(dto.date)));
-    if (remaining < hoursRequested) {
-      throw new BadRequestException(
-        `Insufficient monthly permission hours balance. Remaining this month: ${Math.max(remaining, 0)} hour(s), requested: ${hoursRequested} hour(s).`,
-      );
+    if (isHalfDayPermission(hoursRequested)) {
+      // A 4-hour permission is half a day of annual leave, not monthly permission hours
+      if (employee.annualLeaveDays.lessThan(HALF_DAY_LEAVE_DAYS)) {
+        throw new BadRequestException(
+          `A ${HALF_DAY_PERMISSION_HOURS}-hour permission counts as half a day of annual leave. Remaining annual leave: ${employee.annualLeaveDays.toString()} day(s).`,
+        );
+      }
+    } else {
+      // The allowance renews monthly: compare with what is left in the permission's month
+      const remaining =
+        employee.monthlyPermissionHours -
+        (await this.getApprovedHoursInMonth(this.prisma, employee.id, new Date(dto.date)));
+      if (remaining < hoursRequested) {
+        throw new BadRequestException(
+          `Insufficient monthly permission hours balance. Remaining this month: ${Math.max(remaining, 0)} hour(s), requested: ${hoursRequested} hour(s).`,
+        );
+      }
     }
 
     const permission = await this.prisma.permissionRequest.create({
@@ -189,20 +207,32 @@ export class WorkPermissionsService {
       throw new BadRequestException(`Cannot approve request that is already ${permission.status}.`);
     }
 
+    const halfDay = isHalfDayPermission(permission.hoursRequested);
+
     const result = await this.prisma.$transaction(async (tx) => {
-      // Re-verify what is left of the monthly allowance for the permission's month
       const latestEmployee = await tx.employeeProfile.findUnique({
         where: { id: permission.employeeId },
-        select: { monthlyPermissionHours: true },
+        select: { monthlyPermissionHours: true, annualLeaveDays: true },
       });
-      const remaining =
-        (latestEmployee?.monthlyPermissionHours ?? 0) -
-        (await this.getApprovedHoursInMonth(tx, permission.employeeId, permission.date));
 
-      if (remaining < permission.hoursRequested) {
-        throw new BadRequestException(
-          `Insufficient balance to approve. Employee has ${Math.max(remaining, 0)} hour(s) left this month, requested ${permission.hoursRequested}.`,
-        );
+      if (halfDay) {
+        // 4 hours = half a day, taken from the annual leave balance
+        if (!latestEmployee || latestEmployee.annualLeaveDays.lessThan(HALF_DAY_LEAVE_DAYS)) {
+          throw new BadRequestException(
+            `Insufficient annual leave to approve a half-day permission. Employee has ${latestEmployee?.annualLeaveDays.toString() ?? 0} day(s).`,
+          );
+        }
+      } else {
+        // Re-verify what is left of the monthly allowance for the permission's month
+        const remaining =
+          (latestEmployee?.monthlyPermissionHours ?? 0) -
+          (await this.getApprovedHoursInMonth(tx, permission.employeeId, permission.date));
+
+        if (remaining < permission.hoursRequested) {
+          throw new BadRequestException(
+            `Insufficient balance to approve. Employee has ${Math.max(remaining, 0)} hour(s) left this month, requested ${permission.hoursRequested}.`,
+          );
+        }
       }
 
       // Claim the request only if it is still pending, so concurrent decisions cannot both apply
@@ -212,6 +242,13 @@ export class WorkPermissionsService {
       });
       if (count === 0) {
         throw new BadRequestException('This request has already been decided.');
+      }
+
+      if (halfDay) {
+        await tx.employeeProfile.update({
+          where: { id: permission.employeeId },
+          data: { annualLeaveDays: { decrement: HALF_DAY_LEAVE_DAYS } },
+        });
       }
 
       const updatedPermission = await tx.permissionRequest.findUniqueOrThrow({

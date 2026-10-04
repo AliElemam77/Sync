@@ -14,7 +14,10 @@ import {
   businessToday,
   formatBusinessTime,
 } from '../../common/time/business-time';
-import { permissionMonthRange } from '../work-permissions/permission-policy';
+import {
+  HALF_DAY_PERMISSION_HOURS,
+  permissionMonthRange,
+} from '../work-permissions/permission-policy';
 
 @Injectable()
 export class AttendanceService {
@@ -104,6 +107,8 @@ export class AttendanceService {
           employeeId: employee.id,
           status: RequestStatus.APPROVED,
           date: { gte: month.start, lt: month.end },
+          // Half-day (4-hour) permissions come out of annual leave, not the monthly hours
+          hoursRequested: { lt: HALF_DAY_PERMISSION_HOURS },
         },
         _sum: { hoursRequested: true },
       }),
