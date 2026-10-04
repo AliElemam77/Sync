@@ -1,14 +1,17 @@
 import { AttendanceService } from './attendance.service';
 import { AccessScopeService } from '../../common/access/access-scope.service';
 import { BadRequestException } from '@nestjs/common';
-import { deductibleDelayMinutes, findAbsentDays, shiftBalance } from './attendance-policy';
+import { findAbsentDays, latenessTier, shiftBalance } from './attendance-policy';
 
 describe('attendance policy', () => {
-  it('forgives up to 15 missing minutes, then deducts every minute', () => {
-    expect(deductibleDelayMinutes(10)).toBe(0);
-    expect(deductibleDelayMinutes(15)).toBe(0);
-    expect(deductibleDelayMinutes(16)).toBe(16);
-    expect(deductibleDelayMinutes(45)).toBe(45);
+  it('forgives up to 15 missing minutes, then deducts a quarter, half or full day', () => {
+    const days = (minutes: number) => latenessTier(minutes)?.days ?? 0;
+    expect(days(15)).toBe(0);
+    expect(days(16)).toBe(0.25);
+    expect(days(30)).toBe(0.25);
+    expect(days(31)).toBe(0.5);
+    expect(days(60)).toBe(0.5);
+    expect(days(61)).toBe(1);
   });
 
   it('balances worked and permission time against the shift length', () => {
@@ -75,7 +78,7 @@ describe('AttendanceService.checkIn (company time: Africa/Cairo)', () => {
   it('keeps the actual minutes within the grace period; payroll does not deduct them', async () => {
     const record = await checkInAt('2026-01-15T07:10:00Z');
     expect(record.delayMinutes).toBe(10);
-    expect(deductibleDelayMinutes(record.delayMinutes)).toBe(0);
+    expect(latenessTier(record.delayMinutes)).toBeNull();
   });
 
   it('does not count arrival time covered by an approved permission', async () => {

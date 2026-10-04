@@ -126,13 +126,14 @@ describe('PayrollService.generatePayroll', () => {
           employeeId: 'emp-1',
           date,
           status: 'PRESENT',
+          checkOutTime: date,
           delayMinutes: 0,
           overtimeMinutes: 0,
           ...(typeof figures === 'object' ? figures : {}),
         };
       });
 
-  it('applies minute-rate delay penalties and 1.5x overtime to the base salary', async () => {
+  it('deducts lateness in tiers of a day and pays 1.5x minute-rate overtime', async () => {
     prisma.employeeProfile.findMany.mockResolvedValue([
       employee({ baseSalary: new Prisma.Decimal(9000) }),
     ]);
@@ -153,40 +154,73 @@ describe('PayrollService.generatePayroll', () => {
     // A single attendance query covers every employee
     expect(prisma.attendanceRecord.findMany).toHaveBeenCalledTimes(1);
 
-    // minute rate = 9000 / 30 days / 480 minutes = 0.625
+    // day rate = 9000 / 30 = 300; minute rate = 300 / 480 = 0.625
     const [payslip] = prisma.payslip.createMany.mock.calls[0][0].data;
     expect(payslip.payrollCycleId).toBe('cycle-1');
     expect(payslip.baseSalary.toString()).toBe('9000');
-    expect(payslip.attendancePenalties.toString()).toBe('18.75'); // 30 min x 0.625
+    expect(payslip.attendancePenalties.toString()).toBe('75'); // 30 min late: a quarter day
     expect(payslip.totalAllowances.toString()).toBe('56.25'); // 60 min x 0.625 x 1.5
     expect(payslip.grossPay.toString()).toBe('9056.25');
-    expect(payslip.netPay.toString()).toBe('9037.5');
+    expect(payslip.netPay.toString()).toBe('8981.25');
 
     const adjustments = prisma.financialAdjustment.createMany.mock.calls[0][0].data;
     expect(adjustments).toHaveLength(2);
-    expect(adjustments[0].reason).toContain('30 دقيقة');
+    expect(adjustments[0].reason).toBe('خصم تأخير 30 دقيقة (ربع يوم) بتاريخ 2026-09-02');
     expect(adjustments.every((a: { payslipId: string }) => a.payslipId === payslip.id)).toBe(true);
     expect(adjustments.map((a: { amount: Prisma.Decimal }) => a.amount.toString())).toEqual([
-      '18.75',
+      '75',
       '56.25',
     ]);
   });
 
-  it('does not deduct days missing 15 minutes or less', async () => {
+  it('forgives 15 minutes, then deducts a quarter, half or full day', async () => {
     prisma.employeeProfile.findMany.mockResolvedValue([
-      employee({ baseSalary: new Prisma.Decimal(9000) }),
+      employee({ baseSalary: new Prisma.Decimal(9000) }), // 300 a day
     ]);
     prisma.attendanceRecord.findMany.mockResolvedValue(
       septemberAttendance({
-        '2026-09-02': { delayMinutes: 15 },
-        '2026-09-03': { delayMinutes: 16 },
+        '2026-09-01': { delayMinutes: 15 }, // grace
+        '2026-09-02': { delayMinutes: 16 }, // quarter day
+        '2026-09-03': { delayMinutes: 31 }, // half day
+        '2026-09-05': { delayMinutes: 60 }, // half day
+        '2026-09-06': { delayMinutes: 61 }, // full day
+        '2026-09-04': { delayMinutes: 120 }, // Friday, a weekly day off: nothing
       }),
     );
 
     await service.generatePayroll({ month: 9, year: 2026 }, payrollManager);
 
-    const [payslip] = prisma.payslip.createMany.mock.calls[0][0].data;
-    expect(payslip.attendancePenalties.toString()).toBe('10'); // 16 min x 0.625
+    const adjustments = prisma.financialAdjustment.createMany.mock.calls[0][0].data;
+    expect(adjustments.map((a: { reason: string; amount: Prisma.Decimal }) => [a.reason, a.amount.toString()])).toEqual([
+      ['خصم تأخير 16 دقيقة (ربع يوم) بتاريخ 2026-09-02', '75'],
+      ['خصم تأخير 31 دقيقة (نصف يوم) بتاريخ 2026-09-03', '150'],
+      ['خصم تأخير 60 دقيقة (نصف يوم) بتاريخ 2026-09-05', '150'],
+      ['خصم تأخير 61 دقيقة (يوم كامل) بتاريخ 2026-09-06', '300'],
+    ]);
+  });
+
+  it('deducts a full day for a forgotten check-out, but not for today', async () => {
+    // Run on 15 September (11:00 in Cairo)
+    jest.useFakeTimers({ now: new Date('2026-09-15T08:00:00Z') });
+    prisma.employeeProfile.findMany.mockResolvedValue([
+      employee({ baseSalary: new Prisma.Decimal(9000) }),
+    ]);
+    prisma.attendanceRecord.findMany.mockResolvedValue(
+      septemberAttendance({ '2026-09-02': { delayMinutes: 20 } })
+        .filter((r) => r.date <= new Date('2026-09-15'))
+        .map((r) =>
+          ['2026-09-02', '2026-09-15'].includes(r.date.toISOString().slice(0, 10))
+            ? { ...r, checkOutTime: null }
+            : r,
+        ),
+    );
+
+    await service.generatePayroll({ month: 9, year: 2026 }, payrollManager);
+
+    const adjustments = prisma.financialAdjustment.createMany.mock.calls[0][0].data;
+    expect(adjustments.map((a: { reason: string; amount: Prisma.Decimal }) => [a.reason, a.amount.toString()])).toEqual([
+      ['خصم يوم: لم تُسجَّل بصمة الانصراف بتاريخ 2026-09-02', '300'],
+    ]);
   });
 
   it('pays 0 when an employee has no SalaryProfile (BankInfo.basicSalary is not read; decision #1)', async () => {

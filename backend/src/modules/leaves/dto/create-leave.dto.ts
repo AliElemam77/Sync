@@ -1,5 +1,6 @@
-import { IsEnum, IsNotEmpty, IsOptional, IsString, IsDateString, IsInt, Min } from 'class-validator';
+import { IsIn, IsNotEmpty, IsOptional, IsString, IsDateString, IsInt, Min } from 'class-validator';
 import { LeaveType } from '@prisma/client';
+import { REQUESTABLE_LEAVE_TYPES } from '../leave-policy';
 
 export class CreateLeaveDto {
   @IsDateString()
@@ -16,7 +17,7 @@ export class CreateLeaveDto {
   @Min(1)
   totalDaysRequested?: number;
 
-  @IsEnum(LeaveType)
+  @IsIn(REQUESTABLE_LEAVE_TYPES, { message: `type must be one of: ${REQUESTABLE_LEAVE_TYPES.join(', ')}` })
   type: LeaveType;
 
   @IsOptional()

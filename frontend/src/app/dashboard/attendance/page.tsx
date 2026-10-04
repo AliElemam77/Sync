@@ -59,7 +59,8 @@ import {
 
 const createLeaveSchema = z
   .object({
-    type: z.enum(['ANNUAL', 'SICK', 'UNPAID', 'MATERNITY']),
+    // No unpaid leave in the company (the backend rejects it too)
+    type: z.enum(['ANNUAL', 'SICK', 'MATERNITY']),
     startDate: z.string().min(1, 'تاريخ البداية مطلوب'),
     endDate: z.string().min(1, 'تاريخ النهاية مطلوب'),
     reason: z.string().optional(),
@@ -197,31 +198,38 @@ function getDelayPenalty(
       }
 
       return {
-        penaltyLabel: 'لم يُسجَّل الانصراف (انتهى الدوام)',
+        penaltyLabel: 'لم يُسجَّل الانصراف: يُخصم اليوم كاملًا إن لم يُسجَّل اليوم',
         badgeColor: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30 font-bold',
       };
     }
 
     return {
-      penaltyLabel: 'لم يُسجَّل الانصراف',
+      penaltyLabel: 'خصم يوم كامل (نسيان بصمة الانصراف)',
       badgeColor: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30 font-bold',
     };
   }
 
-  // Same rule as payroll: up to 15 missing minutes are forgiven, past that every minute is deducted
+  // Same tiers as payroll: up to 15 minutes forgiven, over 15 a quarter day, over 30 half, over 60 a full day
   if (delayMinutes <= LATE_GRACE_MINUTES) {
     return {
-      penaltyLabel: delayMinutes > 0 ? `فترة سماح (${delayMinutes} دقيقة بدون خصم)` : 'بدون خصم',
+      penaltyLabel: delayMinutes > 0 ? 'فترة سماح (بدون خصم)' : 'بدون خصم',
       badgeColor: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-bold',
+    };
+  } else if (delayMinutes <= 30) {
+    return {
+      penaltyLabel: 'خصم ربع يوم',
+      badgeColor: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 font-bold',
+    };
+  } else if (delayMinutes <= 60) {
+    return {
+      penaltyLabel: 'خصم نصف يوم',
+      badgeColor: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/30 font-bold',
     };
   }
 
   return {
-    penaltyLabel: `خصم ${delayMinutes} دقيقة من الراتب`,
-    badgeColor:
-      delayMinutes <= 60
-        ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 font-bold'
-        : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30 font-bold',
+    penaltyLabel: 'خصم يوم كامل',
+    badgeColor: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30 font-bold',
   };
 }
 
@@ -495,7 +503,7 @@ export default function AttendancePage() {
                     <div>
                       <span className="font-black text-sm block">⏰ حان الآن موعد انتهاء ورديتك الرسمية ({shiftEndLabel})!</span>
                       <span className="text-[11px] opacity-90 block pt-0.5">
-                        يرجى تسجيل بصمة الانصراف قبل {graceEndLabel} لتوثيق ساعات عملك.
+                        يرجى تسجيل بصمة الانصراف قبل {graceEndLabel}. إذا لم تُسجَّل بصمة الانصراف اليوم يُخصم اليوم كاملًا.
                       </span>
                     </div>
                   </div>
@@ -1219,7 +1227,6 @@ function CreateLeaveModal({
             >
               <option value="ANNUAL">🏖️ إجازة اعتيادية سنوية (خصم من الرصيد)</option>
               <option value="SICK">🩺 إجازة مرضية (بتقرير طبي معتمد)</option>
-              <option value="UNPAID">💼 إجازة بدون راتب</option>
               <option value="MATERNITY">👶 إجازة رعاية طفل / وضع</option>
             </select>
             <FieldError message={errors.type?.message} />

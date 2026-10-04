@@ -27,8 +27,9 @@ import { businessMonthRange, businessToday } from '../../common/time/business-ti
 import {
   SHIFT_MINUTES,
   dateKey,
-  deductibleDelayMinutes,
   findAbsentDays,
+  isWorkingDay,
+  latenessTier,
 } from '../attendance/attendance-policy';
 
 const PAYOUT_LABELS: Partial<Record<PaymentMethod, string>> = {
@@ -137,6 +138,7 @@ export class PayrollService {
           employeeId: true,
           date: true,
           status: true,
+          checkOutTime: true,
           delayMinutes: true,
           overtimeMinutes: true,
         },
@@ -212,8 +214,6 @@ export class PayrollService {
       const employeeRecords = (recordsByEmployee.get(emp.id) ?? []).filter(
         (r) => r.status !== AttendanceStatus.ABSENT,
       );
-      // Up to 15 missing minutes a day are forgiven; past that every missing minute is deducted
-      const lateRecords = employeeRecords.filter((r) => deductibleDelayMinutes(r.delayMinutes) > 0);
 
       let employeeAttendancePenalties = new Prisma.Decimal(0);
       const adjustments: {
@@ -223,25 +223,52 @@ export class PayrollService {
         date?: Date;
       }[] = [];
 
-      for (const record of lateRecords) {
-        // Penalty = minuteRate * delayMinutes
-        const penaltyAmount = minuteRate
-          .mul(new Prisma.Decimal(record.delayMinutes))
+      const addPenalty = (amount: Prisma.Decimal, reason: string, date: Date) => {
+        if (!amount.greaterThan(0)) return;
+        employeeAttendancePenalties = employeeAttendancePenalties.add(amount);
+        adjustments.push({ type: AdjustmentType.PENALTY, amount, reason, date });
+      };
+
+      // A day that is not worked costs a day's pay, less any approved permission time that day
+      const shiftMinutes = SHIFT_MINUTES[emp.shiftType];
+      const unworkedDay = (day: Date) => {
+        const permissionMinutes = Math.min(
+          permissionMinutesByDay.get(`${emp.id}:${dateKey(day)}`) ?? 0,
+          shiftMinutes,
+        );
+        const amount = dailyRate
+          .mul(shiftMinutes - permissionMinutes)
+          .div(shiftMinutes)
           .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+        const permissionNote = permissionMinutes > 0 ? ` (بعد احتساب إذن ${permissionMinutes / 60} ساعة)` : '';
+        return { amount, permissionNote };
+      };
 
-        employeeAttendancePenalties = employeeAttendancePenalties.add(penaltyAmount);
+      for (const record of employeeRecords) {
+        // No deduction on weekly days off or public holidays
+        if (!isWorkingDay(record.date, emp.shiftType, holidayDays)) continue;
+        const day = dateKey(record.date);
 
-        const dateStr = record.date.toISOString().slice(0, 10);
-        adjustments.push({
-          type: AdjustmentType.PENALTY,
-          amount: penaltyAmount,
-          reason: `خصم تأخير ${record.delayMinutes} دقيقة بتاريخ ${dateStr}`,
-          date: record.date,
-        });
+        if (!record.checkOutTime) {
+          // Settled once the day is over; a forgotten check-out counts as a day not worked
+          if (record.date > lastClosedDay) continue;
+          const { amount, permissionNote } = unworkedDay(record.date);
+          addPenalty(amount, `خصم يوم: لم تُسجَّل بصمة الانصراف بتاريخ ${day}${permissionNote}`, record.date);
+          continue;
+        }
+
+        // Lateness tiers: over 15 minutes a quarter day, over 30 half a day, over 60 a full day
+        const tier = latenessTier(record.delayMinutes);
+        if (tier) {
+          addPenalty(
+            dailyRate.mul(tier.days).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP),
+            `خصم تأخير ${record.delayMinutes} دقيقة (${tier.label}) بتاريخ ${day}`,
+            record.date,
+          );
+        }
       }
 
-      // Absence: a working day with no attendance and no approved leave costs a day's pay, less any
-      // approved permission time that day
+      // Absence: a working day with no attendance and no approved leave
       const absentDays = findAbsentDays({
         from: emp.joiningDate > startDate ? emp.joiningDate : startDate,
         to: absenceEnd,
@@ -250,28 +277,15 @@ export class PayrollService {
         holidays: holidayDays,
         leaves: leavesByEmployee.get(emp.id) ?? [],
       });
-      const shiftMinutes = SHIFT_MINUTES[emp.shiftType];
       for (const day of absentDays) {
-        const permissionMinutes = Math.min(
-          permissionMinutesByDay.get(`${emp.id}:${dateKey(day)}`) ?? 0,
-          shiftMinutes,
+        const { amount, permissionNote } = unworkedDay(day);
+        addPenalty(
+          amount,
+          permissionNote
+            ? `خصم غياب بتاريخ ${dateKey(day)}${permissionNote}`
+            : `خصم غياب بدون إذن أو إجازة بتاريخ ${dateKey(day)}`,
+          day,
         );
-        const penaltyAmount = dailyRate
-          .mul(shiftMinutes - permissionMinutes)
-          .div(shiftMinutes)
-          .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
-        if (!penaltyAmount.greaterThan(0)) continue;
-
-        employeeAttendancePenalties = employeeAttendancePenalties.add(penaltyAmount);
-        adjustments.push({
-          type: AdjustmentType.PENALTY,
-          amount: penaltyAmount,
-          reason:
-            permissionMinutes > 0
-              ? `خصم غياب بتاريخ ${dateKey(day)} (بعد احتساب إذن ${permissionMinutes / 60} ساعة)`
-              : `خصم غياب بدون إذن أو إجازة بتاريخ ${dateKey(day)}`,
-          date: day,
-        });
       }
 
       const overtimeRecords = employeeRecords.filter((r) => r.overtimeMinutes > 0);

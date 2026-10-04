@@ -11,13 +11,17 @@ export const SHIFT_MINUTES: Record<ShiftType, number> = {
 };
 
 /**
- * Up to 15 missing minutes a day are forgiven. Past that, every missing minute is deducted
- * (20 minutes late -> 20 minutes deducted).
+ * Lateness is deducted in tiers of a day's pay, by the minutes missing from the day:
+ * up to 15 is forgiven, over 15 costs a quarter day, over 30 half a day, over 60 a full day.
  */
-export const LATE_GRACE_MINUTES = 15;
+export const LATENESS_TIERS: { overMinutes: number; days: number; label: string }[] = [
+  { overMinutes: 60, days: 1, label: 'يوم كامل' },
+  { overMinutes: 30, days: 0.5, label: 'نصف يوم' },
+  { overMinutes: 15, days: 0.25, label: 'ربع يوم' },
+];
 
-export function deductibleDelayMinutes(delayMinutes: number): number {
-  return delayMinutes > LATE_GRACE_MINUTES ? delayMinutes : 0;
+export function latenessTier(delayMinutes: number): { days: number; label: string } | null {
+  return LATENESS_TIERS.find((tier) => delayMinutes > tier.overMinutes) ?? null;
 }
 
 /** Lateness at check-in: minutes after the shift start not covered by approved permission time */
@@ -46,9 +50,14 @@ export function dateKey(date: Date): string {
   return toDateOnly(date).toISOString().slice(0, 10);
 }
 
+/** The shift's weekly days off and public holidays are not working days */
+export function isWorkingDay(day: Date, shiftType: ShiftType, holidays: Set<string>): boolean {
+  return !WEEKLY_DAYS_OFF[shiftType].includes(toDateOnly(day).getUTCDay()) && !holidays.has(dateKey(day));
+}
+
 /**
- * Working days in [from, to] with no attendance and no approved leave: the shift's weekly days off
- * and public holidays are not working days. Approved permissions are handled by the caller.
+ * Working days in [from, to] with no attendance and no approved leave.
+ * Approved permissions are handled by the caller.
  */
 export function findAbsentDays(params: {
   from: Date;
@@ -58,14 +67,12 @@ export function findAbsentDays(params: {
   holidays: Set<string>;
   leaves: { startDate: Date; endDate: Date }[];
 }): Date[] {
-  const daysOff = WEEKLY_DAYS_OFF[params.shiftType];
   const last = toDateOnly(params.to).getTime();
   const absent: Date[] = [];
 
   for (let day = toDateOnly(params.from); day.getTime() <= last; day = new Date(day.getTime() + DAY_MS)) {
-    const key = dateKey(day);
-    if (daysOff.includes(day.getUTCDay())) continue;
-    if (params.holidays.has(key) || params.attendedDays.has(key)) continue;
+    if (!isWorkingDay(day, params.shiftType, params.holidays)) continue;
+    if (params.attendedDays.has(dateKey(day))) continue;
     const onLeave = params.leaves.some(
       (leave) =>
         toDateOnly(leave.startDate).getTime() <= day.getTime() &&

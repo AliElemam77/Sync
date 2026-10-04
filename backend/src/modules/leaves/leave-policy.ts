@@ -1,4 +1,4 @@
-import { Prisma, ShiftType } from '@prisma/client';
+import { LeaveType, Prisma, ShiftType } from '@prisma/client';
 
 /** Annual leave entitlement, credited monthly (21 / 12 = 1.75 days) and carried over between years */
 export const ANNUAL_LEAVE_DAYS_PER_YEAR = 21;
@@ -10,6 +10,12 @@ export function monthsBetween(from: Date, to: Date): number {
     (to.getUTCFullYear() - from.getUTCFullYear()) * 12 + (to.getUTCMonth() - from.getUTCMonth())
   );
 }
+
+/**
+ * Leave types employees can request. The company has no unpaid leave: UNPAID stays in the enum only
+ * so that any existing requests remain readable.
+ */
+export const REQUESTABLE_LEAVE_TYPES: LeaveType[] = [LeaveType.ANNUAL, LeaveType.SICK, LeaveType.MATERNITY];
 
 /** Longest annual leave allowed in a single request, in working days */
 export const MAX_ANNUAL_LEAVE_DAYS_PER_REQUEST = 3;
