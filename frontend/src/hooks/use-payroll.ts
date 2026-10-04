@@ -90,6 +90,9 @@ export function useApprovePayrollCycle() {
       if (data?.id) {
         queryClient.invalidateQueries({ queryKey: [...PAYROLL_CYCLE_KEY, data.id] });
       }
+      // Approval posts the payroll expense to the ledger
+      queryClient.invalidateQueries({ queryKey: TRANSACTIONS_KEY });
+      queryClient.invalidateQueries({ queryKey: FINANCIAL_SUMMARY_KEY });
     },
   });
 }
