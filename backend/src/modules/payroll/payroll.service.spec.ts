@@ -37,7 +37,8 @@ describe('PayrollService.generatePayroll', () => {
       },
       employeeProfile: { findMany: jest.fn() },
       attendanceRecord: { findMany: jest.fn() },
-      payslip: { create: jest.fn() },
+      payslip: { createMany: jest.fn() },
+      financialAdjustment: { createMany: jest.fn() },
       $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(prisma)),
     };
     service = new PayrollService(prisma, new AccessScopeService(prisma));
@@ -47,22 +48,32 @@ describe('PayrollService.generatePayroll', () => {
     prisma.employeeProfile.findMany.mockResolvedValue([
       employee({ baseSalary: new Prisma.Decimal(9000) }),
     ]);
-    prisma.attendanceRecord.findMany
-      // delayed days
-      .mockResolvedValueOnce([{ date: new Date('2026-09-02'), delayMinutes: 30 }])
-      // overtime days
-      .mockResolvedValueOnce([{ date: new Date('2026-09-03'), overtimeMinutes: 60 }]);
+    prisma.attendanceRecord.findMany.mockResolvedValue([
+      { employeeId: 'emp-1', date: new Date('2026-09-02'), delayMinutes: 30, overtimeMinutes: 0 },
+      { employeeId: 'emp-1', date: new Date('2026-09-03'), delayMinutes: 0, overtimeMinutes: 60 },
+    ]);
 
     await service.generatePayroll({ month: 9, year: 2026 }, payrollManager);
 
+    // A single attendance query covers every employee
+    expect(prisma.attendanceRecord.findMany).toHaveBeenCalledTimes(1);
+
     // minute rate = 9000 / 30 days / 480 minutes = 0.625
-    const { data } = prisma.payslip.create.mock.calls[0][0];
-    expect(data.baseSalary.toString()).toBe('9000');
-    expect(data.attendancePenalties.toString()).toBe('18.75'); // 30 min x 0.625
-    expect(data.totalAllowances.toString()).toBe('56.25'); // 60 min x 0.625 x 1.5
-    expect(data.grossPay.toString()).toBe('9056.25');
-    expect(data.netPay.toString()).toBe('9037.5');
-    expect(data.adjustments.create).toHaveLength(2);
+    const [payslip] = prisma.payslip.createMany.mock.calls[0][0].data;
+    expect(payslip.payrollCycleId).toBe('cycle-1');
+    expect(payslip.baseSalary.toString()).toBe('9000');
+    expect(payslip.attendancePenalties.toString()).toBe('18.75'); // 30 min x 0.625
+    expect(payslip.totalAllowances.toString()).toBe('56.25'); // 60 min x 0.625 x 1.5
+    expect(payslip.grossPay.toString()).toBe('9056.25');
+    expect(payslip.netPay.toString()).toBe('9037.5');
+
+    const adjustments = prisma.financialAdjustment.createMany.mock.calls[0][0].data;
+    expect(adjustments).toHaveLength(2);
+    expect(adjustments.every((a: { payslipId: string }) => a.payslipId === payslip.id)).toBe(true);
+    expect(adjustments.map((a: { amount: Prisma.Decimal }) => a.amount.toString())).toEqual([
+      '18.75',
+      '56.25',
+    ]);
   });
 
   it('pays 0 when an employee has no SalaryProfile (BankInfo.basicSalary is not read; decision #1)', async () => {
@@ -71,8 +82,9 @@ describe('PayrollService.generatePayroll', () => {
 
     await service.generatePayroll({ month: 9, year: 2026 }, payrollManager);
 
-    const { data } = prisma.payslip.create.mock.calls[0][0];
-    expect(data.grossPay.toString()).toBe('0');
-    expect(data.netPay.toString()).toBe('0');
+    const [payslip] = prisma.payslip.createMany.mock.calls[0][0].data;
+    expect(payslip.grossPay.toString()).toBe('0');
+    expect(payslip.netPay.toString()).toBe('0');
+    expect(prisma.financialAdjustment.createMany).not.toHaveBeenCalled();
   });
 });

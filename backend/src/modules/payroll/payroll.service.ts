@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   Logger,
 } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { GeneratePayrollDto } from './dto/generate-payroll.dto';
 import { QueryPayrollCyclesDto } from './dto/query-payroll-cycles.dto';
@@ -40,9 +41,6 @@ export class PayrollService {
     const existingCycle = await this.prisma.payrollCycle.findUnique({
       where: {
         year_month: { year, month },
-      },
-      include: {
-        payslips: true,
       },
     });
 
@@ -97,6 +95,24 @@ export class PayrollService {
 
     const preparedPayslips: PreparedPayslip[] = [];
 
+    // One query for the whole month's delays and overtime, grouped per employee in memory
+    const attendanceRecords = await this.prisma.attendanceRecord.findMany({
+      where: {
+        employeeId: { in: employees.map((e) => e.id) },
+        date: { gte: startDate, lte: endDate },
+        OR: [{ delayMinutes: { gt: 0 } }, { overtimeMinutes: { gt: 0 } }],
+      },
+      select: { employeeId: true, date: true, delayMinutes: true, overtimeMinutes: true },
+      orderBy: { date: 'asc' },
+    });
+
+    const recordsByEmployee = new Map<string, typeof attendanceRecords>();
+    for (const record of attendanceRecords) {
+      const list = recordsByEmployee.get(record.employeeId) ?? [];
+      list.push(record);
+      recordsByEmployee.set(record.employeeId, list);
+    }
+
     // 4. Iterate and compute each employee's salary and attendance penalties
     for (const emp of employees) {
       const salary = emp.salaryProfile?.baseSalary ?? new Prisma.Decimal(0);
@@ -108,18 +124,8 @@ export class PayrollService {
       const dailyRate = salary.div(new Prisma.Decimal(30));
       const minuteRate = dailyRate.div(new Prisma.Decimal(480));
 
-      // Query attendance records with delays in this specific month
-      const lateRecords = await this.prisma.attendanceRecord.findMany({
-        where: {
-          employeeId: emp.id,
-          date: {
-            gte: startDate,
-            lte: endDate,
-          },
-          delayMinutes: { gt: 0 },
-        },
-        orderBy: { date: 'asc' },
-      });
+      const employeeRecords = recordsByEmployee.get(emp.id) ?? [];
+      const lateRecords = employeeRecords.filter((r) => r.delayMinutes > 0);
 
       let employeeAttendancePenalties = new Prisma.Decimal(0);
       const adjustments: {
@@ -146,18 +152,7 @@ export class PayrollService {
         });
       }
 
-      // Check overtime records
-      const overtimeRecords = await this.prisma.attendanceRecord.findMany({
-        where: {
-          employeeId: emp.id,
-          date: {
-            gte: startDate,
-            lte: endDate,
-          },
-          overtimeMinutes: { gt: 0 },
-        },
-        orderBy: { date: 'asc' },
-      });
+      const overtimeRecords = employeeRecords.filter((r) => r.overtimeMinutes > 0);
 
       let employeeOvertimeBonus = new Prisma.Decimal(0);
       for (const record of overtimeRecords) {
@@ -231,28 +226,28 @@ export class PayrollService {
         cycleId = created.id;
       }
 
-      // Create all payslips and itemized adjustments
-      for (const p of preparedPayslips) {
-        await tx.payslip.create({
-          data: {
-            payrollCycleId: cycleId,
-            employeeId: p.employeeId,
-            baseSalary: p.baseSalary,
-            grossPay: p.grossPay,
-            netPay: p.netPay,
-            totalAllowances: p.totalAllowances,
-            totalDeductions: p.totalDeductions,
-            attendancePenalties: p.attendancePenalties,
-            adjustments: {
-              create: p.adjustments.map((adj) => ({
-                type: adj.type,
-                amount: adj.amount,
-                reason: adj.reason,
-                date: adj.date,
-              })),
-            },
-          },
-        });
+      // Bulk-insert payslips and their itemized adjustments (2 statements instead of one per employee).
+      // Ids are generated here so adjustments can reference their payslip without a read-back.
+      const payslipRows = preparedPayslips.map((p) => ({ id: randomUUID(), ...p }));
+
+      await tx.payslip.createMany({
+        data: payslipRows.map(({ adjustments: _adjustments, ...p }) => ({
+          ...p,
+          payrollCycleId: cycleId,
+        })),
+      });
+
+      const adjustmentRows = payslipRows.flatMap((p) =>
+        p.adjustments.map((adj) => ({
+          payslipId: p.id,
+          type: adj.type,
+          amount: adj.amount,
+          reason: adj.reason,
+          date: adj.date,
+        })),
+      );
+      if (adjustmentRows.length > 0) {
+        await tx.financialAdjustment.createMany({ data: adjustmentRows });
       }
 
       // Fetch the full cycle with all populated data
@@ -354,7 +349,7 @@ export class PayrollService {
   async approveCycle(id: string, user: AuthenticatedUser) {
     const cycle = await this.prisma.payrollCycle.findUnique({
       where: { id },
-      include: { payslips: true },
+      select: { status: true },
     });
 
     if (!cycle) {
