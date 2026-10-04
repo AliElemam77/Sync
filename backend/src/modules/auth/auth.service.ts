@@ -10,7 +10,26 @@ import { AuditService } from '../audit/audit.service';
 import { LoginDto } from './dto/login.dto';
 import { LoginResponseDto, UserProfileDto } from './dto/auth-response.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
-import { AuditAction } from '@prisma/client';
+import { AuditAction, Prisma } from '@prisma/client';
+import { AccessScopeService } from '../../common/access/access-scope.service';
+
+const USER_PROFILE_INCLUDE = {
+  role: {
+    include: {
+      rolePermissions: {
+        include: { permission: true },
+      },
+    },
+  },
+  employeeProfile: {
+    include: {
+      department: { select: { id: true, name: true, code: true } },
+      position: { select: { id: true, name: true } },
+    },
+  },
+} satisfies Prisma.UserInclude;
+
+type UserWithProfile = Prisma.UserGetPayload<{ include: typeof USER_PROFILE_INCLUDE }>;
 
 @Injectable()
 export class AuthService {
@@ -18,6 +37,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly auditService: AuditService,
+    private readonly access: AccessScopeService,
   ) {}
 
   async login(
@@ -27,21 +47,7 @@ export class AuthService {
   ): Promise<LoginResponseDto> {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase().trim() },
-      include: {
-        role: {
-          include: {
-            rolePermissions: {
-              include: { permission: true },
-            },
-          },
-        },
-        employeeProfile: {
-          include: {
-            department: { select: { id: true, name: true, code: true } },
-            position: { select: { id: true, name: true } },
-          },
-        },
-      },
+      include: USER_PROFILE_INCLUDE,
     });
 
     if (!user) {
@@ -82,10 +88,6 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const permissions = user.role.rolePermissions.map(
-      (rp) => rp.permission.name,
-    );
-
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
@@ -106,64 +108,36 @@ export class AuthService {
 
     return {
       accessToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        isActive: user.isActive,
-        role: {
-          id: user.role.id,
-          name: user.role.name,
-        },
-        permissions,
-        createdAt: user.createdAt,
-        employee: user.employeeProfile
-          ? {
-              id: user.employeeProfile.id,
-              employeeCode: user.employeeProfile.employeeCode,
-              fullName: user.employeeProfile.fullName,
-              avatarUrl: user.employeeProfile.avatarUrl,
-              department: user.employeeProfile.department
-                ? {
-                    id: user.employeeProfile.department.id,
-                    name: user.employeeProfile.department.name,
-                    code: user.employeeProfile.department.code,
-                  }
-                : null,
-              position: user.employeeProfile.position
-                ? {
-                    id: user.employeeProfile.position.id,
-                    name: user.employeeProfile.position.name,
-                  }
-                : null,
-            }
-          : null,
-      },
+      user: await this.toUserProfile(user),
     };
   }
 
   async getMe(userId: string): Promise<UserProfileDto> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: {
-        role: {
-          include: {
-            rolePermissions: {
-              include: { permission: true },
-            },
-          },
-        },
-        employeeProfile: {
-          include: {
-            department: { select: { id: true, name: true, code: true } },
-            position: { select: { id: true, name: true } },
-          },
-        },
-      },
+      include: USER_PROFILE_INCLUDE,
     });
 
     if (!user) {
       throw new UnauthorizedException('User context invalid');
     }
+
+    return this.toUserProfile(user);
+  }
+
+  private async toUserProfile(user: UserWithProfile): Promise<UserProfileDto> {
+    const permissions = user.role.rolePermissions.map((rp) => rp.permission.name);
+    const profile = user.employeeProfile;
+
+    const approvalDepartments = await this.access.getApprovalDepartmentIds({
+      id: user.id,
+      email: user.email,
+      roleId: user.roleId,
+      role: user.role.name,
+      permissions,
+      employeeId: profile?.id ?? null,
+      departmentId: profile?.departmentId ?? null,
+    });
 
     return {
       id: user.id,
@@ -173,25 +147,26 @@ export class AuthService {
         id: user.role.id,
         name: user.role.name,
       },
-      permissions: user.role.rolePermissions.map((rp) => rp.permission.name),
+      permissions,
+      canApproveRequests: approvalDepartments === null || approvalDepartments.length > 0,
       createdAt: user.createdAt,
-      employee: user.employeeProfile
+      employee: profile
         ? {
-            id: user.employeeProfile.id,
-            employeeCode: user.employeeProfile.employeeCode,
-            fullName: user.employeeProfile.fullName,
-            avatarUrl: user.employeeProfile.avatarUrl,
-            department: user.employeeProfile.department
+            id: profile.id,
+            employeeCode: profile.employeeCode,
+            fullName: profile.fullName,
+            avatarUrl: profile.avatarUrl,
+            department: profile.department
               ? {
-                  id: user.employeeProfile.department.id,
-                  name: user.employeeProfile.department.name,
-                  code: user.employeeProfile.department.code,
+                  id: profile.department.id,
+                  name: profile.department.name,
+                  code: profile.department.code,
                 }
               : null,
-            position: user.employeeProfile.position
+            position: profile.position
               ? {
-                  id: user.employeeProfile.position.id,
-                  name: user.employeeProfile.position.name,
+                  id: profile.position.id,
+                  name: profile.position.name,
                 }
               : null,
           }

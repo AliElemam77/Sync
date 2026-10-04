@@ -46,7 +46,7 @@ export class LeavesController {
    * Approve Leave Request (Atomically deducts annualLeaveDays)
    */
   @Patch(':id/approve')
-  @RequirePermissions('leaves.approve')
+  // Department-scoped in the service: HR any employee, Team Leaders/heads their departments
   async approveLeave(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -58,7 +58,7 @@ export class LeavesController {
    * Reject Leave Request with Reason
    */
   @Patch(':id/reject')
-  @RequirePermissions('leaves.approve')
+  // Department-scoped in the service: HR any employee, Team Leaders/heads their departments
   async rejectLeave(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RejectLeaveDto,

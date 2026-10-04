@@ -46,7 +46,7 @@ export class WorkPermissionsController {
    * Approve Work Permission Request (Atomically deducts monthlyPermissionHours)
    */
   @Patch(':id/approve')
-  @RequirePermissions('leaves.approve')
+  // Department-scoped in the service: HR any employee, Team Leaders/heads their departments
   async approvePermission(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -58,7 +58,7 @@ export class WorkPermissionsController {
    * Reject Work Permission Request with Reason
    */
   @Patch(':id/reject')
-  @RequirePermissions('leaves.approve')
+  // Department-scoped in the service: HR any employee, Team Leaders/heads their departments
   async rejectPermission(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RejectPermissionRequestDto,

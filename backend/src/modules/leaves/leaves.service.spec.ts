@@ -21,7 +21,7 @@ const pendingLeave = (overrides: Record<string, unknown> = {}) => ({
   type: LeaveType.ANNUAL,
   status: RequestStatus.PENDING,
   totalDaysRequested: 3,
-  employee: { id: 'emp-1', userId: 'emp-user', annualLeaveDays: 10 },
+  employee: { id: 'emp-1', userId: 'emp-user', annualLeaveDays: 10, departmentId: 'dept-eng' },
   ...overrides,
 });
 
@@ -44,16 +44,48 @@ describe('LeavesService approvals', () => {
         findUnique: jest.fn().mockResolvedValue({ id: 'emp-1', annualLeaveDays: 10 }),
         update: jest.fn(),
       },
+      department: { findMany: jest.fn().mockResolvedValue([]) },
       $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(prisma)),
     };
     events = { sendNotification: jest.fn() };
     service = new LeavesService(prisma, events as any, new AccessScopeService(prisma));
   });
 
-  it('restricts approval to HR admins (role-based today, see business decision #4)', async () => {
-    await expect(
-      service.approveLeaveRequest('leave-1', makeUser({ role: 'TEAM_LEADER' })),
-    ).rejects.toThrow(ForbiddenException);
+  describe('who may decide', () => {
+    const leaderOf = (departmentId: string) =>
+      makeUser({ id: 'tl-user', role: 'TEAM_LEADER', employeeId: 'tl-emp', departmentId });
+
+    it('lets a Team Leader approve requests from their own department', async () => {
+      await service.approveLeaveRequest('leave-1', leaderOf('dept-eng'));
+      expect(prisma.leaveRequest.update).toHaveBeenCalled();
+    });
+
+    it("forbids a Team Leader from deciding another department's requests", async () => {
+      await expect(service.approveLeaveRequest('leave-1', leaderOf('dept-sales'))).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('lets a department head decide for the departments they manage', async () => {
+      prisma.department.findMany.mockResolvedValue([{ id: 'dept-eng' }]);
+      const head = makeUser({ id: 'head-user', role: 'EMPLOYEE', employeeId: 'head-emp', departmentId: 'dept-ops' });
+
+      await service.rejectLeaveRequest('leave-1', { rejectionReason: 'Release week' }, head);
+      expect(prisma.leaveRequest.update).toHaveBeenCalled();
+    });
+
+    it('forbids approving your own request', async () => {
+      const selfLeader = makeUser({ id: 'emp-user', role: 'TEAM_LEADER', employeeId: 'emp-1', departmentId: 'dept-eng' });
+      await expect(service.approveLeaveRequest('leave-1', selfLeader)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('forbids regular employees', async () => {
+      await expect(
+        service.approveLeaveRequest('leave-1', makeUser({ role: 'EMPLOYEE', employeeId: 'emp-2' })),
+      ).rejects.toThrow(ForbiddenException);
+    });
   });
 
   it('refuses to approve a request that is no longer pending', async () => {

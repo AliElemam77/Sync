@@ -27,6 +27,8 @@ export interface UserProfileDto {
     name: string;
   };
   permissions: string[];
+  /** HR, or a Team Leader / department head with at least one department to approve for */
+  canApproveRequests: boolean;
   createdAt: Date;
   employee?: UserEmployeeDto | null;
 }

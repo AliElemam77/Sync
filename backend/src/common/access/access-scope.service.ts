@@ -4,6 +4,11 @@ import { AuthenticatedUser } from '../decorators/current-user.decorator';
 
 const HR_ADMIN_ROLES = ['SUPER_ADMIN', 'HR_MANAGER'];
 
+/** Filter usable in both LeaveRequest and PermissionRequest where clauses */
+export type RequestVisibilityFilter =
+  | { employeeId: string }
+  | { employee: { departmentId: { in: string[] } } };
+
 const DIRECTORY_COMPANY_WIDE_ROLES = [
   'SUPER_ADMIN',
   'ADMIN',
@@ -47,6 +52,54 @@ export class AccessScopeService {
   /** Regular agent for task-routing rules */
   isAgent(user: AuthenticatedUser): boolean {
     return user.role === 'EMPLOYEE' && !user.permissions.includes('org.manage');
+  }
+
+  /**
+   * Departments whose leave and permission requests the user may approve; null means every
+   * department. HR decides for anyone, a Team Leader for their own department and a department
+   * head for the departments they manage.
+   */
+  async getApprovalDepartmentIds(user: AuthenticatedUser): Promise<string[] | null> {
+    if (this.isHrAdmin(user)) return null;
+
+    const departmentIds = new Set<string>();
+    if (this.isTeamLeader(user) && user.departmentId) {
+      departmentIds.add(user.departmentId);
+    }
+    if (user.employeeId) {
+      const managed = await this.prisma.department.findMany({
+        where: { headId: user.employeeId },
+        select: { id: true },
+      });
+      managed.forEach((d) => departmentIds.add(d.id));
+    }
+    return [...departmentIds];
+  }
+
+  /**
+   * Which leave/permission requests the user may see: null for all (HR); otherwise their own plus
+   * those of the departments they approve. An empty list means none.
+   */
+  async getRequestVisibility(user: AuthenticatedUser): Promise<RequestVisibilityFilter[] | null> {
+    const approvalDepartments = await this.getApprovalDepartmentIds(user);
+    if (approvalDepartments === null) return null;
+
+    const visible: RequestVisibilityFilter[] = [];
+    if (user.employeeId) visible.push({ employeeId: user.employeeId });
+    if (approvalDepartments.length > 0) {
+      visible.push({ employee: { departmentId: { in: approvalDepartments } } });
+    }
+    return visible;
+  }
+
+  /** Whether the user may approve or reject a request filed by this employee (never their own) */
+  async canDecideRequestOf(
+    user: AuthenticatedUser,
+    requester: { id: string; departmentId: string },
+  ): Promise<boolean> {
+    if (requester.id === user.employeeId && !this.isSuperAdmin(user)) return false;
+    const scope = await this.getApprovalDepartmentIds(user);
+    return scope === null || scope.includes(requester.departmentId);
   }
 
   /**

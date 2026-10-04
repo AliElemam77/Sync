@@ -47,6 +47,40 @@ describe('AccessScopeService', () => {
     });
   });
 
+  describe('approval scope', () => {
+    it('lets HR approve for every department', async () => {
+      await expect(access.getApprovalDepartmentIds(makeUser({ role: 'HR_MANAGER' }))).resolves.toBeNull();
+    });
+
+    it('combines a Team Leader’s own department with departments they head', async () => {
+      prisma.department.findMany.mockResolvedValue([{ id: 'dept-qa' }]);
+      await expect(
+        access.getApprovalDepartmentIds(makeUser({ role: 'TEAM_LEADER', departmentId: 'dept-eng' })),
+      ).resolves.toEqual(['dept-eng', 'dept-qa']);
+    });
+
+    it('gives regular employees no approval scope', async () => {
+      prisma.department.findMany.mockResolvedValue([]);
+      await expect(access.getApprovalDepartmentIds(makeUser())).resolves.toEqual([]);
+    });
+
+    it('limits request visibility to own requests plus approved departments', async () => {
+      prisma.department.findMany.mockResolvedValue([]);
+      await expect(
+        access.getRequestVisibility(makeUser({ role: 'TEAM_LEADER', departmentId: 'dept-eng' })),
+      ).resolves.toEqual([
+        { employeeId: 'emp-1' },
+        { employee: { departmentId: { in: ['dept-eng'] } } },
+      ]);
+    });
+
+    it('never lets anyone but a Super Admin decide their own request', async () => {
+      const own = { id: 'emp-1', departmentId: 'dept-hr' };
+      await expect(access.canDecideRequestOf(makeUser({ role: 'HR_MANAGER' }), own)).resolves.toBe(false);
+      await expect(access.canDecideRequestOf(makeUser({ role: 'SUPER_ADMIN' }), own)).resolves.toBe(true);
+    });
+  });
+
   describe('resolveDirectoryScope', () => {
     it('gives company-wide roles the whole company without querying', async () => {
       await expect(access.resolveDirectoryScope(makeUser({ role: 'GENERAL_MANAGER' }))).resolves.toBeNull();

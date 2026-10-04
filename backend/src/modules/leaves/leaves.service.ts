@@ -102,16 +102,16 @@ export class LeavesService {
     if (query.status) where.status = query.status;
     if (query.type) where.type = query.type;
 
-    if (this.access.isHrAdmin(currentUser)) {
-      if (query.employeeId) where.employeeId = query.employeeId;
-      if (query.departmentId) where.employee = { departmentId: query.departmentId };
-    } else {
-      // Non-HR users (including Team Leaders) see only their own requests
-      if (!currentUser.employeeId) {
-        return [];
-      }
-      where.employeeId = currentUser.employeeId;
+    // HR sees everything; others see their own requests plus those of departments they approve
+    const visibility = await this.access.getRequestVisibility(currentUser);
+    if (visibility !== null) {
+      if (visibility.length === 0) return [];
+      where.OR = visibility;
     }
+
+    // Optional filters narrow results within the visible scope
+    if (query.employeeId) where.employeeId = query.employeeId;
+    if (query.departmentId) where.employee = { departmentId: query.departmentId };
 
     const leaves = await this.prisma.leaveRequest.findMany({
       where,
@@ -144,10 +144,6 @@ export class LeavesService {
    * Approve Leave Request with Atomic Balance Deduction & Attendance Synchronization
    */
   async approveLeaveRequest(id: string, approverUser: AuthenticatedUser) {
-    if (!this.access.isHrAdmin(approverUser)) {
-      throw new ForbiddenException('Only HR Managers or Admins have the authority to approve leaves.');
-    }
-
     const leave = await this.prisma.leaveRequest.findUnique({
       where: { id },
       include: {
@@ -157,6 +153,12 @@ export class LeavesService {
 
     if (!leave) {
       throw new NotFoundException('Leave request not found.');
+    }
+
+    if (!(await this.access.canDecideRequestOf(approverUser, leave.employee))) {
+      throw new ForbiddenException(
+        'You can only approve requests from employees in departments you lead (HR can approve any).',
+      );
     }
 
     if (leave.status !== RequestStatus.PENDING) {
@@ -230,10 +232,6 @@ export class LeavesService {
    * Reject Leave Request with Reason
    */
   async rejectLeaveRequest(id: string, dto: RejectLeaveDto, rejectorUser: AuthenticatedUser) {
-    if (!this.access.isHrAdmin(rejectorUser)) {
-      throw new ForbiddenException('Only HR Managers or Admins have the authority to reject leaves.');
-    }
-
     const leave = await this.prisma.leaveRequest.findUnique({
       where: { id },
       include: {
@@ -243,6 +241,12 @@ export class LeavesService {
 
     if (!leave) {
       throw new NotFoundException('Leave request not found.');
+    }
+
+    if (!(await this.access.canDecideRequestOf(rejectorUser, leave.employee))) {
+      throw new ForbiddenException(
+        'You can only reject requests from employees in departments you lead (HR can reject any).',
+      );
     }
 
     if (leave.status !== RequestStatus.PENDING) {

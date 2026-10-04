@@ -228,11 +228,12 @@ export default function AttendancePage() {
   const { user } = useAuth();
   const roleName = typeof (user?.role as any) === 'string' ? (user?.role as any) : user?.role?.name || '';
   const isSuperAdmin = roleName === 'SUPER_ADMIN';
-  const isHR = ['SUPER_ADMIN', 'HR_MANAGER'].includes(roleName);
+  // HR approves anyone; Team Leaders and heads approve their departments (computed by the backend)
+  const canApprove = !!user?.canApproveRequests;
 
   // Active Tab View: 'APPROVALS' | 'LEAVES' | 'PERMISSIONS' | 'LOGS'
   const [activeTab, setActiveTab] = useState<'APPROVALS' | 'LEAVES' | 'PERMISSIONS' | 'LOGS'>(
-    isHR ? 'APPROVALS' : 'LEAVES',
+    canApprove ? 'APPROVALS' : 'LEAVES',
   );
 
   // Modals state
@@ -317,10 +318,15 @@ export default function AttendancePage() {
   };
 
   // Pending Approvals Count for Managers
-  const pendingLeaves = useMemo(() => leaves.filter((l) => l.status === 'PENDING'), [leaves]);
+  // Requests awaiting this user's decision (never their own)
+  const ownEmployeeId = user?.employee?.id;
+  const pendingLeaves = useMemo(
+    () => leaves.filter((l) => l.status === 'PENDING' && l.employeeId !== ownEmployeeId),
+    [leaves, ownEmployeeId],
+  );
   const pendingPermissions = useMemo(
-    () => permissions.filter((p) => p.status === 'PENDING'),
-    [permissions],
+    () => permissions.filter((p) => p.status === 'PENDING' && p.employeeId !== ownEmployeeId),
+    [permissions, ownEmployeeId],
   );
   const totalPendingCount = pendingLeaves.length + pendingPermissions.length;
 
@@ -611,7 +617,7 @@ export default function AttendancePage() {
       {/* 4 TABS NAVIGATION STRIP                                                */}
       {/* ===================================================================== */}
       <div className="flex border-b border-border gap-2 overflow-x-auto pb-1">
-        {isHR && (
+        {canApprove && (
           <button
             onClick={() => setActiveTab('APPROVALS')}
             className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-black transition-all relative ${
@@ -670,7 +676,7 @@ export default function AttendancePage() {
       {/* ===================================================================== */}
       {/* TAB 1: APPROVALS (FOR MANAGERS / HR)                                  */}
       {/* ===================================================================== */}
-      {activeTab === 'APPROVALS' && isHR && (
+      {activeTab === 'APPROVALS' && canApprove && (
         <div className="space-y-6 animate-in fade-in">
           {/* Pending Leaves Table */}
           <div className="rounded-3xl border border-card-border bg-card/80 dark:bg-card/70 backdrop-blur-xl overflow-hidden shadow-xs">

@@ -29,6 +29,8 @@ export interface UserProfile {
   isActive: boolean;
   role: Role;
   permissions: string[];
+  /** Can approve leave/permission requests (HR, or Team Leader / head of at least one department) */
+  canApproveRequests?: boolean;
   createdAt: string;
   employee?: UserEmployeeProfile | null;
 }

@@ -92,16 +92,16 @@ export class WorkPermissionsService {
 
     if (query.status) where.status = query.status;
 
-    if (this.access.isHrAdmin(currentUser)) {
-      if (query.employeeId) where.employeeId = query.employeeId;
-      if (query.departmentId) where.employee = { departmentId: query.departmentId };
-    } else {
-      // Non-HR users (including Team Leaders) see only their own requests
-      if (!currentUser.employeeId) {
-        return [];
-      }
-      where.employeeId = currentUser.employeeId;
+    // HR sees everything; others see their own requests plus those of departments they approve
+    const visibility = await this.access.getRequestVisibility(currentUser);
+    if (visibility !== null) {
+      if (visibility.length === 0) return [];
+      where.OR = visibility;
     }
+
+    // Optional filters narrow results within the visible scope
+    if (query.employeeId) where.employeeId = query.employeeId;
+    if (query.departmentId) where.employee = { departmentId: query.departmentId };
 
     const permissions = await this.prisma.permissionRequest.findMany({
       where,
@@ -134,10 +134,6 @@ export class WorkPermissionsService {
    * Approve Permission Request with Atomic Balance Deduction
    */
   async approvePermissionRequest(id: string, approverUser: AuthenticatedUser) {
-    if (!this.access.isHrAdmin(approverUser)) {
-      throw new ForbiddenException('Only HR Managers or Admins have the authority to approve permissions.');
-    }
-
     const permission = await this.prisma.permissionRequest.findUnique({
       where: { id },
       include: {
@@ -147,6 +143,12 @@ export class WorkPermissionsService {
 
     if (!permission) {
       throw new NotFoundException('Permission request not found.');
+    }
+
+    if (!(await this.access.canDecideRequestOf(approverUser, permission.employee))) {
+      throw new ForbiddenException(
+        'You can only approve requests from employees in departments you lead (HR can approve any).',
+      );
     }
 
     if (permission.status !== RequestStatus.PENDING) {
@@ -222,10 +224,6 @@ export class WorkPermissionsService {
     dto: RejectPermissionRequestDto,
     rejectorUser: AuthenticatedUser,
   ) {
-    if (!this.access.isHrAdmin(rejectorUser)) {
-      throw new ForbiddenException('Only HR Managers or Admins have the authority to reject permissions.');
-    }
-
     const permission = await this.prisma.permissionRequest.findUnique({
       where: { id },
       include: {
@@ -235,6 +233,12 @@ export class WorkPermissionsService {
 
     if (!permission) {
       throw new NotFoundException('Permission request not found.');
+    }
+
+    if (!(await this.access.canDecideRequestOf(rejectorUser, permission.employee))) {
+      throw new ForbiddenException(
+        'You can only reject requests from employees in departments you lead (HR can reject any).',
+      );
     }
 
     if (permission.status !== RequestStatus.PENDING) {
