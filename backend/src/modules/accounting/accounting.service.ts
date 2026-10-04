@@ -9,6 +9,7 @@ import { ReverseTransactionDto } from './dto/reverse-transaction.dto';
 import { QueryTransactionsDto } from './dto/query-transactions.dto';
 import { FinancialSummaryQueryDto } from './dto/financial-summary-query.dto';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+import { getZonedParts, zonedTimeToUtc } from '../../common/time/business-time';
 import { Prisma, TransactionType, TransactionCategory } from '@prisma/client';
 
 @Injectable()
@@ -248,16 +249,17 @@ export class AccountingService {
   // ---------------------------------------------------------------------------
 
   async getFinancialSummary(query: FinancialSummaryQueryDto) {
-    const currentYear = query.year || new Date().getFullYear();
+    // Year boundaries and month buckets follow the company timezone, not the server clock
+    const currentYear = query.year || getZonedParts(new Date()).year;
 
-    const startOfYear = new Date(currentYear, 0, 1);
-    const endOfYear = new Date(currentYear, 11, 31, 23, 59, 59, 999);
+    const startOfYear = zonedTimeToUtc(currentYear, 1, 1);
+    const startOfNextYear = zonedTimeToUtc(currentYear + 1, 1, 1);
 
     const whereBase: Prisma.FinancialTransactionWhereInput = {
       isReversed: false,
       transactionDate: {
         gte: query.startDate ? new Date(query.startDate) : startOfYear,
-        lte: query.endDate ? new Date(query.endDate) : endOfYear,
+        ...(query.endDate ? { lte: new Date(query.endDate) } : { lt: startOfNextYear }),
       },
     };
 
@@ -325,7 +327,7 @@ export class AccountingService {
 
     allTransactions.forEach((t) => {
       const numAmount = Number(t.amount);
-      const tMonth = new Date(t.transactionDate).getMonth();
+      const tMonth = getZonedParts(t.transactionDate).month - 1;
 
       if (t.type === TransactionType.INCOME) {
         incomeByCategory[t.category] = (incomeByCategory[t.category] || 0) + numAmount;

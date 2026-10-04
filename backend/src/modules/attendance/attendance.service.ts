@@ -9,6 +9,11 @@ import { AttendanceQueryDto } from './dto/attendance-query.dto';
 import { EventsGateway } from '../events/events.gateway';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { AccessScopeService } from '../../common/access/access-scope.service';
+import {
+  businessMinutesOfDay,
+  businessToday,
+  formatBusinessTime,
+} from '../../common/time/business-time';
 
 @Injectable()
 export class AttendanceService {
@@ -19,11 +24,10 @@ export class AttendanceService {
   ) {}
 
   /**
-   * Helper to normalize a date to midnight UTC (Date-only for DB @db.Date column)
+   * Today's date in company time, as stored in the @db.Date column
    */
   private getTodayDateOnly(): Date {
-    const now = new Date();
-    return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+    return businessToday();
   }
 
   /**
@@ -138,12 +142,12 @@ export class AttendanceService {
 
     if (existing) {
       throw new BadRequestException(
-        `You have already checked in today at ${existing.checkInTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`,
+        `You have already checked in today at ${formatBusinessTime(existing.checkInTime)}.`,
       );
     }
 
     // Calculate morning arrival delay based on standard 09:00 AM start with 15 mins grace (until 09:15 AM)
-    const checkInMinutes = now.getHours() * 60 + now.getMinutes();
+    const checkInMinutes = businessMinutesOfDay(now);
     const shiftStartMinutes = 9 * 60; // 09:00 AM = 540
     const graceEndMinutes = shiftStartMinutes + 15; // 09:15 AM = 555
 
@@ -199,7 +203,7 @@ export class AttendanceService {
 
     if (record.checkOutTime) {
       throw new BadRequestException(
-        `You have already checked out today at ${record.checkOutTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`,
+        `You have already checked out today at ${formatBusinessTime(record.checkOutTime)}.`,
       );
     }
 

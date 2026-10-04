@@ -17,6 +17,7 @@ import {
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { LeavesService } from '../leaves/leaves.service';
 import { WorkPermissionsService } from '../work-permissions/work-permissions.service';
+import { businessMonthRange, businessToday, getZonedParts } from '../../common/time/business-time';
 import {
   Prisma,
   RequestStatus,
@@ -392,11 +393,10 @@ export class ManagementService {
   // ---------------------------------------------------------------------------
 
   async getManagementStats() {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59);
+    // Same "today" as attendance check-ins (company calendar date), and the current company month
+    const today = businessToday();
+    const now = getZonedParts(new Date());
+    const { start: startOfMonth, end: startOfNextMonth } = businessMonthRange(now.year, now.month);
 
     const [
       activeEmployeesCount,
@@ -428,7 +428,7 @@ export class ManagementService {
         where: {
           isReversed: false,
           type: TransactionType.INCOME,
-          transactionDate: { gte: startOfMonth, lte: endOfMonth },
+          transactionDate: { gte: startOfMonth, lt: startOfNextMonth },
         },
         _sum: { amount: true },
       }),
@@ -436,7 +436,7 @@ export class ManagementService {
         where: {
           isReversed: false,
           type: TransactionType.EXPENSE,
-          transactionDate: { gte: startOfMonth, lte: endOfMonth },
+          transactionDate: { gte: startOfMonth, lt: startOfNextMonth },
         },
         _sum: { amount: true },
       }),
