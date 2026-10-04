@@ -11,7 +11,7 @@ import { QueryAssetsDto } from './dto/query-assets.dto';
 import { AssignAssetDto } from './dto/assign-asset.dto';
 import { ReturnAssetDto } from './dto/return-asset.dto';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
-import { AssetStatus, Prisma } from '@prisma/client';
+import { AssetStatus, AssetType, Prisma } from '@prisma/client';
 
 @Injectable()
 export class AssetsService {
@@ -190,45 +190,29 @@ export class AssetsService {
   // ---------------------------------------------------------------------------
 
   async getAssetStats() {
-    const [
-      totalAssets,
-      availableCount,
-      assignedCount,
-      maintenanceCount,
-      retiredCount,
-      hardwareCount,
-      softwareCount,
-      furnitureCount,
-      otherCount,
-      costAggregate,
-    ] = await Promise.all([
-      this.prisma.asset.count(),
-      this.prisma.asset.count({ where: { status: AssetStatus.AVAILABLE } }),
-      this.prisma.asset.count({ where: { status: AssetStatus.ASSIGNED } }),
-      this.prisma.asset.count({ where: { status: AssetStatus.IN_MAINTENANCE } }),
-      this.prisma.asset.count({ where: { status: AssetStatus.RETIRED } }),
-      this.prisma.asset.count({ where: { type: 'HARDWARE' } }),
-      this.prisma.asset.count({ where: { type: 'SOFTWARE' } }),
-      this.prisma.asset.count({ where: { type: 'FURNITURE' } }),
-      this.prisma.asset.count({ where: { type: 'OTHER' } }),
-      this.prisma.asset.aggregate({
-        _sum: { purchaseCost: true },
-      }),
+    const [byStatus, byType, aggregate] = await Promise.all([
+      this.prisma.asset.groupBy({ by: ['status'], _count: { _all: true } }),
+      this.prisma.asset.groupBy({ by: ['type'], _count: { _all: true } }),
+      this.prisma.asset.aggregate({ _count: { _all: true }, _sum: { purchaseCost: true } }),
     ]);
 
+    const statusCount = (status: AssetStatus) =>
+      byStatus.find((g) => g.status === status)?._count._all ?? 0;
+    const typeCount = (type: AssetType) => byType.find((g) => g.type === type)?._count._all ?? 0;
+
     return {
-      totalAssets,
-      availableCount,
-      assignedCount,
-      maintenanceCount,
-      retiredCount,
+      totalAssets: aggregate._count._all,
+      availableCount: statusCount(AssetStatus.AVAILABLE),
+      assignedCount: statusCount(AssetStatus.ASSIGNED),
+      maintenanceCount: statusCount(AssetStatus.IN_MAINTENANCE),
+      retiredCount: statusCount(AssetStatus.RETIRED),
       byType: {
-        hardware: hardwareCount,
-        software: softwareCount,
-        furniture: furnitureCount,
-        other: otherCount,
+        hardware: typeCount(AssetType.HARDWARE),
+        software: typeCount(AssetType.SOFTWARE),
+        furniture: typeCount(AssetType.FURNITURE),
+        other: typeCount(AssetType.OTHER),
       },
-      totalValuation: costAggregate._sum.purchaseCost || 0,
+      totalValuation: aggregate._sum.purchaseCost || 0,
     };
   }
 
