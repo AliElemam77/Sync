@@ -138,6 +138,7 @@ export class AssetsService {
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
+        // The custody history is loaded on demand from GET /assets/:id
         include: {
           assignee: {
             select: {
@@ -146,27 +147,6 @@ export class AssetsService {
               employeeCode: true,
               avatarUrl: true,
               department: { select: { id: true, name: true, code: true } },
-            },
-          },
-          assignmentHistory: {
-            orderBy: { assignedAt: 'desc' },
-            include: {
-              employee: {
-                select: {
-                  id: true,
-                  fullName: true,
-                  employeeCode: true,
-                  avatarUrl: true,
-                  department: { select: { id: true, name: true, code: true } },
-                },
-              },
-              assignedBy: {
-                select: {
-                  id: true,
-                  fullName: true,
-                  employeeCode: true,
-                },
-              },
             },
           },
         },

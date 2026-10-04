@@ -69,8 +69,10 @@ export interface Task {
   assignee?: TaskEmployeeRef | null;
   
   attachmentUrls?: string[];
-  comments: TaskComment[];
-  
+  // Full thread on single-task responses; list responses carry only _count
+  comments?: TaskComment[];
+  _count?: { comments: number };
+
   createdAt: string;
   updatedAt: string;
 }

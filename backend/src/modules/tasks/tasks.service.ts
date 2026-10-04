@@ -297,12 +297,8 @@ export class TasksService {
         targetDepartment: {
           select: { id: true, name: true, code: true },
         },
-        comments: {
-          include: {
-            author: { select: { id: true, fullName: true, employeeCode: true, avatarUrl: true } },
-          },
-          orderBy: { createdAt: 'asc' },
-        },
+        // Board cards only show a count; the full thread comes from GET /tasks/:id
+        _count: { select: { comments: true } },
       },
     });
   }
@@ -345,12 +341,7 @@ export class TasksService {
         targetDepartment: {
           select: { id: true, name: true, code: true },
         },
-        comments: {
-          include: {
-            author: { select: { id: true, fullName: true, employeeCode: true, avatarUrl: true } },
-          },
-          orderBy: { createdAt: 'asc' },
-        },
+        _count: { select: { comments: true } },
       },
     });
   }

@@ -624,10 +624,10 @@ export default function TasksKanbanPage() {
                                       من: {task.creator?.fullName?.split(' ')[0] || 'الإدارة'}
                                     </span>
 
-                                    {task.comments && task.comments.length > 0 && (
+                                    {!!task._count?.comments && (
                                       <span className="flex items-center gap-1 text-primary bg-primary/10 px-1.5 py-0.5 rounded-md font-mono">
                                         <FiMessageSquare className="h-3 w-3" />
-                                        <span>{task.comments.length}</span>
+                                        <span>{task._count.comments}</span>
                                       </span>
                                     )}
                                   </div>

@@ -234,13 +234,12 @@ export class EmployeesService {
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
+        // Directory rows only; emergency contact and bank details come from GET /employees/:id
         include: {
           user: { select: { id: true, email: true, isActive: true } },
           department: { select: { id: true, name: true, code: true } },
           position: { select: { id: true, name: true } },
           level: { select: { id: true, name: true, rank: true } },
-          emergencyContact: true,
-          bankInfo: true,
           managedDepartments: { select: { id: true, name: true, code: true } },
         },
       }),
