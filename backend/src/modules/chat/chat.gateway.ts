@@ -6,21 +6,28 @@ import {
   SubscribeMessage,
   ConnectedSocket,
   MessageBody,
+  WsException,
 } from '@nestjs/websockets';
-import { Logger, Injectable, forwardRef, Inject } from '@nestjs/common';
+import { Logger, Injectable, forwardRef, Inject, ValidationPipe } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
+import { ConversationType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ChatService } from './chat.service';
 import { SendMessageDto } from './dto/send-message.dto';
+import { wsCorsOptions } from '../../common/config/ws-cors';
+
+// The global ValidationPipe does not run for WebSocket handlers. Bind it per payload rather than
+// per class: in WS contexts pipes also receive the @ConnectedSocket() argument.
+const wsPayloadValidationPipe = new ValidationPipe({
+  whitelist: true,
+  forbidNonWhitelisted: true,
+  transform: true,
+  exceptionFactory: (errors) => new WsException(errors),
+});
 
 @Injectable()
-@WebSocketGateway({
-  cors: {
-    origin: '*',
-    credentials: true,
-  },
-})
+@WebSocketGateway({ cors: wsCorsOptions })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
@@ -42,6 +49,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         client.handshake.query?.token;
 
       if (!token || typeof token !== 'string') {
+        client.disconnect(true);
         return;
       }
 
@@ -49,9 +57,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         token = token.slice(7).trim();
       }
 
-      const secret = process.env.JWT_SECRET || 'sync-jwt-secret-key-enterprise-2026-production';
-      const payload = this.jwtService.verify(token, { secret });
+      const payload = this.jwtService.verify(token);
       if (!payload || !payload.sub) {
+        client.disconnect(true);
         return;
       }
 
@@ -66,6 +74,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       });
 
       if (!user || !user.isActive) {
+        client.disconnect(true);
         return;
       }
 
@@ -89,6 +98,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.logger.log(`Chat Socket Authenticated: ${user.email} (${client.id})`);
     } catch (err: any) {
       this.logger.debug(`Chat socket auth failed or unauthenticated: ${err.message}`);
+      client.disconnect(true);
     }
   }
 
@@ -97,15 +107,24 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('chat:join_room')
-  handleJoinRoom(
+  async handleJoinRoom(
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: { conversationId: string },
   ) {
-    if (payload?.conversationId) {
-      const room = `conversation:${payload.conversationId}`;
-      client.join(room);
-      this.logger.debug(`User ${client.data.user?.email || client.id} joined room ${room}`);
+    const userId = client.data.user?.userId;
+    if (!userId || typeof payload?.conversationId !== 'string') {
+      return { status: 'error', message: 'Invalid payload' };
     }
+
+    const canAccess = await this.chatService.canAccessConversation(payload.conversationId, userId);
+    if (!canAccess) {
+      return { status: 'error', message: 'Forbidden' };
+    }
+
+    const room = `conversation:${payload.conversationId}`;
+    client.join(room);
+    this.logger.debug(`User ${client.data.user.email} joined room ${room}`);
+    return { status: 'ok' };
   }
 
   @SubscribeMessage('chat:leave_room')
@@ -123,7 +142,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('chat:send_message')
   async handleSendMessage(
     @ConnectedSocket() client: Socket,
-    @MessageBody() dto: SendMessageDto,
+    @MessageBody(wsPayloadValidationPipe) dto: SendMessageDto,
   ) {
     const userId = client.data.user?.userId;
     if (!userId) {
@@ -161,8 +180,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: { conversationId: string; isTyping: boolean },
   ) {
-    if (payload?.conversationId && client.data.user) {
-      client.to(`conversation:${payload.conversationId}`).emit('chat:user_typing', {
+    const room = `conversation:${payload?.conversationId}`;
+    // Only sockets that passed the join_room access check may signal typing in a room
+    if (payload?.conversationId && client.data.user && client.rooms.has(room)) {
+      client.to(room).emit('chat:user_typing', {
         conversationId: payload.conversationId,
         userId: client.data.user.userId,
         employeeId: client.data.user.employeeId,
@@ -205,7 +226,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         lastMessage: message,
       });
     }
-    this.server.emit('chat:global_ping', { conversationId });
   }
 
   /**
@@ -253,12 +273,21 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   /**
    * Broadcast when a new conversation or group is created
    */
-  broadcastNewConversation(conversation: any, participantUserIds: string[]) {
-    // Broadcast to targeted user rooms
-    for (const userId of participantUserIds) {
-      this.server.to(`user:${userId}`).emit('chat:new_conversation', conversation);
+  broadcastNewConversation(
+    conversation: { id: string; type: ConversationType },
+    participantUserIds: string[],
+  ) {
+    // Clients only refetch their conversation list on this event, so send identifiers, never the record
+    const payload = { id: conversation.id, type: conversation.type };
+
+    if (conversation.type === ConversationType.PUBLIC_GROUP) {
+      // Public groups are listed for every user
+      this.server.to('global').emit('chat:new_conversation', payload);
+      return;
     }
-    // Also broadcast to global channel for immediate UI refresh
-    this.server.emit('chat:new_conversation', conversation);
+
+    for (const userId of participantUserIds) {
+      this.server.to(`user:${userId}`).emit('chat:new_conversation', payload);
+    }
   }
 }

@@ -11,7 +11,22 @@ import { ChatGateway } from './chat.gateway';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { AddParticipantsDto } from './dto/add-participants.dto';
-import { ConversationType, ParticipantRole, MessageType } from '@prisma/client';
+import { ConversationType, ParticipantRole, MessageType, Prisma } from '@prisma/client';
+
+// Never `include: { user: true }` here: it exposes passwordHash and the full employee record.
+const PARTICIPANT_INCLUDE = {
+  user: { select: { id: true, email: true } },
+  employee: {
+    select: {
+      id: true,
+      fullName: true,
+      avatarUrl: true,
+      employeeCode: true,
+      position: { select: { name: true } },
+      department: { select: { name: true } },
+    },
+  },
+} satisfies Prisma.ConversationParticipantInclude;
 
 @Injectable()
 export class ChatService {
@@ -148,21 +163,7 @@ export class ChatService {
       where: { id: conversationId },
       include: {
         department: { select: { id: true, name: true, code: true } },
-        participants: {
-          include: {
-            user: { select: { id: true, email: true } },
-            employee: {
-              select: {
-                id: true,
-                fullName: true,
-                avatarUrl: true,
-                employeeCode: true,
-                position: { select: { name: true } },
-                department: { select: { name: true } },
-              },
-            },
-          },
-        },
+        participants: { include: PARTICIPANT_INCLUDE },
       },
     });
 
@@ -176,6 +177,22 @@ export class ChatService {
     }
 
     return conv;
+  }
+
+  /**
+   * Whether the user may receive a conversation's real-time events: participants, or anyone for public groups
+   */
+  async canAccessConversation(conversationId: string, userId: string): Promise<boolean> {
+    const conv = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: {
+        type: true,
+        participants: { where: { userId }, select: { id: true } },
+      },
+    });
+
+    if (!conv) return false;
+    return conv.participants.length > 0 || conv.type === ConversationType.PUBLIC_GROUP;
   }
 
   /**
@@ -293,12 +310,7 @@ export class ChatService {
         ],
       },
       include: {
-        participants: {
-          include: {
-            employee: true,
-            user: true,
-          },
-        },
+        participants: { include: PARTICIPANT_INCLUDE },
       },
     });
 
@@ -329,12 +341,7 @@ export class ChatService {
         },
       },
       include: {
-        participants: {
-          include: {
-            employee: true,
-            user: true,
-          },
-        },
+        participants: { include: PARTICIPANT_INCLUDE },
       },
     });
 
@@ -409,12 +416,7 @@ export class ChatService {
       },
       include: {
         department: { select: { id: true, name: true, code: true } },
-        participants: {
-          include: {
-            employee: true,
-            user: true,
-          },
-        },
+        participants: { include: PARTICIPANT_INCLUDE },
       },
     });
 
@@ -467,6 +469,16 @@ export class ChatService {
 
     if (!content && attachments.length === 0) {
       throw new BadRequestException('محتوى الرسالة أو الصور المرفقة مطلوبة للإرسال');
+    }
+
+    if (dto.replyToId) {
+      const replyTarget = await this.prisma.message.findUnique({
+        where: { id: dto.replyToId },
+        select: { conversationId: true },
+      });
+      if (!replyTarget || replyTarget.conversationId !== dto.conversationId) {
+        throw new BadRequestException('الرسالة المقتبسة غير موجودة في هذه المحادثة');
+      }
     }
 
     const messageType =
@@ -540,12 +552,23 @@ export class ChatService {
     const message = await this.prisma.message.findUnique({
       where: { id: messageId },
       include: {
-        conversation: { select: { id: true, participants: true } },
+        conversation: {
+          select: {
+            id: true,
+            type: true,
+            participants: { where: { userId }, select: { id: true } },
+          },
+        },
       },
     });
 
     if (!message) {
       throw new NotFoundException('الرسالة غير موجودة');
+    }
+
+    const isParticipant = message.conversation.participants.length > 0;
+    if (!isParticipant && message.conversation.type !== ConversationType.PUBLIC_GROUP) {
+      throw new ForbiddenException('ليس لديك صلاحية التفاعل مع رسائل هذه المحادثة');
     }
 
     const user = await this.prisma.user.findUnique({

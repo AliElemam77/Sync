@@ -3,12 +3,12 @@ import {
   WebSocketServer,
   OnGatewayConnection,
   OnGatewayDisconnect,
-  SubscribeMessage,
 } from '@nestjs/websockets';
 import { Logger, Injectable } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../../prisma/prisma.service';
+import { wsCorsOptions } from '../../common/config/ws-cors';
 
 export interface InAppNotification {
   id: string;
@@ -25,12 +25,7 @@ export interface InAppNotification {
 }
 
 @Injectable()
-@WebSocketGateway({
-  cors: {
-    origin: '*',
-    credentials: true,
-  },
-})
+@WebSocketGateway({ cors: wsCorsOptions })
 export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
@@ -49,7 +44,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         client.handshake.headers?.authorization?.replace('Bearer ', '') ||
         client.handshake.query?.token;
 
-      if (!token && typeof token !== 'string') {
+      if (!token || typeof token !== 'string') {
         this.logger.warn(`Client connection rejected: No token provided (${client.id})`);
         client.disconnect();
         return;
@@ -59,8 +54,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         token = token.slice(7).trim();
       }
 
-      const secret = process.env.JWT_SECRET || 'sync-jwt-secret-key-enterprise-2026-production';
-      const payload = this.jwtService.verify(token, { secret });
+      const payload = this.jwtService.verify(token);
       if (!payload || !payload.sub) {
         client.disconnect();
         return;
@@ -114,20 +108,6 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.logger.log(`Socket Disconnected: ${client.id}`);
   }
 
-  @SubscribeMessage('task:join_room')
-  handleJoinTaskRoom(client: Socket, taskId: string) {
-    if (taskId) {
-      client.join(`task:${taskId}`);
-    }
-  }
-
-  @SubscribeMessage('task:leave_room')
-  handleLeaveTaskRoom(client: Socket, taskId: string) {
-    if (taskId) {
-      client.leave(`task:${taskId}`);
-    }
-  }
-
   // ---------------------------------------------------------------------------
   // EMISSION METHODS (CALLED FROM SERVICES)
   // ---------------------------------------------------------------------------
@@ -136,7 +116,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
    * Broadcast Task Created Event & Send Notification to Target Dept / Assignee
    */
   broadcastTaskCreated(task: any) {
-    this.server.emit('task:created', task);
+    // Global task events carry identifiers only; clients refetch through the scoped REST API
+    this.server.to('global').emit('task:created', { id: task.id });
 
     const notification: InAppNotification = {
       id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
@@ -173,7 +154,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
    * Broadcast Task Details Updated (Assignee, Priority, Due Date)
    */
   broadcastTaskUpdated(task: any, newAssigneeEmployee?: any) {
-    this.server.emit('task:updated', task);
+    this.server.to('global').emit('task:updated', { id: task.id });
 
     if (newAssigneeEmployee?.userId) {
       this.sendNotification(newAssigneeEmployee.userId, {
@@ -198,13 +179,10 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     actor: { id?: string; name: string; avatarUrl?: string },
     comment?: string,
   ) {
-    this.server.emit('task:status_changed', {
+    this.server.to('global').emit('task:status_changed', {
       taskId: task.id,
       oldStatus,
       newStatus,
-      task,
-      actor,
-      comment,
     });
 
     const notifBase: InAppNotification = {
@@ -266,8 +244,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
    * Broadcast New Discussion Comment & Notify Participants
    */
   broadcastTaskCommentAdded(taskId: string, comment: any, task: any) {
-    this.server.emit('task:comment_added', { taskId, comment });
-    this.server.to(`task:${taskId}`).emit('comment:created', comment);
+    this.server.to('global').emit('task:comment_added', { taskId });
 
     const authorName = comment.author?.fullName || 'Someone';
 
@@ -299,8 +276,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   /**
    * Broadcast Task Deleted
    */
-  broadcastTaskDeleted(taskId: string, title?: string) {
-    this.server.emit('task:deleted', { taskId, title });
+  broadcastTaskDeleted(taskId: string) {
+    this.server.to('global').emit('task:deleted', { taskId });
   }
 
   /**

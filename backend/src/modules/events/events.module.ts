@@ -1,5 +1,6 @@
 import { Module, Global } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { EventsGateway } from './events.gateway';
 import { PrismaModule } from '../../prisma/prisma.module';
 
@@ -7,8 +8,11 @@ import { PrismaModule } from '../../prisma/prisma.module';
 @Module({
   imports: [
     PrismaModule,
-    JwtModule.register({
-      secret: process.env.JWT_SECRET || 'sync-jwt-secret-key-enterprise-2026-production',
+    JwtModule.registerAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.getOrThrow<string>('JWT_SECRET'),
+      }),
     }),
   ],
   providers: [EventsGateway],
