@@ -74,7 +74,7 @@ export class LeavesService {
           `Annual leave is limited to ${MAX_ANNUAL_LEAVE_DAYS_PER_REQUEST} working days per request (requested ${totalDaysRequested}).`,
         );
       }
-      if (employee.annualLeaveDays < totalDaysRequested) {
+      if (employee.annualLeaveDays.lessThan(totalDaysRequested)) {
         throw new BadRequestException(
           `Insufficient annual leave balance. Remaining: ${employee.annualLeaveDays} day(s), requested: ${totalDaysRequested} day(s).`,
         );
@@ -202,7 +202,7 @@ export class LeavesService {
           where: { id: leave.employeeId },
         });
 
-        if (!latestEmployee || latestEmployee.annualLeaveDays < leave.totalDaysRequested) {
+        if (!latestEmployee || latestEmployee.annualLeaveDays.lessThan(leave.totalDaysRequested)) {
           throw new BadRequestException(
             `Insufficient balance to approve. Employee has ${latestEmployee?.annualLeaveDays || 0} days remaining, requested ${leave.totalDaysRequested}.`,
           );

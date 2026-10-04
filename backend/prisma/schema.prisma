@@ -147,6 +147,9 @@ model Department {
   headId      String?           @map("head_id") @db.Uuid
   head        EmployeeProfile?  @relation("DepartmentHead", fields: [headId], references: [id], onDelete: SetNull)
 
+  // Commission earned per accepted task (x task weight) by employees of this department; set by Management
+  commissionPerTask Decimal     @default(0) @map("commission_per_task") @db.Decimal(12, 2)
+
   positions   Position[]
   employees   EmployeeProfile[]
 
@@ -262,8 +265,12 @@ model EmployeeProfile {
 
   // Shift & Default Entitlements
   shiftType              ShiftType         @default(RS) @map("shift_type")
+  // Monthly permission allowance (what is left is computed per month)
   monthlyPermissionHours Int               @default(4) @map("monthly_permission_hours")
-  annualLeaveDays        Int               @default(21) @map("annual_leave_days")
+  // Annual leave balance: accrues 21/12 days every month and carries over between years
+  annualLeaveDays        Decimal           @default(0) @map("annual_leave_days") @db.Decimal(6, 2)
+  // First day of the last month whose accrual has been credited
+  leaveAccruedThrough    DateTime?         @map("leave_accrued_through") @db.Date
 
   // Employment Details
   company                String            @default("Tawfeer") @db.VarChar(100)
@@ -407,6 +414,11 @@ model Task {
   assignmentType     TaskAssignmentType  @default(SELF_OR_TEAM) @map("assignment_type")
   dueDate            DateTime?           @map("due_date") @db.Timestamptz(6)
   order              Int                 @default(0)
+
+  // Effort weight set by the Team Leader / head (1 = normal task, 2 = heavy task); multiplies commission
+  weight             Decimal             @default(1) @db.Decimal(3, 1)
+  // When the requester accepted the task (status DONE); commission is earned in this month
+  completedAt        DateTime?           @map("completed_at") @db.Timestamptz(6)
 
   // Requester / Creator (EmployeeProfile)
   creatorId          String              @map("creator_id") @db.Uuid
@@ -864,6 +876,7 @@ enum AdjustmentType {
   BONUS
   PENALTY
   OVERTIME
+  COMMISSION
 }
 
 model SalaryProfile {
@@ -872,6 +885,9 @@ model SalaryProfile {
   employee           EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   baseSalary         Decimal         @default(0.0) @map("base_salary") @db.Decimal(12, 2)
+  // How the salary is paid out (CASH or BANK_TRANSFER); bank details are only needed for transfers
+  paymentMethod      PaymentMethod   @default(BANK_TRANSFER) @map("payment_method")
+  // Unused: allowances and tax are not part of payroll (business decision); kept until dropped
   housingAllowance   Decimal         @default(0.0) @map("housing_allowance") @db.Decimal(12, 2)
   transportAllowance Decimal         @default(0.0) @map("transport_allowance") @db.Decimal(12, 2)
   taxRate            Decimal         @default(0.0) @map("tax_rate") @db.Decimal(5, 2)

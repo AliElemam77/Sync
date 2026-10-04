@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
-import { LeaveType, RequestStatus } from '@prisma/client';
+import { LeaveType, Prisma, RequestStatus } from '@prisma/client';
 import { LeavesService } from './leaves.service';
 import { AccessScopeService } from '../../common/access/access-scope.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
@@ -21,7 +21,7 @@ const pendingLeave = (overrides: Record<string, unknown> = {}) => ({
   type: LeaveType.ANNUAL,
   status: RequestStatus.PENDING,
   totalDaysRequested: 3,
-  employee: { id: 'emp-1', userId: 'emp-user', annualLeaveDays: 10, departmentId: 'dept-eng' },
+  employee: { id: 'emp-1', userId: 'emp-user', annualLeaveDays: new Prisma.Decimal(10), departmentId: 'dept-eng' },
   ...overrides,
 });
 
@@ -32,7 +32,7 @@ describe('LeavesService.createLeaveRequest', () => {
   beforeEach(() => {
     prisma = {
       employeeProfile: {
-        findUnique: jest.fn().mockResolvedValue({ id: 'emp-1', shiftType: 'LS', annualLeaveDays: 10 }),
+        findUnique: jest.fn().mockResolvedValue({ id: 'emp-1', shiftType: 'LS', annualLeaveDays: new Prisma.Decimal(10) }),
       },
       leaveRequest: { create: jest.fn(({ data }) => data) },
     };
@@ -82,7 +82,7 @@ describe('LeavesService approvals', () => {
         }),
       },
       employeeProfile: {
-        findUnique: jest.fn().mockResolvedValue({ id: 'emp-1', annualLeaveDays: 10 }),
+        findUnique: jest.fn().mockResolvedValue({ id: 'emp-1', annualLeaveDays: new Prisma.Decimal(10) }),
         update: jest.fn(),
       },
       department: { findMany: jest.fn().mockResolvedValue([]) },
@@ -148,7 +148,7 @@ describe('LeavesService approvals', () => {
   });
 
   it('refuses approval when the balance is insufficient', async () => {
-    prisma.employeeProfile.findUnique.mockResolvedValue({ id: 'emp-1', annualLeaveDays: 1 });
+    prisma.employeeProfile.findUnique.mockResolvedValue({ id: 'emp-1', annualLeaveDays: new Prisma.Decimal(1) });
     await expect(service.approveLeaveRequest('leave-1', makeUser())).rejects.toThrow(
       BadRequestException,
     );
