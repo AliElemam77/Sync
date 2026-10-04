@@ -14,6 +14,7 @@ import { AccessScopeService } from '../../common/access/access-scope.service';
 import {
   PayrollCycleStatus,
   AdjustmentType,
+  EmployeeStatus,
   Prisma,
 } from '@prisma/client';
 
@@ -57,7 +58,8 @@ export class PayrollService {
 
     // 2. Fetch all active employees with their salary profiles
     const employees = await this.prisma.employeeProfile.findMany({
-      where: { status: 'ACTIVE' },
+      // Employees on probation are paid like active staff
+      where: { status: { in: [EmployeeStatus.ACTIVE, EmployeeStatus.PROBATION] } },
       include: {
         salaryProfile: true,
         department: { select: { id: true, name: true } },

@@ -55,6 +55,11 @@ describe('PayrollService.generatePayroll', () => {
 
     await service.generatePayroll({ month: 9, year: 2026 }, payrollManager);
 
+    // Probation employees are paid like active staff
+    expect(prisma.employeeProfile.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { status: { in: ['ACTIVE', 'PROBATION'] } } }),
+    );
+
     // A single attendance query covers every employee
     expect(prisma.attendanceRecord.findMany).toHaveBeenCalledTimes(1);
 

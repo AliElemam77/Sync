@@ -12,7 +12,10 @@ import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { QueryEmployeesDto } from './dto/query-employees.dto';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { AccessScopeService } from '../../common/access/access-scope.service';
-import { Prisma, ShiftType } from '@prisma/client';
+import { EmployeeStatus, Prisma, ShiftType } from '@prisma/client';
+
+const statusBlocksLogin = (status: EmployeeStatus) =>
+  status === EmployeeStatus.ENDED || status === EmployeeStatus.INACTIVE;
 
 @Injectable()
 export class EmployeesService {
@@ -107,7 +110,7 @@ export class EmployeesService {
           email,
           passwordHash,
           roleId: employeeRole.id,
-          isActive: dto.status !== 'INACTIVE' && dto.status !== 'ENDED',
+          isActive: !dto.status || !statusBlocksLogin(dto.status),
         },
       });
 
@@ -325,10 +328,14 @@ export class EmployeesService {
       }
     }
 
+    // An ENDED or INACTIVE employee can never log in, whatever the login toggle says
+    const isActive =
+      dto.status !== undefined && statusBlocksLogin(dto.status) ? false : dto.isActive;
+
     const userDataToUpdate: Prisma.UserUpdateInput = {
       ...(dto.email && { email: dto.email.toLowerCase().trim() }),
       ...(dto.password && { passwordHash: await bcrypt.hash(dto.password, 12) }),
-      ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+      ...(isActive !== undefined && { isActive }),
       ...(dto.roleId && { role: { connect: { id: dto.roleId } } }),
     };
 
@@ -455,19 +462,35 @@ export class EmployeesService {
   // DELETE EMPLOYEE
   // ---------------------------------------------------------------------------
 
-  async deleteEmployee(id: string) {
+  // Offboarding replaces deletion: the employee is marked ENDED and can no longer log in, while
+  // attendance, payroll, task and asset history stay intact.
+  async offboardEmployee(id: string, currentUser: AuthenticatedUser) {
     const employee = await this.prisma.employeeProfile.findUnique({
       where: { id },
+      include: { user: { include: { role: { select: { name: true } } } } },
     });
 
     if (!employee) {
       throw new NotFoundException(`Employee with ID '${id}' not found`);
     }
 
-    // Cascade deletes employee profile and user account
-    return this.prisma.user.delete({
-      where: { id: employee.userId },
-    });
+    if (employee.userId === currentUser.id) {
+      throw new ForbiddenException('You cannot offboard your own account.');
+    }
+    if (employee.user.role.name === 'SUPER_ADMIN' && !this.access.isSuperAdmin(currentUser)) {
+      throw new ForbiddenException('Only a Super Admin can offboard a Super Admin account.');
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.employeeProfile.update({
+        where: { id },
+        data: { status: EmployeeStatus.ENDED },
+      }),
+      this.prisma.user.update({
+        where: { id: employee.userId },
+        data: { isActive: false },
+      }),
+    ]);
   }
 
   // ---------------------------------------------------------------------------
@@ -484,7 +507,8 @@ export class EmployeesService {
       dto.roleId !== undefined ||
       dto.email !== undefined ||
       dto.password !== undefined ||
-      dto.isActive !== undefined;
+      dto.isActive !== undefined ||
+      dto.status !== undefined;
 
     if (!changesAccount) return;
 

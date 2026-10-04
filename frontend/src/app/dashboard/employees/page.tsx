@@ -14,7 +14,7 @@ import {
   FiSearch,
   FiFilter,
   FiEdit2,
-  FiTrash2,
+  FiUserX,
   FiCheckCircle,
   FiClock,
   FiAlertCircle,
@@ -51,14 +51,14 @@ export default function EmployeesListPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`هل أنت متأكد من رغبتك في حذف الموظف '${name}'؟ سيتم إلغاء صلاحيات الدخول المرتبطة بحسابه.`)) {
+    if (!confirm(`هل تريد إنهاء خدمة الموظف '${name}'؟ سيتم إيقاف دخوله للنظام مع الاحتفاظ بكل سجلاته.`)) {
       return;
     }
     setDeleteError(null);
     try {
       await deleteMutation.mutateAsync(id);
     } catch (err: any) {
-      setDeleteError(err?.response?.data?.message || 'فشل حذف الموظف');
+      setDeleteError(err?.response?.data?.message || 'فشل إنهاء خدمة الموظف');
     }
   };
 
@@ -286,13 +286,13 @@ export default function EmployeesListPage() {
                           <span>تعديل</span>
                         </Link>
                       )}
-                      {canDelete && (
+                      {canDelete && emp.status !== 'ENDED' && (
                         <button
                           onClick={() => handleDelete(emp.id, emp.fullName)}
                           className="inline-flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-[11px] font-bold text-rose-500 dark:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 transition-colors"
                         >
-                          <FiTrash2 className="h-3 w-3" />
-                          <span>حذف</span>
+                          <FiUserX className="h-3 w-3" />
+                          <span>إنهاء الخدمة</span>
                         </button>
                       )}
                     </td>

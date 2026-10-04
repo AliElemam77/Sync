@@ -30,9 +30,10 @@ describe('EmployeesService', () => {
   beforeEach(() => {
     prisma = {
       employeeProfile: { findUnique: jest.fn(), update: jest.fn().mockResolvedValue({ id: 'emp-1' }) },
-      user: { findUnique: jest.fn(), update: jest.fn() },
+      user: { findUnique: jest.fn(), update: jest.fn(), delete: jest.fn() },
       role: { findUnique: jest.fn() },
       department: { findMany: jest.fn(), updateMany: jest.fn() },
+      $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
     };
     service = new EmployeesService(prisma, new AccessScopeService(prisma));
   });
@@ -84,6 +85,45 @@ describe('EmployeesService', () => {
       expect(prisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: 'target-user' } }),
       );
+    });
+  });
+
+  describe('status and offboarding', () => {
+    it('disables login when an employee is marked ENDED, even if the login toggle is on', async () => {
+      prisma.employeeProfile.findUnique.mockResolvedValue(existingEmployee());
+
+      await service.updateEmployee('emp-1', { status: 'ENDED', isActive: true }, makeUser());
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'target-user' },
+        data: { isActive: false },
+      });
+    });
+
+    it('offboards instead of deleting: status ENDED and login disabled, records kept', async () => {
+      prisma.employeeProfile.findUnique.mockResolvedValue(existingEmployee());
+
+      await service.offboardEmployee('emp-1', makeUser());
+
+      expect(prisma.employeeProfile.update).toHaveBeenCalledWith({
+        where: { id: 'emp-1' },
+        data: { status: 'ENDED' },
+      });
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'target-user' },
+        data: { isActive: false },
+      });
+      expect(prisma.user.delete).not.toHaveBeenCalled();
+    });
+
+    it('refuses to offboard your own account or, unless Super Admin, a Super Admin', async () => {
+      prisma.employeeProfile.findUnique.mockResolvedValue(existingEmployee());
+      await expect(
+        service.offboardEmployee('emp-1', makeUser({ id: 'target-user' })),
+      ).rejects.toThrow(ForbiddenException);
+
+      prisma.employeeProfile.findUnique.mockResolvedValue(existingEmployee('SUPER_ADMIN'));
+      await expect(service.offboardEmployee('emp-1', makeUser())).rejects.toThrow(ForbiddenException);
     });
   });
 

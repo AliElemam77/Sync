@@ -70,11 +70,15 @@ export class EmployeesController {
     return this.employeesService.updateEmployee(id, dto, user);
   }
 
+  // DELETE offboards (status ENDED, login disabled) instead of erasing the employee's records
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @RequirePermissions('employees.delete')
   @Audit({ action: 'DELETE', entity: 'EmployeeProfile' })
-  async deleteEmployee(@Param('id', ParseUUIDPipe) id: string) {
-    await this.employeesService.deleteEmployee(id);
+  async offboardEmployee(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    await this.employeesService.offboardEmployee(id, user);
   }
 }
