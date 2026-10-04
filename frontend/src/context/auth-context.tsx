@@ -54,8 +54,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     removeAuthToken();
-    setUser(null);
-    router.push('/login');
+    // A full navigation (not router.push) discards the in-memory query cache and socket connections,
+    // so none of this user's data or live events survive into the next login on the same tab.
+    window.location.assign('/login');
   };
 
   const hasPermission = (permission: string): boolean => {
