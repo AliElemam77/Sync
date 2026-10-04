@@ -11,6 +11,7 @@ const makeUser = (overrides: Partial<AuthenticatedUser> = {}): AuthenticatedUser
   permissions: ['employees.update', 'employees.manage_salary'],
   employeeId: 'actor-emp',
   departmentId: 'dept-hr',
+  isManagement: false,
   ...overrides,
 });
 
@@ -85,6 +86,44 @@ describe('EmployeesService', () => {
       expect(prisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: 'target-user' } }),
       );
+    });
+  });
+
+  describe('Management department membership', () => {
+    it('only lets a Super Admin move someone into Management', async () => {
+      prisma.employeeProfile.findUnique.mockResolvedValue({
+        ...existingEmployee(),
+        department: { code: 'ENG' },
+      });
+      prisma.department.findUnique = jest.fn().mockResolvedValue({ code: 'MGMT' });
+
+      await expect(
+        service.updateEmployee('emp-1', { departmentId: '8b1f2c3d-0000-4000-8000-000000000001' }, makeUser()),
+      ).rejects.toThrow('Only a Super Admin can move employees into or out of the Management department.');
+
+      await expect(
+        service.updateEmployee(
+          'emp-1',
+          { departmentId: '8b1f2c3d-0000-4000-8000-000000000001' },
+          makeUser({ role: 'SUPER_ADMIN' }),
+        ),
+      ).resolves.toBeDefined();
+    });
+
+    it('stops Management members from moving themselves or others out without Super Admin', async () => {
+      prisma.employeeProfile.findUnique.mockResolvedValue({
+        ...existingEmployee(),
+        department: { code: 'MGMT' },
+      });
+      prisma.department.findUnique = jest.fn().mockResolvedValue({ code: 'ENG' });
+
+      await expect(
+        service.updateEmployee(
+          'emp-1',
+          { departmentId: '8b1f2c3d-0000-4000-8000-000000000002' },
+          makeUser({ isManagement: true }),
+        ),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 

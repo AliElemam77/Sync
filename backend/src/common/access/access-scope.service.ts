@@ -4,6 +4,9 @@ import { AuthenticatedUser } from '../decorators/current-user.decorator';
 
 const HR_ADMIN_ROLES = ['SUPER_ADMIN', 'HR_MANAGER'];
 
+/** Department whose members have full access to every module (Super Admin aside) */
+export const MANAGEMENT_DEPARTMENT_CODE = 'MGMT';
+
 /** Filter usable in both LeaveRequest and PermissionRequest where clauses */
 export type RequestVisibilityFilter =
   | { employeeId: string }
@@ -30,14 +33,23 @@ export class AccessScopeService {
     return user.role === 'SUPER_ADMIN';
   }
 
-  /** Same semantics as PermissionsGuard: Super Admin implicitly holds every permission */
-  hasPermission(user: AuthenticatedUser, permission: string): boolean {
-    return this.isSuperAdmin(user) || user.permissions.includes(permission);
+  /**
+   * Management department members see and operate every module. Actions reserved to the
+   * Super Admin (granting Super Admin, managing Super Admin accounts, changing who belongs to
+   * Management) stay reserved.
+   */
+  isManagement(user: AuthenticatedUser): boolean {
+    return user.isManagement;
   }
 
-  /** Company-wide HR authority: attendance/leave/permission scope and approvals, task administration */
+  /** Same semantics as PermissionsGuard: Super Admin and Management implicitly hold every permission */
+  hasPermission(user: AuthenticatedUser, permission: string): boolean {
+    return this.isSuperAdmin(user) || this.isManagement(user) || user.permissions.includes(permission);
+  }
+
+  /** Company-wide authority: attendance/leave/permission scope and approvals, task administration */
   isHrAdmin(user: AuthenticatedUser): boolean {
-    return HR_ADMIN_ROLES.includes(user.role);
+    return HR_ADMIN_ROLES.includes(user.role) || this.isManagement(user);
   }
 
   isTeamLeader(user: AuthenticatedUser): boolean {
@@ -109,7 +121,7 @@ export class AccessScopeService {
    */
   async resolveDirectoryScope(user: AuthenticatedUser): Promise<string[] | null> {
     const roleName = user.role?.toUpperCase() || '';
-    if (DIRECTORY_COMPANY_WIDE_ROLES.includes(roleName)) return null;
+    if (DIRECTORY_COMPANY_WIDE_ROLES.includes(roleName) || this.isManagement(user)) return null;
 
     const actorEmployee = await this.prisma.employeeProfile.findUnique({
       where: { userId: user.id },

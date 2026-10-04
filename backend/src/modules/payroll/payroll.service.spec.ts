@@ -11,6 +11,7 @@ const payrollManager: AuthenticatedUser = {
   permissions: ['payroll.manage'],
   employeeId: 'hr-emp',
   departmentId: 'dept-hr',
+  isManagement: false,
 };
 
 describe('PayrollService.approveCycle', () => {

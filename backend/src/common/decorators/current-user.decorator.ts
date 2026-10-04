@@ -8,6 +8,8 @@ export interface AuthenticatedUser {
   permissions: string[];
   employeeId: string | null;
   departmentId: string | null;
+  /** Member of the Management department (full access to every module) */
+  isManagement: boolean;
 }
 
 export const CurrentUser = createParamDecorator(

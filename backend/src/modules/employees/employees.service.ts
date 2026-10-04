@@ -11,7 +11,10 @@ import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { QueryEmployeesDto } from './dto/query-employees.dto';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
-import { AccessScopeService } from '../../common/access/access-scope.service';
+import {
+  AccessScopeService,
+  MANAGEMENT_DEPARTMENT_CODE,
+} from '../../common/access/access-scope.service';
 import { EmployeeStatus, Prisma, ShiftType } from '@prisma/client';
 
 const statusBlocksLogin = (status: EmployeeStatus) =>
@@ -78,6 +81,7 @@ export class EmployeesService {
     if (!department) {
       throw new NotFoundException(`Department with ID '${dto.departmentId}' not found`);
     }
+    this.assertCanChangeManagementMembership([department.code], currentUser);
 
     const position = await this.prisma.position.findUnique({
       where: { id: dto.positionId },
@@ -349,6 +353,7 @@ export class EmployeesService {
       where: { id },
       include: {
         user: { include: { role: { select: { name: true } } } },
+        department: { select: { code: true } },
         bankInfo: true,
         emergencyContact: true,
       },
@@ -359,6 +364,18 @@ export class EmployeesService {
     }
 
     await this.assertCanChangeAccount(existing.userId, existing.user.role.name, dto, currentUser);
+
+    // Moving someone into or out of Management changes their access level
+    if (dto.departmentId && dto.departmentId !== existing.departmentId) {
+      const target = await this.prisma.department.findUnique({
+        where: { id: dto.departmentId },
+        select: { code: true },
+      });
+      if (!target) {
+        throw new NotFoundException(`Department with ID '${dto.departmentId}' not found`);
+      }
+      this.assertCanChangeManagementMembership([existing.department.code, target.code], currentUser);
+    }
     this.assertCanWriteSalary(dto.bankInfo, currentUser);
 
     // Handle user account updates (email, password, status, role)
@@ -582,6 +599,19 @@ export class EmployeesService {
     }
     if (newRole.name === 'SUPER_ADMIN' && !actorIsSuperAdmin) {
       throw new ForbiddenException('Only a Super Admin can grant the Super Admin role.');
+    }
+  }
+
+  // Management membership grants full access, so only a Super Admin may add or remove members
+  private assertCanChangeManagementMembership(
+    departmentCodes: string[],
+    currentUser?: AuthenticatedUser,
+  ) {
+    const touchesManagement = departmentCodes.includes(MANAGEMENT_DEPARTMENT_CODE);
+    if (touchesManagement && !(currentUser && this.access.isSuperAdmin(currentUser))) {
+      throw new ForbiddenException(
+        'Only a Super Admin can move employees into or out of the Management department.',
+      );
     }
   }
 

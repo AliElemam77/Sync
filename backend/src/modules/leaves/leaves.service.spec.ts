@@ -12,6 +12,7 @@ const makeUser = (overrides: Partial<AuthenticatedUser> = {}): AuthenticatedUser
   permissions: ['leaves.approve'],
   employeeId: 'hr-emp',
   departmentId: 'dept-hr',
+  isManagement: false,
   ...overrides,
 });
 

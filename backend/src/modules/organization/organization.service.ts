@@ -11,6 +11,7 @@ import { CreatePositionDto } from './dto/create-position.dto';
 import { UpdatePositionDto } from './dto/update-position.dto';
 import { CreateLevelDto } from './dto/create-level.dto';
 import { UpdateLevelDto } from './dto/update-level.dto';
+import { MANAGEMENT_DEPARTMENT_CODE } from '../../common/access/access-scope.service';
 
 @Injectable()
 export class OrganizationService {
@@ -153,6 +154,10 @@ export class OrganizationService {
 
     if (!department) {
       throw new NotFoundException(`Department with ID '${id}' not found`);
+    }
+
+    if (department.code === MANAGEMENT_DEPARTMENT_CODE) {
+      throw new BadRequestException('The Management department cannot be deleted.');
     }
 
     if (department._count.positions > 0) {

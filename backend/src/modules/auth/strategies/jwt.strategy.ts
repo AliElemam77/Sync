@@ -4,6 +4,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { AuthenticatedUser } from '../../../common/decorators/current-user.decorator';
+import { MANAGEMENT_DEPARTMENT_CODE } from '../../../common/access/access-scope.service';
 
 export interface JwtPayload {
   sub: string;
@@ -32,7 +33,9 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
         email: true,
         isActive: true,
         roleId: true,
-        employeeProfile: { select: { id: true, departmentId: true } },
+        employeeProfile: {
+          select: { id: true, departmentId: true, department: { select: { code: true } } },
+        },
         role: {
           select: {
             name: true,
@@ -64,6 +67,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       permissions,
       employeeId: user.employeeProfile?.id ?? null,
       departmentId: user.employeeProfile?.departmentId ?? null,
+      isManagement: user.employeeProfile?.department?.code === MANAGEMENT_DEPARTMENT_CODE,
     };
   }
 }

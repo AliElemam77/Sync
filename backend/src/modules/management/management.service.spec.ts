@@ -12,6 +12,7 @@ const admin: AuthenticatedUser = {
   permissions: [],
   employeeId: null,
   departmentId: null,
+  isManagement: false,
 };
 
 describe('ManagementService.overrideAction', () => {

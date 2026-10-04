@@ -9,6 +9,7 @@ const makeUser = (overrides: Partial<AuthenticatedUser> = {}): AuthenticatedUser
   permissions: [],
   employeeId: 'emp-1',
   departmentId: 'dept-1',
+  isManagement: false,
   ...overrides,
 });
 
@@ -44,6 +45,24 @@ describe('AccessScopeService', () => {
       expect(access.isAgent(makeUser())).toBe(true);
       expect(access.isAgent(makeUser({ permissions: ['org.manage'] }))).toBe(false);
       expect(access.isAgent(makeUser({ role: 'TEAM_LEADER' }))).toBe(false);
+    });
+  });
+
+  describe('Management department', () => {
+    const manager = makeUser({ isManagement: true });
+
+    it('holds every permission and company-wide authority', async () => {
+      expect(access.hasPermission(manager, 'accounting.manage')).toBe(true);
+      expect(access.isHrAdmin(manager)).toBe(true);
+      await expect(access.getApprovalDepartmentIds(manager)).resolves.toBeNull();
+      await expect(access.resolveDirectoryScope(manager)).resolves.toBeNull();
+    });
+
+    it('is not a Super Admin and cannot decide its own requests', async () => {
+      expect(access.isSuperAdmin(manager)).toBe(false);
+      await expect(
+        access.canDecideRequestOf(manager, { id: 'emp-1', departmentId: 'dept-mgmt' }),
+      ).resolves.toBe(false);
     });
   });
 

@@ -29,6 +29,8 @@ export interface UserProfile {
   isActive: boolean;
   role: Role;
   permissions: string[];
+  /** Member of the Management department: full access to every module */
+  isManagement?: boolean;
   /** Can approve leave/permission requests (HR, or Team Leader / head of at least one department) */
   canApproveRequests?: boolean;
   createdAt: string;

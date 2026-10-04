@@ -12,6 +12,7 @@ const makeUser = (overrides: Partial<AuthenticatedUser> = {}): AuthenticatedUser
   permissions: ['tasks.view', 'tasks.update'],
   employeeId: 'outsider-emp',
   departmentId: 'dept-sales',
+  isManagement: false,
   ...overrides,
 });
 

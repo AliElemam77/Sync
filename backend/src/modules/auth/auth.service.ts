@@ -11,7 +11,10 @@ import { LoginDto } from './dto/login.dto';
 import { LoginResponseDto, UserProfileDto } from './dto/auth-response.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
 import { AuditAction, Prisma } from '@prisma/client';
-import { AccessScopeService } from '../../common/access/access-scope.service';
+import {
+  AccessScopeService,
+  MANAGEMENT_DEPARTMENT_CODE,
+} from '../../common/access/access-scope.service';
 
 const USER_PROFILE_INCLUDE = {
   role: {
@@ -128,6 +131,7 @@ export class AuthService {
   private async toUserProfile(user: UserWithProfile): Promise<UserProfileDto> {
     const permissions = user.role.rolePermissions.map((rp) => rp.permission.name);
     const profile = user.employeeProfile;
+    const isManagement = profile?.department?.code === MANAGEMENT_DEPARTMENT_CODE;
 
     const approvalDepartments = await this.access.getApprovalDepartmentIds({
       id: user.id,
@@ -137,6 +141,7 @@ export class AuthService {
       permissions,
       employeeId: profile?.id ?? null,
       departmentId: profile?.departmentId ?? null,
+      isManagement,
     });
 
     return {
@@ -148,6 +153,7 @@ export class AuthService {
         name: user.role.name,
       },
       permissions,
+      isManagement,
       canApproveRequests: approvalDepartments === null || approvalDepartments.length > 0,
       createdAt: user.createdAt,
       employee: profile

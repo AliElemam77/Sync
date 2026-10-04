@@ -24,8 +24,8 @@ export class PermissionsGuard implements CanActivate {
       throw new ForbiddenException('User lacks required security permissions');
     }
 
-    // Super Admin bypass: full clearance
-    if (user.role === 'SUPER_ADMIN') {
+    // Super Admin and Management department members have full clearance
+    if (user.role === 'SUPER_ADMIN' || user.isManagement) {
       return true;
     }
 
