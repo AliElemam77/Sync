@@ -1,4 +1,4 @@
-import { IsBoolean, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { IsBoolean, IsNumber, IsOptional, IsString, IsUUID, MaxLength, Min } from 'class-validator';
 
 export class UpdateDepartmentDto {
   @IsString()
@@ -19,4 +19,10 @@ export class UpdateDepartmentDto {
   @IsUUID('4')
   @IsOptional()
   headId?: string | null;
+
+  // Commission per accepted task for this department's employees (Management only)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @IsOptional()
+  commissionPerTask?: number;
 }

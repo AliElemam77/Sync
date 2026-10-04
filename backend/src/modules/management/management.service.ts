@@ -17,6 +17,7 @@ import {
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { LeavesService } from '../leaves/leaves.service';
 import { WorkPermissionsService } from '../work-permissions/work-permissions.service';
+import { completionChange } from '../tasks/tasks.service';
 import { businessMonthRange, businessToday, getZonedParts } from '../../common/time/business-time';
 import {
   Prisma,
@@ -512,7 +513,7 @@ export class ManagementService {
 
       return this.prisma.task.update({
         where: { id },
-        data: { status: nextStatus },
+        data: { status: nextStatus, ...completionChange(task.status, nextStatus) },
       });
     }
 

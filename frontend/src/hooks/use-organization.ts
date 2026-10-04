@@ -3,6 +3,7 @@ import { apiClient } from '../lib/api-client';
 import {
   Department,
   CreateDepartmentInput,
+  UpdateDepartmentInput,
   CreatePositionInput,
   CreateLevelInput,
 } from '../types/organization';
@@ -25,6 +26,22 @@ export function useCreateDepartment() {
     mutationFn: async (data: CreateDepartmentInput) => {
       const response = await apiClient.post<Department>(
         '/api/v1/organization/departments',
+        data,
+      );
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ORG_QUERY_KEY });
+    },
+  });
+}
+
+export function useUpdateDepartment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: UpdateDepartmentInput }) => {
+      const response = await apiClient.patch<Department>(
+        `/api/v1/organization/departments/${id}`,
         data,
       );
       return response.data;

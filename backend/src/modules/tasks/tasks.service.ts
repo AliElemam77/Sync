@@ -15,6 +15,12 @@ import { Prisma, TaskStatus, TaskAssignmentType } from '@prisma/client';
 import { EventsGateway } from '../events/events.gateway';
 import { AccessScopeService } from '../../common/access/access-scope.service';
 
+/** completedAt follows acceptance: stamped when a task becomes DONE, cleared if it is reopened */
+export function completionChange(from: TaskStatus, to: TaskStatus): { completedAt?: Date | null } {
+  if (from === to) return {};
+  return { completedAt: to === TaskStatus.DONE ? new Date() : null };
+}
+
 @Injectable()
 export class TasksService {
   constructor(
@@ -458,6 +464,7 @@ export class TasksService {
         where: { id },
         data: {
           status: targetStatus,
+          ...completionChange(task.status, targetStatus),
           ...(dto.order !== undefined && { order: dto.order }),
         },
         include: {
@@ -503,8 +510,20 @@ export class TasksService {
         this.access.isTaskLeader(user),
     );
 
-    if (!isAdmin && !isCreator && !isAssignee && !isTargetTeamLeader) {
+    // Team Leaders and heads of the target department weigh tasks (commission multiplier)
+    const approvalScope = await this.access.getApprovalDepartmentIds(user);
+    const leadsTargetDepartment =
+      !!task.targetDepartmentId &&
+      (approvalScope === null || approvalScope.includes(task.targetDepartmentId));
+
+    if (!isAdmin && !isCreator && !isAssignee && !isTargetTeamLeader && !leadsTargetDepartment) {
       throw new ForbiddenException('You do not have permission to update this task.');
+    }
+
+    if (dto.weight !== undefined && !leadsTargetDepartment) {
+      throw new ForbiddenException(
+        'Only the Team Leader or head of the target department can set the task weight.',
+      );
     }
 
     // Status changes through this endpoint follow the same state machine as PATCH /tasks/:id/status
@@ -557,6 +576,8 @@ export class TasksService {
         ...(dto.title !== undefined && { title: dto.title.trim() }),
         ...(dto.description !== undefined && { description: dto.description?.trim() || null }),
         ...(dto.status !== undefined && { status: dto.status }),
+        ...(dto.status !== undefined && completionChange(task.status, dto.status)),
+        ...(dto.weight !== undefined && { weight: dto.weight }),
         ...(dto.priority !== undefined && { priority: dto.priority }),
         ...(dto.assignmentType !== undefined && { assignmentType: dto.assignmentType }),
         ...(dto.dueDate !== undefined && { dueDate: dto.dueDate ? new Date(dto.dueDate) : null }),

@@ -5,12 +5,14 @@ import {
   useOrganizationTree,
   useCreateDepartment,
   useDeleteDepartment,
+  useUpdateDepartment,
   useCreatePosition,
   useDeletePosition,
   useCreateLevel,
   useDeleteLevel,
 } from '../../../hooks/use-organization';
 import { useAuth } from '../../../hooks/use-auth';
+import { Department } from '../../../types/organization';
 import { Card } from '../../../components/ui/card';
 import { CardGridSkeleton } from '../../../components/ui/card-grid-skeleton';
 import { EmptyState } from '../../../components/ui/empty-state';
@@ -24,12 +26,15 @@ import {
   FiAlertCircle,
   FiX,
   FiTrendingUp,
+  FiEdit2,
 } from 'react-icons/fi';
 import { BiBuildingHouse } from 'react-icons/bi';
 
 export default function OrganizationPage() {
-  const { hasPermission } = useAuth();
+  const { user, hasPermission } = useAuth();
   const canManage = hasPermission('org.manage');
+  // Commission rates are set by Management (and the Super Admin)
+  const canSetCommission = user?.role?.name === 'SUPER_ADMIN' || !!user?.isManagement;
 
   const { data: departments, isLoading, isError, error } = useOrganizationTree();
   const createDeptMutation = useCreateDepartment();
@@ -283,6 +288,7 @@ export default function OrganizationPage() {
                           </>
                         )}
                       </div>
+                      {canSetCommission && <DepartmentCommission dept={dept} />}
                     </div>
                   </div>
 
@@ -656,6 +662,83 @@ export default function OrganizationPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Management sets how much each accepted task (x its weight) earns this department's employees
+function DepartmentCommission({ dept }: { dept: Department }) {
+  const updateMutation = useUpdateDepartment();
+  const [isEditing, setIsEditing] = useState(false);
+  const [value, setValue] = useState(String(Number(dept.commissionPerTask ?? 0)));
+  const [error, setError] = useState<string | null>(null);
+
+  const save = async () => {
+    const amount = Number(value);
+    if (!Number.isFinite(amount) || amount < 0) {
+      setError('أدخل مبلغًا صحيحًا (0 أو أكثر)');
+      return;
+    }
+    setError(null);
+    try {
+      await updateMutation.mutateAsync({
+        id: dept.id,
+        data: { commissionPerTask: Math.round(amount * 100) / 100 },
+      });
+      setIsEditing(false);
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'فشل حفظ الكوميشن');
+    }
+  };
+
+  if (!isEditing) {
+    return (
+      <button
+        type="button"
+        onClick={() => setIsEditing(true)}
+        className="mt-1.5 inline-flex items-center gap-1.5 rounded-xl bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+        title="تعديل كوميشن التاسك لهذا القسم"
+      >
+        <span>كوميشن التاسك:</span>
+        <span className="font-mono">
+          {Number(dept.commissionPerTask ?? 0).toLocaleString('ar-EG')} ج.م
+        </span>
+        <FiEdit2 className="h-3 w-3" />
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px]">
+      <span className="font-bold text-foreground">كوميشن التاسك (ج.م):</span>
+      <input
+        type="number"
+        min={0}
+        step="0.01"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        className="w-28 rounded-xl border border-border bg-surface px-2.5 py-1 font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+      />
+      <button
+        type="button"
+        onClick={save}
+        disabled={updateMutation.isPending}
+        className="rounded-xl bg-primary px-3 py-1 font-bold text-primary-foreground disabled:opacity-50"
+      >
+        {updateMutation.isPending ? 'جاري الحفظ...' : 'حفظ'}
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setIsEditing(false);
+          setError(null);
+          setValue(String(Number(dept.commissionPerTask ?? 0)));
+        }}
+        className="rounded-xl bg-surface px-3 py-1 font-bold text-foreground-muted hover:text-foreground"
+      >
+        إلغاء
+      </button>
+      {error && <span className="font-bold text-rose-500">{error}</span>}
     </div>
   );
 }

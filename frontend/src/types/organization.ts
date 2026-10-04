@@ -26,6 +26,8 @@ export interface Department {
   description?: string | null;
   isActive: boolean;
   headId?: string | null;
+  /** Commission per accepted task (Decimal, serialized as a string) */
+  commissionPerTask?: string | number;
   head?: {
     id: string;
     fullName: string;
@@ -57,6 +59,8 @@ export interface UpdateDepartmentInput {
   description?: string;
   isActive?: boolean;
   headId?: string | null;
+  /** Management only */
+  commissionPerTask?: number;
 }
 
 export interface CreatePositionInput {

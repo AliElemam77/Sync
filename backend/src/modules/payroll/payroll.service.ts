@@ -17,9 +17,11 @@ import {
   EmployeeStatus,
   PaymentMethod,
   Prisma,
+  TaskStatus,
   TransactionCategory,
   TransactionType,
 } from '@prisma/client';
+import { businessMonthRange } from '../../common/time/business-time';
 
 @Injectable()
 export class PayrollService {
@@ -65,7 +67,7 @@ export class PayrollService {
       where: { status: { in: [EmployeeStatus.ACTIVE, EmployeeStatus.PROBATION] } },
       include: {
         salaryProfile: true,
-        department: { select: { id: true, name: true } },
+        department: { select: { id: true, name: true, commissionPerTask: true } },
         position: { select: { id: true, name: true } },
       },
     });
@@ -116,6 +118,26 @@ export class PayrollService {
       const list = recordsByEmployee.get(record.employeeId) ?? [];
       list.push(record);
       recordsByEmployee.set(record.employeeId, list);
+    }
+
+    // Tasks accepted during the month (company time) earn commission for their assignee
+    const taskMonth = businessMonthRange(year, month);
+    const acceptedTasks = await this.prisma.task.findMany({
+      where: {
+        assigneeId: { in: employees.map((e) => e.id) },
+        status: TaskStatus.DONE,
+        completedAt: { gte: taskMonth.start, lt: taskMonth.end },
+      },
+      select: { id: true, title: true, weight: true, assigneeId: true, completedAt: true },
+      orderBy: { completedAt: 'asc' },
+    });
+
+    const tasksByEmployee = new Map<string, typeof acceptedTasks>();
+    for (const task of acceptedTasks) {
+      if (!task.assigneeId) continue;
+      const list = tasksByEmployee.get(task.assigneeId) ?? [];
+      list.push(task);
+      tasksByEmployee.set(task.assigneeId, list);
     }
 
     // 4. Iterate and compute each employee's salary and attendance penalties
@@ -178,9 +200,28 @@ export class PayrollService {
         });
       }
 
+      // Commission: the employee's department rate x the weight of each task accepted this month
+      let employeeCommission = new Prisma.Decimal(0);
+      const commissionRate = emp.department?.commissionPerTask ?? new Prisma.Decimal(0);
+      if (commissionRate.greaterThan(0)) {
+        for (const task of tasksByEmployee.get(emp.id) ?? []) {
+          const commissionAmount = commissionRate
+            .mul(task.weight)
+            .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+
+          employeeCommission = employeeCommission.add(commissionAmount);
+          adjustments.push({
+            type: AdjustmentType.COMMISSION,
+            amount: commissionAmount,
+            reason: `كوميشن تاسك "${task.title}" (وزن ${task.weight.toString()})`,
+            date: task.completedAt ?? undefined,
+          });
+        }
+      }
+
       // Financial totals
-      const grossPay = salary.add(employeeOvertimeBonus);
-      const totalAllowances = employeeOvertimeBonus;
+      const grossPay = salary.add(employeeOvertimeBonus).add(employeeCommission);
+      const totalAllowances = employeeOvertimeBonus.add(employeeCommission);
       const totalDeductions = employeeAttendancePenalties;
       const netPay = grossPay.sub(totalDeductions);
 

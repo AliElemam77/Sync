@@ -72,6 +72,10 @@ export interface Task {
   // Full thread on single-task responses; list responses carry only _count
   comments?: TaskComment[];
   _count?: { comments: number };
+  /** Effort weight set by the Team Leader (1 = normal task); Decimal, may arrive as a string */
+  weight?: number | string;
+  /** When the requester accepted the task */
+  completedAt?: string | null;
 
   createdAt: string;
   updatedAt: string;
@@ -100,6 +104,7 @@ export interface UpdateTaskInput {
   targetDepartmentId?: string;
   order?: number;
   attachmentUrls?: string[];
+  weight?: number;
 }
 
 export interface UpdateTaskStatusInput {

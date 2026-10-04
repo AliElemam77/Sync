@@ -3,19 +3,27 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
 import { CreatePositionDto } from './dto/create-position.dto';
 import { UpdatePositionDto } from './dto/update-position.dto';
 import { CreateLevelDto } from './dto/create-level.dto';
 import { UpdateLevelDto } from './dto/update-level.dto';
-import { MANAGEMENT_DEPARTMENT_CODE } from '../../common/access/access-scope.service';
+import {
+  AccessScopeService,
+  MANAGEMENT_DEPARTMENT_CODE,
+} from '../../common/access/access-scope.service';
 
 @Injectable()
 export class OrganizationService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly access: AccessScopeService,
+  ) {}
 
   // ---------------------------------------------------------------------------
   // FULL ORGANIZATION HIERARCHY TREE
@@ -120,8 +128,17 @@ export class OrganizationService {
     });
   }
 
-  async updateDepartment(id: string, dto: UpdateDepartmentDto) {
+  async updateDepartment(id: string, dto: UpdateDepartmentDto, user: AuthenticatedUser) {
     await this.getDepartmentById(id);
+
+    // Commission rates are set by Management (or the Super Admin), not by everyone who manages the org chart
+    if (
+      dto.commissionPerTask !== undefined &&
+      !this.access.isSuperAdmin(user) &&
+      !this.access.isManagement(user)
+    ) {
+      throw new ForbiddenException('Only Management can set department commission rates.');
+    }
 
     return this.prisma.department.update({
       where: { id },
@@ -130,6 +147,7 @@ export class OrganizationService {
         ...(dto.description !== undefined && { description: dto.description?.trim() || null }),
         ...(dto.isActive !== undefined && { isActive: dto.isActive }),
         ...(dto.headId !== undefined && { headId: dto.headId || null }),
+        ...(dto.commissionPerTask !== undefined && { commissionPerTask: dto.commissionPerTask }),
       },
       include: {
         head: {

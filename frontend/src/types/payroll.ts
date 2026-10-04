@@ -1,5 +1,5 @@
 export type PayrollCycleStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'PAID';
-export type AdjustmentType = 'BONUS' | 'PENALTY' | 'OVERTIME';
+export type AdjustmentType = 'BONUS' | 'PENALTY' | 'OVERTIME' | 'COMMISSION';
 
 export interface FinancialAdjustment {
   id: string;

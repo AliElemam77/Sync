@@ -136,6 +136,9 @@ const COLUMNS: ColumnConfig[] = [
   },
 ];
 
+// Task weights a Team Leader can choose (1 = normal task, 2 = heavy task); must match the API
+const TASK_WEIGHTS = [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
+
 const PRIORITY_BADGES: Record<TaskPriority, { bg: string; text: string; border: string; label: string }> = {
   LOW: { bg: 'bg-surface-raised', text: 'text-foreground-muted', border: 'border-border', label: 'منخفضة' },
   MEDIUM: { bg: 'bg-blue-500/10', text: 'text-blue-600 dark:text-blue-400', border: 'border-blue-500/20', label: 'متوسطة' },
@@ -726,6 +729,12 @@ export default function TasksKanbanPage() {
               data: { assigneeId },
             });
           }}
+          onWeightChange={async (weight) => {
+            await updateTaskMutation.mutateAsync({
+              id: selectedTaskId,
+              data: { weight },
+            });
+          }}
           onAddComment={async (content, attachmentUrls) => {
             await addCommentMutation.mutateAsync({
               taskId: selectedTaskId,
@@ -1274,6 +1283,7 @@ interface TaskDetailsModalProps {
   onClose: () => void;
   onStatusChange: (status: TaskStatus, comment?: string, attachmentUrls?: string[]) => Promise<void>;
   onAssigneeChange: (assigneeId: string) => Promise<void>;
+  onWeightChange: (weight: number) => Promise<void>;
   onAddComment: (content: string, attachmentUrls?: string[]) => Promise<void>;
   onDelete: () => Promise<void>;
   onPreviewImage: (url: string) => void;
@@ -1288,6 +1298,7 @@ function TaskDetailsModal({
   onClose,
   onStatusChange,
   onAssigneeChange,
+  onWeightChange,
   onAddComment,
   onDelete,
   onPreviewImage,
@@ -1334,6 +1345,8 @@ function TaskDetailsModal({
     currentEmployee.departmentId === task.targetDepartmentId;
 
   const canReassign = isTargetLeader || isAdmin;
+  // Team Leaders weigh their department's tasks (commission multiplier); the server enforces the exact rule
+  const canWeigh = isTargetLeader || isAdmin || !!user?.isManagement;
 
   const assignableEmployees = useMemo(() => {
     if (isAdmin) return employees;
@@ -1557,6 +1570,31 @@ function TaskDetailsModal({
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                   <span className="font-bold">{task.assignee?.fullName || 'غير مسند'}</span>
                 </div>
+              )}
+            </div>
+            <div>
+              <span className="text-[10px] text-foreground-muted block font-bold">وزن المهمة</span>
+              {canWeigh ? (
+                <select
+                  value={String(Number(task.weight ?? 1))}
+                  onChange={(e) => {
+                    onWeightChange(Number(e.target.value)).catch((err: any) =>
+                      alert(err?.response?.data?.message || 'فشل تحديث وزن المهمة'),
+                    );
+                  }}
+                  className="mt-1 rounded-xl border border-border bg-surface-raised px-2 py-1 text-[11px] text-foreground focus:outline-none font-mono"
+                  title="المهمة العادية = 1، المهمة الكبيرة = 2 ..."
+                >
+                  {TASK_WEIGHTS.map((weight) => (
+                    <option key={weight} value={String(weight)}>
+                      {weight === 1 ? '1 (عادية)' : weight}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <span className="mt-1 block font-mono font-bold text-foreground">
+                  {Number(task.weight ?? 1)}
+                </span>
               )}
             </div>
           </div>

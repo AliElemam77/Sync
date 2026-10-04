@@ -922,9 +922,9 @@ export default function PayrollCommandCenterPage() {
                       </span>
                     </div>
 
-                    {/* Overtime additions */}
+                    {/* Additions: overtime, task commissions and bonuses */}
                     {activePayslipDetails.adjustments
-                      ?.filter((a) => a.type === 'OVERTIME')
+                      ?.filter((a) => a.type === 'OVERTIME' || a.type === 'COMMISSION' || a.type === 'BONUS')
                       .map((adj) => (
                         <div
                           key={adj.id}

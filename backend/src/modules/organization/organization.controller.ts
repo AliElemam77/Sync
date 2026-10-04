@@ -20,6 +20,7 @@ import { CreateLevelDto } from './dto/create-level.dto';
 import { UpdateLevelDto } from './dto/update-level.dto';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
 import { Audit } from '../../common/decorators/audit.decorator';
+import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 
 @Controller('api/v1/organization')
 export class OrganizationController {
@@ -65,8 +66,9 @@ export class OrganizationController {
   async updateDepartment(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateDepartmentDto,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.orgService.updateDepartment(id, dto);
+    return this.orgService.updateDepartment(id, dto, user);
   }
 
   @Delete('departments/:id')

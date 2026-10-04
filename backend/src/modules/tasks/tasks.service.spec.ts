@@ -55,6 +55,7 @@ describe('TasksService', () => {
       },
       taskComment: { create: jest.fn() },
       employeeProfile: { findUnique: jest.fn() },
+      department: { findMany: jest.fn().mockResolvedValue([]) },
       $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(prisma)),
     };
     const events = {
@@ -99,6 +100,44 @@ describe('TasksService', () => {
       await expect(
         service.updateTaskStatus('task-1', { status: TaskStatus.IN_PROGRESS, order: 3 }, outsider),
       ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('acceptance date and weight', () => {
+    it('stamps completedAt when a task is accepted and clears it when reopened', async () => {
+      actAs(creator);
+      await service.updateTaskStatus('task-1', { status: TaskStatus.DONE }, creator);
+      expect(prisma.task.update.mock.calls[0][0].data.completedAt).toBeInstanceOf(Date);
+
+      prisma.task.findUnique.mockResolvedValue({ ...baseTask, status: TaskStatus.DONE });
+      await service.updateTaskStatus(
+        'task-1',
+        { status: TaskStatus.NEEDS_REVISION, comment: 'Missing tests' },
+        creator,
+      );
+      expect(prisma.task.update.mock.calls[1][0].data.completedAt).toBeNull();
+    });
+
+    it('lets the Team Leader of the target department set the weight', async () => {
+      const leader = makeUser({ id: 'tl-user', role: 'TEAM_LEADER', employeeId: 'tl-emp', departmentId: 'dept-eng' });
+      actAs(leader);
+
+      await service.updateTask('task-1', { weight: 2 }, leader);
+
+      expect(prisma.task.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ weight: 2 }) }),
+      );
+    });
+
+    it('does not let the assignee or creator weigh their own task', async () => {
+      actAs(assignee);
+      await expect(service.updateTask('task-1', { weight: 3 }, assignee)).rejects.toThrow(
+        ForbiddenException,
+      );
+      actAs(creator);
+      await expect(service.updateTask('task-1', { weight: 3 }, creator)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
 

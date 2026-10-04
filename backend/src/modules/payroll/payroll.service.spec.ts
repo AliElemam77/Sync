@@ -84,6 +84,7 @@ describe('PayrollService.generatePayroll', () => {
       },
       employeeProfile: { findMany: jest.fn() },
       attendanceRecord: { findMany: jest.fn() },
+      task: { findMany: jest.fn().mockResolvedValue([]) },
       payslip: { createMany: jest.fn() },
       financialAdjustment: { createMany: jest.fn() },
       $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(prisma)),
@@ -138,5 +139,44 @@ describe('PayrollService.generatePayroll', () => {
     expect(payslip.grossPay.toString()).toBe('0');
     expect(payslip.netPay.toString()).toBe('0');
     expect(prisma.financialAdjustment.createMany).not.toHaveBeenCalled();
+  });
+
+  it('adds commission: department rate x weight for each task accepted in the month', async () => {
+    prisma.employeeProfile.findMany.mockResolvedValue([
+      {
+        ...employee({ baseSalary: new Prisma.Decimal(9000) }),
+        department: { id: 'dept-eng', name: 'Engineering', commissionPerTask: new Prisma.Decimal(500) },
+      },
+    ]);
+    prisma.attendanceRecord.findMany.mockResolvedValue([]);
+    prisma.task.findMany.mockResolvedValue([
+      { id: 't1', title: 'Landing page', weight: new Prisma.Decimal(1), assigneeId: 'emp-1', completedAt: new Date('2026-09-10T08:00:00Z') },
+      { id: 't2', title: 'Payments API', weight: new Prisma.Decimal(2), assigneeId: 'emp-1', completedAt: new Date('2026-09-20T08:00:00Z') },
+    ]);
+
+    await service.generatePayroll({ month: 9, year: 2026 }, payrollManager);
+
+    // Accepted between 1 and 30 September, Cairo time
+    expect(prisma.task.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: 'DONE',
+          completedAt: {
+            gte: new Date('2026-08-31T21:00:00Z'),
+            lt: new Date('2026-09-30T21:00:00Z'),
+          },
+        }),
+      }),
+    );
+
+    const [payslip] = prisma.payslip.createMany.mock.calls[0][0].data;
+    expect(payslip.totalAllowances.toString()).toBe('1500'); // 500 x 1 + 500 x 2
+    expect(payslip.grossPay.toString()).toBe('10500');
+
+    const adjustments = prisma.financialAdjustment.createMany.mock.calls[0][0].data;
+    expect(adjustments.map((a: { type: string; amount: Prisma.Decimal }) => [a.type, a.amount.toString()])).toEqual([
+      ['COMMISSION', '500'],
+      ['COMMISSION', '1000'],
+    ]);
   });
 });
