@@ -573,6 +573,21 @@ model PermissionRequest {
   @@map("permission_requests")
 }
 
+// -----------------------------------------------------------------------------
+// PUBLIC HOLIDAY (الإجازات الرسمية)
+// -----------------------------------------------------------------------------
+
+// Company-wide days off (feasts, national holidays): never counted as absence
+model PublicHoliday {
+  id        String   @id @default(uuid()) @db.Uuid
+  date      DateTime @unique @db.Date
+  name      String   @db.VarChar(100)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("public_holidays")
+}
+
 // =============================================================================
 // PHASE 06: REAL-TIME CHAT & GROUPS MODULE ENUMS & MODELS
 // =============================================================================

@@ -2,10 +2,13 @@ import {
   Injectable,
   BadRequestException,
   ForbiddenException,
+  NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AttendanceStatus, Prisma, RequestStatus } from '@prisma/client';
 import { AttendanceQueryDto } from './dto/attendance-query.dto';
+import { CreatePublicHolidayDto } from './dto/create-public-holiday.dto';
+import { RecordAttendanceDto } from './dto/record-attendance.dto';
 import { EventsGateway } from '../events/events.gateway';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { AccessScopeService } from '../../common/access/access-scope.service';
@@ -13,12 +16,19 @@ import {
   businessMinutesOfDay,
   businessToday,
   formatBusinessTime,
+  getZonedParts,
+  zonedTimeToUtc,
 } from '../../common/time/business-time';
 import {
   HALF_DAY_PERMISSION_HOURS,
   permissionMonthRange,
 } from '../work-permissions/permission-policy';
+import { calendarDaysBetween, toDateOnly } from '../leaves/leave-policy';
 import { arrivalDelayMinutes, shiftBalance } from './attendance-policy';
+
+/** Longest single holiday entry (a feast spans a few days) */
+const MAX_HOLIDAY_SPAN_DAYS = 14;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class AttendanceService {
@@ -374,5 +384,114 @@ export class AttendanceService {
       totalOvertimeMinutes,
       recordsCount: records.length,
     };
+  }
+
+  /**
+   * HR correction of one employee's day (e.g. a forgotten check-in): creates or replaces the record
+   * with the given company-time times, computing lateness and overtime like check-in and check-out
+   */
+  async recordAttendance(dto: RecordAttendanceDto) {
+    const employee = await this.prisma.employeeProfile.findUnique({
+      where: { id: dto.employeeId },
+      select: { id: true, shiftType: true },
+    });
+    if (!employee) {
+      throw new NotFoundException('Employee not found.');
+    }
+
+    const date = toDateOnly(new Date(dto.date));
+    if (date.getTime() > this.getTodayDateOnly().getTime()) {
+      throw new BadRequestException('Attendance cannot be recorded for a future date.');
+    }
+
+    const toMinutes = (time: string) => {
+      const [hours, minutes] = time.split(':').map(Number);
+      return hours * 60 + minutes;
+    };
+    const atTime = (minutesOfDay: number) =>
+      zonedTimeToUtc(
+        date.getUTCFullYear(),
+        date.getUTCMonth() + 1,
+        date.getUTCDate(),
+        Math.floor(minutesOfDay / 60),
+        minutesOfDay % 60,
+      );
+
+    const checkInMinutes = toMinutes(dto.checkInTime);
+    const checkOutMinutes = dto.checkOutTime ? toMinutes(dto.checkOutTime) : null;
+    if (checkOutMinutes !== null && checkOutMinutes <= checkInMinutes) {
+      throw new BadRequestException('Check-out time must be after check-in time.');
+    }
+
+    const permissionMinutes = await this.getApprovedPermissionMinutes(employee.id, date);
+    const { delayMinutes, overtimeMinutes } =
+      checkOutMinutes === null
+        ? { delayMinutes: arrivalDelayMinutes(checkInMinutes, permissionMinutes), overtimeMinutes: 0 }
+        : shiftBalance(checkOutMinutes - checkInMinutes, permissionMinutes, employee.shiftType);
+
+    const data = {
+      checkInTime: atTime(checkInMinutes),
+      checkOutTime: checkOutMinutes === null ? null : atTime(checkOutMinutes),
+      status: AttendanceStatus.PRESENT,
+      delayMinutes,
+      overtimeMinutes,
+    };
+
+    return this.prisma.attendanceRecord.upsert({
+      where: { employeeId_date: { employeeId: employee.id, date } },
+      create: { employeeId: employee.id, date, ...data },
+      update: data,
+      include: {
+        employee: {
+          select: { id: true, fullName: true, employeeCode: true, shiftType: true },
+        },
+      },
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // PUBLIC HOLIDAYS (الإجازات الرسمية): company-wide days off, never counted as absence
+  // ---------------------------------------------------------------------------
+
+  async getPublicHolidays(year = getZonedParts(new Date()).year) {
+    return this.prisma.publicHoliday.findMany({
+      where: { date: { gte: new Date(Date.UTC(year, 0, 1)), lt: new Date(Date.UTC(year + 1, 0, 1)) } },
+      orderBy: { date: 'asc' },
+    });
+  }
+
+  /** One row per day of the holiday; days that are already holidays are left as they are */
+  async createPublicHoliday(dto: CreatePublicHolidayDto) {
+    const name = dto.name.trim();
+    if (!name) {
+      throw new BadRequestException('Holiday name is required.');
+    }
+
+    const start = toDateOnly(new Date(dto.startDate));
+    const end = toDateOnly(new Date(dto.endDate ?? dto.startDate));
+    const days = calendarDaysBetween(start, end);
+    if (days < 1) {
+      throw new BadRequestException('A holiday cannot end before it starts.');
+    }
+    if (days > MAX_HOLIDAY_SPAN_DAYS) {
+      throw new BadRequestException(`A holiday can span at most ${MAX_HOLIDAY_SPAN_DAYS} days.`);
+    }
+
+    await this.prisma.publicHoliday.createMany({
+      data: Array.from({ length: days }, (_, i) => ({
+        date: new Date(start.getTime() + i * DAY_MS),
+        name,
+      })),
+      skipDuplicates: true,
+    });
+
+    return this.prisma.publicHoliday.findMany({
+      where: { date: { gte: start, lte: end } },
+      orderBy: { date: 'asc' },
+    });
+  }
+
+  async deletePublicHoliday(id: string) {
+    return this.prisma.publicHoliday.delete({ where: { id } });
   }
 }

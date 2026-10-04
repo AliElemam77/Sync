@@ -121,3 +121,26 @@ export interface AttendanceMonthlySummary {
   totalOvertimeMinutes: number;
   recordsCount: number;
 }
+
+/** Company-wide day off (feast, national holiday): never counted as absence */
+export interface PublicHoliday {
+  id: string;
+  date: string;
+  name: string;
+  createdAt: string;
+}
+
+export interface CreatePublicHolidayInput {
+  startDate: string;
+  /** Last day of a holiday spanning several days; defaults to startDate */
+  endDate?: string;
+  name: string;
+}
+
+/** HR correction of one employee's day; times are HH:mm in company time */
+export interface RecordAttendanceInput {
+  employeeId: string;
+  date: string;
+  checkInTime: string;
+  checkOutTime?: string;
+}

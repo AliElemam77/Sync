@@ -10,12 +10,16 @@ import {
   AttendanceMonthlySummary,
   RequestStatus,
   LeaveType,
+  PublicHoliday,
+  CreatePublicHolidayInput,
+  RecordAttendanceInput,
 } from '../types/attendance';
 
 export const ATTENDANCE_TODAY_KEY = ['attendance', 'today'];
 export const ATTENDANCE_RECORDS_KEY = ['attendance', 'records'];
 export const LEAVES_KEY = ['leaves'];
 export const PERMISSIONS_KEY = ['work-permissions'];
+export const HOLIDAYS_KEY = ['attendance', 'holidays'];
 
 // =============================================================================
 // ATTENDANCE HOOKS
@@ -77,6 +81,21 @@ export function useAttendanceRecords(query: {
 
       const res = await apiClient.get<AttendanceRecord[]>(`/api/v1/attendance/records?${params.toString()}`);
       return res.data;
+    },
+  });
+}
+
+/** HR correction of one employee's day (e.g. a forgotten check-in) */
+export function useRecordAttendance() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: RecordAttendanceInput) => {
+      const res = await apiClient.put<AttendanceRecord>('/api/v1/attendance/records', data);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ATTENDANCE_RECORDS_KEY });
+      queryClient.invalidateQueries({ queryKey: ATTENDANCE_TODAY_KEY });
     },
   });
 }
@@ -221,6 +240,46 @@ export function useRejectWorkPermission() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: PERMISSIONS_KEY });
+    },
+  });
+}
+
+// =============================================================================
+// PUBLIC HOLIDAYS HOOKS (الإجازات الرسمية)
+// =============================================================================
+
+export function usePublicHolidays(year: number) {
+  return useQuery({
+    queryKey: [...HOLIDAYS_KEY, year],
+    queryFn: async () => {
+      const res = await apiClient.get<PublicHoliday[]>(`/api/v1/attendance/holidays?year=${year}`);
+      return res.data;
+    },
+  });
+}
+
+export function useCreatePublicHoliday() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: CreatePublicHolidayInput) => {
+      const res = await apiClient.post<PublicHoliday[]>('/api/v1/attendance/holidays', data);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: HOLIDAYS_KEY });
+    },
+  });
+}
+
+export function useDeletePublicHoliday() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiClient.delete<PublicHoliday>(`/api/v1/attendance/holidays/${id}`);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: HOLIDAYS_KEY });
     },
   });
 }

@@ -42,6 +42,8 @@ import {
 } from '../../../hooks/use-attendance';
 import { useEmployees } from '../../../hooks/use-employees';
 import { useOrganizationTree } from '../../../hooks/use-organization';
+import { PublicHolidaysPanel } from '../../../components/attendance/public-holidays-panel';
+import { ManualAttendanceModal } from '../../../components/attendance/manual-attendance-modal';
 import { Card } from '../../../components/ui/card';
 import { EmptyState } from '../../../components/ui/empty-state';
 import {
@@ -228,20 +230,23 @@ function getDelayPenalty(
 // -----------------------------------------------------------------------------
 
 export default function AttendancePage() {
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
   const roleName = typeof (user?.role as any) === 'string' ? (user?.role as any) : user?.role?.name || '';
   const isSuperAdmin = roleName === 'SUPER_ADMIN';
   // HR approves anyone; Team Leaders and heads approve their departments (computed by the backend)
   const canApprove = !!user?.canApproveRequests;
+  // HR corrects attendance and maintains public holidays (enforced by the backend)
+  const canManageAttendance = hasPermission('attendance.manage');
 
-  // Active Tab View: 'APPROVALS' | 'LEAVES' | 'PERMISSIONS' | 'LOGS'
-  const [activeTab, setActiveTab] = useState<'APPROVALS' | 'LEAVES' | 'PERMISSIONS' | 'LOGS'>(
+  // Active Tab View: 'APPROVALS' | 'LEAVES' | 'PERMISSIONS' | 'LOGS' | 'HOLIDAYS'
+  const [activeTab, setActiveTab] = useState<'APPROVALS' | 'LEAVES' | 'PERMISSIONS' | 'LOGS' | 'HOLIDAYS'>(
     canApprove ? 'APPROVALS' : 'LEAVES',
   );
 
   // Modals state
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
   const [isPermissionModalOpen, setIsPermissionModalOpen] = useState(false);
+  const [isManualAttendanceOpen, setIsManualAttendanceOpen] = useState(false);
   const [rejectingItem, setRejectingItem] = useState<{
     id: string;
     kind: 'LEAVE' | 'PERMISSION';
@@ -679,6 +684,18 @@ export default function AttendancePage() {
           <FiFileText className="h-4 w-4" />
           <span>سجل البصمات اليومي</span>
         </button>
+
+        <button
+          onClick={() => setActiveTab('HOLIDAYS')}
+          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-black transition-all ${
+            activeTab === 'HOLIDAYS'
+              ? 'bg-primary text-primary-foreground shadow-md'
+              : 'text-foreground-muted hover:text-foreground hover:bg-surface-hover'
+          }`}
+        >
+          <FiLayers className="h-4 w-4" />
+          <span>الإجازات الرسمية</span>
+        </button>
       </div>
 
       {/* ===================================================================== */}
@@ -973,6 +990,20 @@ export default function AttendancePage() {
       {/* ===================================================================== */}
       {activeTab === 'LOGS' && (
         <div className="rounded-3xl bg-card shadow-luxury dark:shadow-luxury-dark overflow-hidden animate-in fade-in">
+          {canManageAttendance && (
+            <div className="p-4 border-b border-border/30 bg-surface-raised/40 flex items-center justify-between gap-3">
+              <p className="text-[11px] text-foreground-muted">
+                يوم العمل بدون بصمة ولا إجازة أو إذن معتمد يُحسب غيابًا ويُخصم من الراتب. صحّح البصمة المنسية من هنا.
+              </p>
+              <button
+                onClick={() => setIsManualAttendanceOpen(true)}
+                className="shrink-0 inline-flex items-center gap-2 rounded-2xl bg-surface border border-border hover:bg-surface-hover px-4 py-2 text-xs font-bold text-foreground active:scale-95 transition-all"
+              >
+                <FiPlus className="h-4 w-4 text-primary" />
+                <span>تسجيل حضور يدوي</span>
+              </button>
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full text-start text-xs text-foreground-muted">
               <thead className="border-b border-border/30 bg-surface-raised/40 text-[11px] font-bold text-foreground">
@@ -1039,6 +1070,25 @@ export default function AttendancePage() {
             </table>
           </div>
         </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* TAB 5: PUBLIC HOLIDAYS                                                */}
+      {/* ===================================================================== */}
+      {activeTab === 'HOLIDAYS' && <PublicHolidaysPanel canManage={canManageAttendance} />}
+
+      {/* ===================================================================== */}
+      {/* MODAL: MANUAL ATTENDANCE (HR)                                         */}
+      {/* ===================================================================== */}
+      {isManualAttendanceOpen && (
+        <ManualAttendanceModal
+          employees={employees}
+          onClose={() => setIsManualAttendanceOpen(false)}
+          onSuccess={() => {
+            setIsManualAttendanceOpen(false);
+            setFeedback({ type: 'SUCCESS', message: 'تم تسجيل الحضور اليدوي وإعادة احتساب التأخير.' });
+          }}
+        />
       )}
 
       {/* ===================================================================== */}

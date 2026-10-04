@@ -14,20 +14,39 @@ import { AccessScopeService } from '../../common/access/access-scope.service';
 import {
   PayrollCycleStatus,
   AdjustmentType,
+  AttendanceStatus,
   EmployeeStatus,
   PaymentMethod,
   Prisma,
+  RequestStatus,
   TaskStatus,
   TransactionCategory,
   TransactionType,
 } from '@prisma/client';
-import { businessMonthRange } from '../../common/time/business-time';
-import { deductibleDelayMinutes } from '../attendance/attendance-policy';
+import { businessMonthRange, businessToday } from '../../common/time/business-time';
+import {
+  SHIFT_MINUTES,
+  dateKey,
+  deductibleDelayMinutes,
+  findAbsentDays,
+} from '../attendance/attendance-policy';
 
 const PAYOUT_LABELS: Partial<Record<PaymentMethod, string>> = {
   [PaymentMethod.CASH]: 'نقدي',
   [PaymentMethod.BANK_TRANSFER]: 'تحويل بنكي',
 };
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function groupBy<T>(items: T[], keyOf: (item: T) => string): Map<string, T[]> {
+  const groups = new Map<string, T[]>();
+  for (const item of items) {
+    const list = groups.get(keyOf(item)) ?? [];
+    list.push(item);
+    groups.set(keyOf(item), list);
+  }
+  return groups;
+}
 
 @Injectable()
 export class PayrollService {
@@ -108,23 +127,56 @@ export class PayrollService {
 
     const preparedPayslips: PreparedPayslip[] = [];
 
-    // One query for the whole month's delays and overtime, grouped per employee in memory
-    const attendanceRecords = await this.prisma.attendanceRecord.findMany({
-      where: {
-        employeeId: { in: employees.map((e) => e.id) },
-        date: { gte: startDate, lte: endDate },
-        OR: [{ delayMinutes: { gt: 0 } }, { overtimeMinutes: { gt: 0 } }],
-      },
-      select: { employeeId: true, date: true, delayMinutes: true, overtimeMinutes: true },
-      orderBy: { date: 'asc' },
-    });
+    // The month's attendance, approved leaves and permissions, and public holidays: one query each,
+    // grouped per employee in memory
+    const employeeIds = employees.map((e) => e.id);
+    const [attendanceRecords, approvedLeaves, approvedPermissions, holidays] = await Promise.all([
+      this.prisma.attendanceRecord.findMany({
+        where: { employeeId: { in: employeeIds }, date: { gte: startDate, lte: endDate } },
+        select: {
+          employeeId: true,
+          date: true,
+          status: true,
+          delayMinutes: true,
+          overtimeMinutes: true,
+        },
+        orderBy: { date: 'asc' },
+      }),
+      this.prisma.leaveRequest.findMany({
+        where: {
+          employeeId: { in: employeeIds },
+          status: RequestStatus.APPROVED,
+          startDate: { lte: endDate },
+          endDate: { gte: startDate },
+        },
+        select: { employeeId: true, startDate: true, endDate: true },
+      }),
+      this.prisma.permissionRequest.findMany({
+        where: {
+          employeeId: { in: employeeIds },
+          status: RequestStatus.APPROVED,
+          date: { gte: startDate, lte: endDate },
+        },
+        select: { employeeId: true, date: true, hoursRequested: true },
+      }),
+      this.prisma.publicHoliday.findMany({
+        where: { date: { gte: startDate, lte: endDate } },
+        select: { date: true },
+      }),
+    ]);
 
-    const recordsByEmployee = new Map<string, typeof attendanceRecords>();
-    for (const record of attendanceRecords) {
-      const list = recordsByEmployee.get(record.employeeId) ?? [];
-      list.push(record);
-      recordsByEmployee.set(record.employeeId, list);
+    const recordsByEmployee = groupBy(attendanceRecords, (r) => r.employeeId);
+    const leavesByEmployee = groupBy(approvedLeaves, (l) => l.employeeId);
+    const permissionMinutesByDay = new Map<string, number>();
+    for (const p of approvedPermissions) {
+      const key = `${p.employeeId}:${dateKey(p.date)}`;
+      permissionMinutesByDay.set(key, (permissionMinutesByDay.get(key) ?? 0) + p.hoursRequested * 60);
     }
+    const holidayDays = new Set(holidays.map((h) => dateKey(h.date)));
+
+    // Absence counts only for days that are over: never today or later
+    const lastClosedDay = new Date(businessToday().getTime() - DAY_MS);
+    const absenceEnd = lastClosedDay < endDate ? lastClosedDay : endDate;
 
     // Tasks accepted during the month (company time) earn commission for their assignee
     const taskMonth = businessMonthRange(year, month);
@@ -157,7 +209,9 @@ export class PayrollService {
       const dailyRate = salary.div(new Prisma.Decimal(30));
       const minuteRate = dailyRate.div(new Prisma.Decimal(480));
 
-      const employeeRecords = recordsByEmployee.get(emp.id) ?? [];
+      const employeeRecords = (recordsByEmployee.get(emp.id) ?? []).filter(
+        (r) => r.status !== AttendanceStatus.ABSENT,
+      );
       // Up to 15 missing minutes a day are forgiven; past that every missing minute is deducted
       const lateRecords = employeeRecords.filter((r) => deductibleDelayMinutes(r.delayMinutes) > 0);
 
@@ -183,6 +237,40 @@ export class PayrollService {
           amount: penaltyAmount,
           reason: `خصم تأخير ${record.delayMinutes} دقيقة بتاريخ ${dateStr}`,
           date: record.date,
+        });
+      }
+
+      // Absence: a working day with no attendance and no approved leave costs a day's pay, less any
+      // approved permission time that day
+      const absentDays = findAbsentDays({
+        from: emp.joiningDate > startDate ? emp.joiningDate : startDate,
+        to: absenceEnd,
+        shiftType: emp.shiftType,
+        attendedDays: new Set(employeeRecords.map((r) => dateKey(r.date))),
+        holidays: holidayDays,
+        leaves: leavesByEmployee.get(emp.id) ?? [],
+      });
+      const shiftMinutes = SHIFT_MINUTES[emp.shiftType];
+      for (const day of absentDays) {
+        const permissionMinutes = Math.min(
+          permissionMinutesByDay.get(`${emp.id}:${dateKey(day)}`) ?? 0,
+          shiftMinutes,
+        );
+        const penaltyAmount = dailyRate
+          .mul(shiftMinutes - permissionMinutes)
+          .div(shiftMinutes)
+          .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+        if (!penaltyAmount.greaterThan(0)) continue;
+
+        employeeAttendancePenalties = employeeAttendancePenalties.add(penaltyAmount);
+        adjustments.push({
+          type: AdjustmentType.PENALTY,
+          amount: penaltyAmount,
+          reason:
+            permissionMinutes > 0
+              ? `خصم غياب بتاريخ ${dateKey(day)} (بعد احتساب إذن ${permissionMinutes / 60} ساعة)`
+              : `خصم غياب بدون إذن أو إجازة بتاريخ ${dateKey(day)}`,
+          date: day,
         });
       }
 

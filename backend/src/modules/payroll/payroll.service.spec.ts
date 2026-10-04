@@ -84,6 +84,8 @@ describe('PayrollService.generatePayroll', () => {
   const employee = (salaryProfile: { baseSalary: Prisma.Decimal } | null) => ({
     id: 'emp-1',
     status: 'ACTIVE',
+    shiftType: 'RS',
+    joiningDate: new Date('2025-01-01'),
     salaryProfile,
     department: { id: 'dept-eng', name: 'Engineering' },
     position: { id: 'pos-1', name: 'Developer' },
@@ -97,22 +99,49 @@ describe('PayrollService.generatePayroll', () => {
       },
       employeeProfile: { findMany: jest.fn() },
       attendanceRecord: { findMany: jest.fn() },
+      leaveRequest: { findMany: jest.fn().mockResolvedValue([]) },
+      permissionRequest: { findMany: jest.fn().mockResolvedValue([]) },
+      publicHoliday: { findMany: jest.fn().mockResolvedValue([]) },
       task: { findMany: jest.fn().mockResolvedValue([]) },
       payslip: { createMany: jest.fn() },
       financialAdjustment: { createMany: jest.fn() },
       $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(prisma)),
     };
     service = new PayrollService(prisma, new AccessScopeService(prisma));
+    // Generated after the month has ended
+    jest.useFakeTimers({ now: new Date('2026-10-05T08:00:00Z') });
   });
+
+  afterEach(() => jest.useRealTimers());
+
+  /** A record for every day of September 2026, with optional figures for some days */
+  const septemberAttendance = (
+    days: Record<string, { delayMinutes?: number; overtimeMinutes?: number } | 'absent'> = {},
+  ) =>
+    Array.from({ length: 30 }, (_, i) => new Date(Date.UTC(2026, 8, i + 1)))
+      .filter((date) => days[date.toISOString().slice(0, 10)] !== 'absent')
+      .map((date) => {
+        const figures = days[date.toISOString().slice(0, 10)];
+        return {
+          employeeId: 'emp-1',
+          date,
+          status: 'PRESENT',
+          delayMinutes: 0,
+          overtimeMinutes: 0,
+          ...(typeof figures === 'object' ? figures : {}),
+        };
+      });
 
   it('applies minute-rate delay penalties and 1.5x overtime to the base salary', async () => {
     prisma.employeeProfile.findMany.mockResolvedValue([
       employee({ baseSalary: new Prisma.Decimal(9000) }),
     ]);
-    prisma.attendanceRecord.findMany.mockResolvedValue([
-      { employeeId: 'emp-1', date: new Date('2026-09-02'), delayMinutes: 30, overtimeMinutes: 0 },
-      { employeeId: 'emp-1', date: new Date('2026-09-03'), delayMinutes: 0, overtimeMinutes: 60 },
-    ]);
+    prisma.attendanceRecord.findMany.mockResolvedValue(
+      septemberAttendance({
+        '2026-09-02': { delayMinutes: 30 },
+        '2026-09-03': { overtimeMinutes: 60 },
+      }),
+    );
 
     await service.generatePayroll({ month: 9, year: 2026 }, payrollManager);
 
@@ -147,10 +176,12 @@ describe('PayrollService.generatePayroll', () => {
     prisma.employeeProfile.findMany.mockResolvedValue([
       employee({ baseSalary: new Prisma.Decimal(9000) }),
     ]);
-    prisma.attendanceRecord.findMany.mockResolvedValue([
-      { employeeId: 'emp-1', date: new Date('2026-09-02'), delayMinutes: 15, overtimeMinutes: 0 },
-      { employeeId: 'emp-1', date: new Date('2026-09-03'), delayMinutes: 16, overtimeMinutes: 0 },
-    ]);
+    prisma.attendanceRecord.findMany.mockResolvedValue(
+      septemberAttendance({
+        '2026-09-02': { delayMinutes: 15 },
+        '2026-09-03': { delayMinutes: 16 },
+      }),
+    );
 
     await service.generatePayroll({ month: 9, year: 2026 }, payrollManager);
 
@@ -177,7 +208,7 @@ describe('PayrollService.generatePayroll', () => {
         department: { id: 'dept-eng', name: 'Engineering', commissionPerTask: new Prisma.Decimal(500) },
       },
     ]);
-    prisma.attendanceRecord.findMany.mockResolvedValue([]);
+    prisma.attendanceRecord.findMany.mockResolvedValue(septemberAttendance());
     prisma.task.findMany.mockResolvedValue([
       { id: 't1', title: 'Landing page', weight: new Prisma.Decimal(1), assigneeId: 'emp-1', completedAt: new Date('2026-09-10T08:00:00Z') },
       { id: 't2', title: 'Payments API', weight: new Prisma.Decimal(2), assigneeId: 'emp-1', completedAt: new Date('2026-09-20T08:00:00Z') },
@@ -206,6 +237,59 @@ describe('PayrollService.generatePayroll', () => {
     expect(adjustments.map((a: { type: string; amount: Prisma.Decimal }) => [a.type, a.amount.toString()])).toEqual([
       ['COMMISSION', '500'],
       ['COMMISSION', '1000'],
+    ]);
+  });
+
+  it('deducts a day for each working day with no attendance, leave or holiday', async () => {
+    prisma.employeeProfile.findMany.mockResolvedValue([
+      employee({ baseSalary: new Prisma.Decimal(9000) }), // 300 a day
+    ]);
+    prisma.attendanceRecord.findMany.mockResolvedValue(
+      septemberAttendance({
+        '2026-09-07': 'absent', // Monday: absent
+        '2026-09-08': 'absent', // approved leave
+        '2026-09-09': 'absent', // public holiday
+        '2026-09-10': 'absent', // approved 4-hour permission: half the day is covered
+        '2026-09-11': 'absent', // Friday: weekly day off
+      }),
+    );
+    prisma.leaveRequest.findMany.mockResolvedValue([
+      { employeeId: 'emp-1', startDate: new Date('2026-09-08'), endDate: new Date('2026-09-08') },
+    ]);
+    prisma.publicHoliday.findMany.mockResolvedValue([{ date: new Date('2026-09-09') }]);
+    prisma.permissionRequest.findMany.mockResolvedValue([
+      { employeeId: 'emp-1', date: new Date('2026-09-10'), hoursRequested: 4 },
+    ]);
+
+    await service.generatePayroll({ month: 9, year: 2026 }, payrollManager);
+
+    expect(prisma.leaveRequest.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ status: 'APPROVED' }) }),
+    );
+    const [payslip] = prisma.payslip.createMany.mock.calls[0][0].data;
+    expect(payslip.attendancePenalties.toString()).toBe('450'); // 300 + 150
+    expect(payslip.netPay.toString()).toBe('8550');
+
+    const adjustments = prisma.financialAdjustment.createMany.mock.calls[0][0].data;
+    expect(adjustments.map((a: { reason: string; amount: Prisma.Decimal }) => [a.reason, a.amount.toString()])).toEqual([
+      ['خصم غياب بدون إذن أو إجازة بتاريخ 2026-09-07', '300'],
+      ['خصم غياب بتاريخ 2026-09-10 (بعد احتساب إذن 4 ساعة)', '150'],
+    ]);
+  });
+
+  it('counts absence only from the joining date and never for today', async () => {
+    // Run on 15 September (11:00 in Cairo) for someone who joined on Monday 14 September
+    jest.useFakeTimers({ now: new Date('2026-09-15T08:00:00Z') });
+    prisma.employeeProfile.findMany.mockResolvedValue([
+      { ...employee({ baseSalary: new Prisma.Decimal(9000) }), joiningDate: new Date('2026-09-14') },
+    ]);
+    prisma.attendanceRecord.findMany.mockResolvedValue([]);
+
+    await service.generatePayroll({ month: 9, year: 2026 }, payrollManager);
+
+    const adjustments = prisma.financialAdjustment.createMany.mock.calls[0][0].data;
+    expect(adjustments.map((a: { reason: string }) => a.reason)).toEqual([
+      'خصم غياب بدون إذن أو إجازة بتاريخ 2026-09-14',
     ]);
   });
 });

@@ -1,4 +1,5 @@
 import { ShiftType } from '@prisma/client';
+import { WEEKLY_DAYS_OFF, toDateOnly } from '../leaves/leave-policy';
 
 /** Every shift starts at 09:00 company time */
 export const SHIFT_START_MINUTES = 9 * 60;
@@ -36,4 +37,41 @@ export function shiftBalance(
     delayMinutes: Math.max(shift - earned, 0),
     overtimeMinutes: Math.max(earned - shift, 0),
   };
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** YYYY-MM-DD of a date-only value */
+export function dateKey(date: Date): string {
+  return toDateOnly(date).toISOString().slice(0, 10);
+}
+
+/**
+ * Working days in [from, to] with no attendance and no approved leave: the shift's weekly days off
+ * and public holidays are not working days. Approved permissions are handled by the caller.
+ */
+export function findAbsentDays(params: {
+  from: Date;
+  to: Date;
+  shiftType: ShiftType;
+  attendedDays: Set<string>;
+  holidays: Set<string>;
+  leaves: { startDate: Date; endDate: Date }[];
+}): Date[] {
+  const daysOff = WEEKLY_DAYS_OFF[params.shiftType];
+  const last = toDateOnly(params.to).getTime();
+  const absent: Date[] = [];
+
+  for (let day = toDateOnly(params.from); day.getTime() <= last; day = new Date(day.getTime() + DAY_MS)) {
+    const key = dateKey(day);
+    if (daysOff.includes(day.getUTCDay())) continue;
+    if (params.holidays.has(key) || params.attendedDays.has(key)) continue;
+    const onLeave = params.leaves.some(
+      (leave) =>
+        toDateOnly(leave.startDate).getTime() <= day.getTime() &&
+        day.getTime() <= toDateOnly(leave.endDate).getTime(),
+    );
+    if (!onLeave) absent.push(day);
+  }
+  return absent;
 }

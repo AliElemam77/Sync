@@ -1,6 +1,7 @@
 import { AttendanceService } from './attendance.service';
 import { AccessScopeService } from '../../common/access/access-scope.service';
-import { deductibleDelayMinutes, shiftBalance } from './attendance-policy';
+import { BadRequestException } from '@nestjs/common';
+import { deductibleDelayMinutes, findAbsentDays, shiftBalance } from './attendance-policy';
 
 describe('attendance policy', () => {
   it('forgives up to 15 missing minutes, then deducts every minute', () => {
@@ -15,6 +16,23 @@ describe('attendance policy', () => {
     expect(shiftBalance(360, 120, 'RS')).toEqual({ delayMinutes: 0, overtimeMinutes: 0 });
     expect(shiftBalance(480, 0, 'LS')).toEqual({ delayMinutes: 60, overtimeMinutes: 0 });
     expect(shiftBalance(540, 0, 'RS')).toEqual({ delayMinutes: 0, overtimeMinutes: 60 });
+  });
+
+  it("finds working days with no attendance, skipping the shift's days off, holidays and leave", () => {
+    // Thursday 1 to Wednesday 7 October 2026
+    const absent = (shiftType: 'RS' | 'LS') =>
+      findAbsentDays({
+        from: new Date('2026-10-01'),
+        to: new Date('2026-10-07'),
+        shiftType,
+        attendedDays: new Set(['2026-10-01']),
+        holidays: new Set(['2026-10-06']),
+        leaves: [{ startDate: new Date('2026-10-04'), endDate: new Date('2026-10-05') }],
+      }).map((d) => d.toISOString().slice(0, 10));
+
+    // RS is off on Friday 2nd; LS also on Saturday 3rd
+    expect(absent('RS')).toEqual(['2026-10-03', '2026-10-07']);
+    expect(absent('LS')).toEqual(['2026-10-07']);
   });
 });
 
@@ -122,5 +140,87 @@ describe('AttendanceService.checkOut', () => {
     const record = await service.checkOut('user-1');
 
     expect(record).toEqual(expect.objectContaining({ delayMinutes: 30, overtimeMinutes: 0 }));
+  });
+});
+
+describe('AttendanceService.recordAttendance (HR correction)', () => {
+  let prisma: any;
+  let service: AttendanceService;
+
+  beforeEach(() => {
+    jest.useFakeTimers({ now: new Date('2026-01-20T08:00:00Z') });
+    prisma = {
+      employeeProfile: { findUnique: jest.fn().mockResolvedValue({ id: 'emp-1', shiftType: 'RS' }) },
+      attendanceRecord: { upsert: jest.fn(({ create }) => create) },
+      permissionRequest: {
+        aggregate: jest.fn().mockResolvedValue({ _sum: { hoursRequested: null } }),
+      },
+    };
+    service = new AttendanceService(prisma, {} as any, new AccessScopeService(prisma));
+  });
+
+  afterEach(() => jest.useRealTimers());
+
+  it('stores the day in Cairo time and computes it like a check-out', async () => {
+    const record = await service.recordAttendance({
+      employeeId: 'emp-1',
+      date: '2026-01-15',
+      checkInTime: '09:40',
+      checkOutTime: '17:00',
+    });
+
+    expect(record).toEqual(
+      expect.objectContaining({
+        date: new Date('2026-01-15T00:00:00Z'),
+        checkInTime: new Date('2026-01-15T07:40:00Z'),
+        checkOutTime: new Date('2026-01-15T15:00:00Z'),
+        delayMinutes: 40, // 7h20 worked on an 8-hour shift
+        overtimeMinutes: 0,
+      }),
+    );
+    expect(prisma.attendanceRecord.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { employeeId_date: { employeeId: 'emp-1', date: new Date('2026-01-15T00:00:00Z') } },
+      }),
+    );
+  });
+
+  it('rejects future dates and a check-out before the check-in', async () => {
+    await expect(
+      service.recordAttendance({ employeeId: 'emp-1', date: '2026-01-21', checkInTime: '09:00' }),
+    ).rejects.toThrow(BadRequestException);
+    await expect(
+      service.recordAttendance({
+        employeeId: 'emp-1',
+        date: '2026-01-15',
+        checkInTime: '12:00',
+        checkOutTime: '11:00',
+      }),
+    ).rejects.toThrow(BadRequestException);
+    expect(prisma.attendanceRecord.upsert).not.toHaveBeenCalled();
+  });
+});
+
+describe('AttendanceService.createPublicHoliday', () => {
+  it('adds one row per day and keeps days that are already holidays', async () => {
+    const prisma: any = {
+      publicHoliday: { createMany: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
+    };
+    const service = new AttendanceService(prisma, {} as any, new AccessScopeService(prisma));
+
+    await service.createPublicHoliday({
+      startDate: '2026-03-20',
+      endDate: '2026-03-22',
+      name: ' Eid al-Fitr ',
+    });
+
+    expect(prisma.publicHoliday.createMany).toHaveBeenCalledWith({
+      data: [
+        { date: new Date('2026-03-20T00:00:00Z'), name: 'Eid al-Fitr' },
+        { date: new Date('2026-03-21T00:00:00Z'), name: 'Eid al-Fitr' },
+        { date: new Date('2026-03-22T00:00:00Z'), name: 'Eid al-Fitr' },
+      ],
+      skipDuplicates: true,
+    });
   });
 });
