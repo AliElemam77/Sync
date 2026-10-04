@@ -8,7 +8,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateLeaveDto } from './dto/create-leave.dto';
 import { RejectLeaveDto } from './dto/reject-leave.dto';
 import { LeaveQueryDto } from './dto/leave-query.dto';
-import { RequestStatus, LeaveType, AttendanceStatus } from '@prisma/client';
+import { RequestStatus, LeaveType } from '@prisma/client';
 import { EventsGateway } from '../events/events.gateway';
 
 @Injectable()
@@ -96,7 +96,6 @@ export class LeavesService {
   async getLeaveRequests(query: LeaveQueryDto, currentUser: any) {
     const roleName = typeof currentUser.role === 'string' ? currentUser.role : currentUser.role?.name;
     const isSuperAdminOrHR = ['SUPER_ADMIN', 'HR_MANAGER'].includes(roleName || '');
-    const isTeamLeader = roleName === 'TEAM_LEADER';
 
     const currentEmp = await this.prisma.employeeProfile.findUnique({
       where: { userId: currentUser.id },

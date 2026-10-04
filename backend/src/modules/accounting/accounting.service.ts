@@ -138,7 +138,7 @@ export class AccountingService {
   // 3. GET TRANSACTIONS (PAGINATED & FILTERED)
   // ---------------------------------------------------------------------------
 
-  async getTransactions(query: QueryTransactionsDto, user: AuthenticatedUser) {
+  async getTransactions(query: QueryTransactionsDto) {
     const {
       search,
       type,

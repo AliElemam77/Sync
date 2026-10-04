@@ -358,7 +358,6 @@ export class ChatService {
       include: { employeeProfile: true },
     });
 
-    const isPublic = dto.type === ConversationType.PUBLIC_GROUP;
 
     // Deduplicate and filter participant user IDs
     const uniqueUserIds = Array.from(

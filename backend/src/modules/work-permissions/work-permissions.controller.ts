@@ -6,7 +6,6 @@ import {
   Body,
   Param,
   Query,
-  UseGuards,
 } from '@nestjs/common';
 import { WorkPermissionsService } from './work-permissions.service';
 import { CreatePermissionRequestDto } from './dto/create-permission-request.dto';

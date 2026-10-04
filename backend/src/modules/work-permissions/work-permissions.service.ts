@@ -87,7 +87,6 @@ export class WorkPermissionsService {
   async getPermissionRequests(query: PermissionQueryDto, currentUser: any) {
     const roleName = typeof currentUser.role === 'string' ? currentUser.role : currentUser.role?.name;
     const isSuperAdminOrHR = ['SUPER_ADMIN', 'HR_MANAGER'].includes(roleName || '');
-    const isTeamLeader = roleName === 'TEAM_LEADER';
 
     const currentEmp = await this.prisma.employeeProfile.findUnique({
       where: { userId: currentUser.id },

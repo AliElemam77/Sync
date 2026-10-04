@@ -102,7 +102,7 @@ export class AssetsService {
   // QUERY & FILTER ASSETS (WITH PAGINATION)
   // ---------------------------------------------------------------------------
 
-  async getAssets(query: QueryAssetsDto, user: AuthenticatedUser) {
+  async getAssets(query: QueryAssetsDto) {
     const { search, type, status, assigneeId, page = 1, limit = 20 } = query;
     const skip = (page - 1) * limit;
 
@@ -285,7 +285,7 @@ export class AssetsService {
   // UPDATE ASSET
   // ---------------------------------------------------------------------------
 
-  async updateAsset(id: string, dto: UpdateAssetDto, user: AuthenticatedUser) {
+  async updateAsset(id: string, dto: UpdateAssetDto) {
     const asset = await this.prisma.asset.findUnique({ where: { id } });
     if (!asset) {
       throw new NotFoundException(`الأصل ذو المعرف '${id}' غير موجود.`);
@@ -339,7 +339,7 @@ export class AssetsService {
   // DELETE ASSET
   // ---------------------------------------------------------------------------
 
-  async deleteAsset(id: string, user: AuthenticatedUser) {
+  async deleteAsset(id: string) {
     const asset = await this.prisma.asset.findUnique({ where: { id } });
     if (!asset) {
       throw new NotFoundException(`الأصل ذو المعرف '${id}' غير موجود.`);
@@ -432,7 +432,7 @@ export class AssetsService {
   // RETURN ASSET (استرجاع عهدة)
   // ---------------------------------------------------------------------------
 
-  async returnAsset(id: string, dto: ReturnAssetDto, user: AuthenticatedUser) {
+  async returnAsset(id: string, dto: ReturnAssetDto) {
     const asset = await this.prisma.asset.findUnique({ where: { id } });
     if (!asset) {
       throw new NotFoundException(`الأصل ذو المعرف '${id}' غير موجود.`);
@@ -441,8 +441,6 @@ export class AssetsService {
     if (!asset.assigneeId && asset.status !== AssetStatus.ASSIGNED) {
       throw new BadRequestException('هذا الأصل غير مُسلّم لأي موظف حالياً.');
     }
-
-    const actorEmployee = await this.getEmployeeProfile(user.id);
 
     return this.prisma.$transaction(async (tx) => {
       // Close active assignment history record

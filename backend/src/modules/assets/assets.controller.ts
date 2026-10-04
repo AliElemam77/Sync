@@ -46,11 +46,8 @@ export class AssetsController {
 
   @Get()
   @RequirePermissions('assets.view')
-  async getAssets(
-    @Query() query: QueryAssetsDto,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
-    return this.assetsService.getAssets(query, user);
+  async getAssets(@Query() query: QueryAssetsDto) {
+    return this.assetsService.getAssets(query);
   }
 
   // ---------------------------------------------------------------------------
@@ -95,9 +92,8 @@ export class AssetsController {
   async updateAsset(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateAssetDto,
-    @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.assetsService.updateAsset(id, dto, user);
+    return this.assetsService.updateAsset(id, dto);
   }
 
   // ---------------------------------------------------------------------------
@@ -107,11 +103,8 @@ export class AssetsController {
   @Delete(':id')
   @RequirePermissions('it.manage_assets')
   @Audit({ action: 'DELETE', entity: 'Asset' })
-  async deleteAsset(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
-    return this.assetsService.deleteAsset(id, user);
+  async deleteAsset(@Param('id', ParseUUIDPipe) id: string) {
+    return this.assetsService.deleteAsset(id);
   }
 
   // ---------------------------------------------------------------------------
@@ -141,8 +134,7 @@ export class AssetsController {
   async returnAsset(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ReturnAssetDto,
-    @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.assetsService.returnAsset(id, dto, user);
+    return this.assetsService.returnAsset(id, dto);
   }
 }

@@ -5,7 +5,6 @@ import {
   Patch,
   Query,
   Param,
-  UseGuards,
   ParseIntPipe,
   ParseUUIDPipe,
 } from '@nestjs/common';
@@ -13,7 +12,6 @@ import { AttendanceService } from './attendance.service';
 import { AttendanceQueryDto } from './dto/attendance-query.dto';
 import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
-import { PermissionsGuard } from '../../common/guards/permissions.guard';
 
 @Controller('api/v1/attendance')
 export class AttendanceController {

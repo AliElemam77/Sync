@@ -596,7 +596,7 @@ export class TasksService {
       },
     });
 
-    let newAssignee = dto.assigneeId
+    const newAssignee = dto.assigneeId
       ? await this.prisma.employeeProfile.findUnique({ where: { id: dto.assigneeId } })
       : undefined;
 

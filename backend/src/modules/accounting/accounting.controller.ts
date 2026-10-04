@@ -59,11 +59,8 @@ export class AccountingController {
 
   @Get('transactions')
   @RequirePermissions('accounting.view')
-  async getTransactions(
-    @Query() query: QueryTransactionsDto,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
-    return this.accountingService.getTransactions(query, user);
+  async getTransactions(@Query() query: QueryTransactionsDto) {
+    return this.accountingService.getTransactions(query);
   }
 
   // ---------------------------------------------------------------------------

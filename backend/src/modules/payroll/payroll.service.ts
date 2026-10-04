@@ -12,7 +12,6 @@ import { AuthenticatedUser } from '../../common/decorators/current-user.decorato
 import {
   PayrollCycleStatus,
   AdjustmentType,
-  AttendanceStatus,
   Prisma,
 } from '@prisma/client';
 
