@@ -76,23 +76,24 @@ export class AttendanceService {
 
     const today = this.getTodayDateOnly();
 
-    const record = await this.prisma.attendanceRecord.findUnique({
-      where: {
-        employeeId_date: {
+    // Today's record and any approved permissions for today (independent lookups)
+    const [record, approvedPermissions] = await Promise.all([
+      this.prisma.attendanceRecord.findUnique({
+        where: {
+          employeeId_date: {
+            employeeId: employee.id,
+            date: today,
+          },
+        },
+      }),
+      this.prisma.permissionRequest.findMany({
+        where: {
           employeeId: employee.id,
           date: today,
+          status: RequestStatus.APPROVED,
         },
-      },
-    });
-
-    // Check if the employee has any approved permissions for today
-    const approvedPermissions = await this.prisma.permissionRequest.findMany({
-      where: {
-        employeeId: employee.id,
-        date: today,
-        status: RequestStatus.APPROVED,
-      },
-    });
+      }),
+    ]);
 
     const approvedPermissionHours = approvedPermissions.reduce(
       (sum, p) => sum + p.hoursRequested,

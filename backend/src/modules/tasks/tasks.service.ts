@@ -544,13 +544,11 @@ export class TasksService {
       }
     }
 
-    if (dto.assigneeId) {
-      const assigneeExists = await this.prisma.employeeProfile.findUnique({
-        where: { id: dto.assigneeId },
-      });
-      if (!assigneeExists) {
-        throw new BadRequestException(`Assignee employee '${dto.assigneeId}' not found.`);
-      }
+    const newAssignee = dto.assigneeId
+      ? await this.prisma.employeeProfile.findUnique({ where: { id: dto.assigneeId } })
+      : undefined;
+    if (dto.assigneeId && !newAssignee) {
+      throw new BadRequestException(`Assignee employee '${dto.assigneeId}' not found.`);
     }
 
     const updatedTask = await this.prisma.task.update({
@@ -577,10 +575,6 @@ export class TasksService {
         },
       },
     });
-
-    const newAssignee = dto.assigneeId
-      ? await this.prisma.employeeProfile.findUnique({ where: { id: dto.assigneeId } })
-      : undefined;
 
     this.eventsGateway.broadcastTaskUpdated(updatedTask, newAssignee);
     return updatedTask;
