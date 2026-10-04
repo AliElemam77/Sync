@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsString, MaxLength, Matches } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength, Matches } from 'class-validator';
 
 export class CreateDepartmentDto {
   @IsString()
@@ -19,7 +19,7 @@ export class CreateDepartmentDto {
   @MaxLength(255)
   description?: string;
 
-  @IsString()
+  @IsUUID('4')
   @IsOptional()
   headId?: string;
 }

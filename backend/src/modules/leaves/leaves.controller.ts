@@ -6,6 +6,7 @@ import {
   Body,
   Param,
   Query,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { LeavesService } from './leaves.service';
 import { CreateLeaveDto } from './dto/create-leave.dto';
@@ -47,7 +48,7 @@ export class LeavesController {
   @Patch(':id/approve')
   @RequirePermissions('leaves.approve')
   async approveLeave(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: any,
   ) {
     return this.leavesService.approveLeaveRequest(id, user);
@@ -59,7 +60,7 @@ export class LeavesController {
   @Patch(':id/reject')
   @RequirePermissions('leaves.approve')
   async rejectLeave(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RejectLeaveDto,
     @CurrentUser() user: any,
   ) {

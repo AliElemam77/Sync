@@ -6,6 +6,7 @@ import {
   Body,
   Param,
   Query,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { WorkPermissionsService } from './work-permissions.service';
 import { CreatePermissionRequestDto } from './dto/create-permission-request.dto';
@@ -47,7 +48,7 @@ export class WorkPermissionsController {
   @Patch(':id/approve')
   @RequirePermissions('leaves.approve')
   async approvePermission(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: any,
   ) {
     return this.workPermissionsService.approvePermissionRequest(id, user);
@@ -59,7 +60,7 @@ export class WorkPermissionsController {
   @Patch(':id/reject')
   @RequirePermissions('leaves.approve')
   async rejectPermission(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RejectPermissionRequestDto,
     @CurrentUser() user: any,
   ) {

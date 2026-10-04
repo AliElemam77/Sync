@@ -1,4 +1,4 @@
-import { IsBoolean, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 
 export class UpdateDepartmentDto {
   @IsString()
@@ -15,7 +15,8 @@ export class UpdateDepartmentDto {
   @IsOptional()
   isActive?: boolean;
 
-  @IsString()
+  // null clears the department head
+  @IsUUID('4')
   @IsOptional()
   headId?: string | null;
 }

@@ -1,4 +1,4 @@
-import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export enum PendingRequestType {
@@ -13,7 +13,7 @@ export class QueryPendingRequestsDto {
   @IsOptional()
   type?: PendingRequestType = PendingRequestType.ALL;
 
-  @IsString()
+  @IsUUID('4')
   @IsOptional()
   departmentId?: string;
 

@@ -9,6 +9,7 @@ import {
   Query,
   ParseIntPipe,
   DefaultValuePipe,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -18,6 +19,8 @@ import { SendMessageDto } from './dto/send-message.dto';
 import { EditMessageDto } from './dto/edit-message.dto';
 import { AddParticipantsDto } from './dto/add-participants.dto';
 import { ToggleReactionDto } from './dto/toggle-reaction.dto';
+
+const MAX_MESSAGES_PAGE_SIZE = 100;
 
 @Controller('api/v1/chat')
 export class ChatController {
@@ -36,7 +39,7 @@ export class ChatController {
    */
   @Get('conversations/:id')
   async getConversationById(
-    @Param('id') conversationId: string,
+    @Param('id', ParseUUIDPipe) conversationId: string,
     @CurrentUser() user: any,
   ) {
     return this.chatService.getConversationById(conversationId, user.id);
@@ -47,12 +50,17 @@ export class ChatController {
    */
   @Get('conversations/:id/messages')
   async getMessages(
-    @Param('id') conversationId: string,
+    @Param('id', ParseUUIDPipe) conversationId: string,
     @CurrentUser() user: any,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
   ) {
-    return this.chatService.getMessages(conversationId, user.id, page, limit);
+    return this.chatService.getMessages(
+      conversationId,
+      user.id,
+      Math.max(page, 1),
+      Math.min(Math.max(limit, 1), MAX_MESSAGES_PAGE_SIZE),
+    );
   }
 
   /**
@@ -93,7 +101,7 @@ export class ChatController {
    */
   @Patch('messages/:id')
   async editMessage(
-    @Param('id') messageId: string,
+    @Param('id', ParseUUIDPipe) messageId: string,
     @Body() dto: EditMessageDto,
     @CurrentUser() user: any,
   ) {
@@ -105,7 +113,7 @@ export class ChatController {
    */
   @Delete('messages/:id')
   async deleteMessage(
-    @Param('id') messageId: string,
+    @Param('id', ParseUUIDPipe) messageId: string,
     @CurrentUser() user: any,
   ) {
     return this.chatService.deleteMessage(messageId, user.id);
@@ -116,7 +124,7 @@ export class ChatController {
    */
   @Post('messages/:id/reactions')
   async toggleReaction(
-    @Param('id') messageId: string,
+    @Param('id', ParseUUIDPipe) messageId: string,
     @Body() dto: ToggleReactionDto,
     @CurrentUser() user: any,
   ) {
@@ -128,7 +136,7 @@ export class ChatController {
    */
   @Post('conversations/:id/participants')
   async addParticipants(
-    @Param('id') conversationId: string,
+    @Param('id', ParseUUIDPipe) conversationId: string,
     @Body() dto: AddParticipantsDto,
     @CurrentUser() user: any,
   ) {
@@ -140,7 +148,7 @@ export class ChatController {
    */
   @Patch('conversations/:id/read')
   async markAsRead(
-    @Param('id') conversationId: string,
+    @Param('id', ParseUUIDPipe) conversationId: string,
     @CurrentUser() user: any,
   ) {
     return this.chatService.markAsRead(conversationId, user.id);
