@@ -7,7 +7,7 @@ import { LoginResponse } from '../../types/auth';
 import { useAuth } from '../../hooks/use-auth';
 import { AxiosError } from 'axios';
 import { ThemeToggle } from '../../components/ui/theme-toggle';
-import { FiEye, FiEyeOff, FiLock, FiMail, FiShield, FiUserCheck, FiArrowLeft } from 'react-icons/fi';
+import { FiEye, FiEyeOff, FiLock, FiMail } from 'react-icons/fi';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -17,13 +17,10 @@ export default function LoginPage() {
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const loginMutation = useMutation({
-    mutationFn: async (credentials?: { email: string; pass: string }) => {
-      const emailToUse = credentials ? credentials.email : email.trim();
-      const passToUse = credentials ? credentials.pass : password;
-
+    mutationFn: async () => {
       const response = await apiClient.post<LoginResponse>('/api/v1/auth/login', {
-        email: emailToUse,
-        password: passToUse,
+        email: email.trim(),
+        password,
       });
       return response.data;
     },
@@ -45,14 +42,7 @@ export default function LoginPage() {
       return;
     }
 
-    loginMutation.mutate(undefined);
-  };
-
-  const handleQuickLogin = (userEmail: string, userPass: string) => {
-    setEmail(userEmail);
-    setPassword(userPass);
-    setValidationError(null);
-    loginMutation.mutate({ email: userEmail, pass: userPass });
+    loginMutation.mutate();
   };
 
   const errorMessage =
@@ -116,7 +106,7 @@ export default function LoginPage() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="admin@sync-erp.local"
+                    placeholder="name@company.com"
                     className="w-full rounded-2xl border border-border bg-surface ps-10 pe-4 py-2.5 text-xs text-foreground placeholder-foreground-subtle focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all"
                   />
                 </div>
@@ -169,38 +159,6 @@ export default function LoginPage() {
               )}
             </button>
           </form>
-
-          {/* Quick Demo Access Options */}
-          <div className="pt-4 border-t border-border/70 space-y-3">
-            <span className="block text-center text-[10px] uppercase tracking-wider font-extrabold text-foreground-muted">
-              حسابات تجريبية سريعة (Demo)
-            </span>
-            <div className="grid grid-cols-2 gap-2.5">
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('admin@sync-erp.local', 'Admin@Sync2026!')}
-                className="flex flex-col items-center p-3 rounded-2xl border border-border bg-surface hover:bg-surface-hover hover:border-primary/30 transition-all duration-200 group text-center"
-              >
-                <div className="flex items-center gap-1.5 text-xs font-bold text-foreground group-hover:text-primary mb-0.5">
-                  <FiShield className="h-3.5 w-3.5 text-primary" />
-                  <span>مدير عام</span>
-                </div>
-                <span className="text-[10px] text-foreground-subtle">Admin Access</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('ahmed.mansour@sync-erp.local', 'Employee@2026!')}
-                className="flex flex-col items-center p-3 rounded-2xl border border-border bg-surface hover:bg-surface-hover hover:border-primary/30 transition-all duration-200 group text-center"
-              >
-                <div className="flex items-center gap-1.5 text-xs font-bold text-foreground group-hover:text-primary mb-0.5">
-                  <FiUserCheck className="h-3.5 w-3.5 text-primary" />
-                  <span>موظف عادي</span>
-                </div>
-                <span className="text-[10px] text-foreground-subtle">Staff Access</span>
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     </div>

@@ -51,6 +51,15 @@ const INITIAL_PERMISSIONS = [
   { name: 'audit.view', module: 'AUDIT', description: 'Inspect audit trail logs' },
 ];
 
+// Seed credentials must come from the environment; never commit default passwords
+function requireEnv(name: string): string {
+  const value = process.env[name]?.replace(/^["']|["']$/g, '').trim();
+  if (!value) {
+    throw new Error(`${name} must be set in backend/.env before running the seed.`);
+  }
+  return value;
+}
+
 async function main() {
   console.log('--- Starting Database Seeding ---');
 
@@ -150,8 +159,8 @@ async function main() {
 
   // 6. Seed Default Super Admin User
   const adminEmail = (process.env.ADMIN_EMAIL || 'admin@sync-erp.local').toLowerCase().trim();
-  const rawAdminPassword = (process.env.ADMIN_PASSWORD || 'Admin@Sync2026!').replace(/^["']|["']$/g, '').trim();
-  const passwordHash = await bcrypt.hash(rawAdminPassword, 12);
+  const passwordHash = await bcrypt.hash(requireEnv('ADMIN_PASSWORD'), 12);
+  const demoEmployeePasswordHash = await bcrypt.hash(requireEnv('SEED_EMPLOYEE_PASSWORD'), 12);
 
   const adminUser = await prisma.user.upsert({
     where: { email: adminEmail },
@@ -282,7 +291,7 @@ async function main() {
     update: { roleId: employeeRole.id },
     create: {
       email: sampleUserEmail,
-      passwordHash: await bcrypt.hash('Employee@2026!', 12),
+      passwordHash: demoEmployeePasswordHash,
       isActive: true,
       roleId: employeeRole.id,
     },
@@ -362,7 +371,7 @@ async function main() {
     update: { roleId: employeeRole.id },
     create: {
       email: 'omar.khaled@sync-erp.local',
-      passwordHash: await bcrypt.hash('Password@2026!', 12),
+      passwordHash: demoEmployeePasswordHash,
       isActive: true,
       roleId: employeeRole.id,
     },
@@ -401,7 +410,7 @@ async function main() {
     update: { roleId: teamLeaderRole.id },
     create: {
       email: 'sara.nabil@sync-erp.local',
-      passwordHash: await bcrypt.hash('Password@2026!', 12),
+      passwordHash: demoEmployeePasswordHash,
       isActive: true,
       roleId: teamLeaderRole.id,
     },
@@ -440,7 +449,7 @@ async function main() {
     update: { roleId: employeeRole.id },
     create: {
       email: 'karim.tarek@sync-erp.local',
-      passwordHash: await bcrypt.hash('Password@2026!', 12),
+      passwordHash: demoEmployeePasswordHash,
       isActive: true,
       roleId: employeeRole.id,
     },
