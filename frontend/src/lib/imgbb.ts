@@ -1,10 +1,9 @@
 /**
  * ImgBB Image Upload Utility
- * API Key provided: 1b6fa71656bf342bcf05ecae778533ec
+ * The key comes from NEXT_PUBLIC_IMGBB_API_KEY (frontend/.env.local); never hard-code it.
  */
 
-export const IMGBB_API_KEY = '1b6fa71656bf342bcf05ecae778533ec';
-export const IMGBB_UPLOAD_URL = `https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`;
+const IMGBB_API_KEY = process.env.NEXT_PUBLIC_IMGBB_API_KEY;
 
 export interface ImgBBUploadResponse {
   data: {
@@ -46,10 +45,14 @@ export interface ImgBBUploadResponse {
 }
 
 export async function uploadImageToImgBB(file: File): Promise<string> {
+  if (!IMGBB_API_KEY) {
+    throw new Error('Image uploads are not configured: set NEXT_PUBLIC_IMGBB_API_KEY.');
+  }
+
   const formData = new FormData();
   formData.append('image', file);
 
-  const response = await fetch(IMGBB_UPLOAD_URL, {
+  const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
     method: 'POST',
     body: formData,
   });
