@@ -13,6 +13,52 @@ const payrollManager: AuthenticatedUser = {
   departmentId: 'dept-hr',
 };
 
+describe('PayrollService.approveCycle', () => {
+  let prisma: any;
+  let service: PayrollService;
+
+  beforeEach(() => {
+    prisma = {
+      payrollCycle: {
+        findUnique: jest.fn().mockResolvedValue({ status: 'DRAFT' }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          month: 9,
+          year: 2026,
+          totalNet: new Prisma.Decimal('125000.50'),
+          payslips: [],
+        }),
+      },
+      financialTransaction: { create: jest.fn() },
+      $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(prisma)),
+    };
+    service = new PayrollService(prisma, new AccessScopeService(prisma));
+  });
+
+  it('posts the approved net payroll to the ledger as a payroll expense', async () => {
+    await service.approveCycle('cycle-1', payrollManager);
+
+    expect(prisma.financialTransaction.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        amount: new Prisma.Decimal('125000.50'),
+        type: 'EXPENSE',
+        category: 'PAYROLL',
+        referenceId: 'cycle-1',
+        referenceType: 'PAYROLL_CYCLE',
+        recordedById: 'hr-user',
+      }),
+    });
+  });
+
+  it('refuses a second approval without posting again', async () => {
+    prisma.payrollCycle.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(service.approveCycle('cycle-1', payrollManager)).rejects.toThrow();
+    expect(prisma.financialTransaction.create).not.toHaveBeenCalled();
+  });
+});
+
 /**
  * Characterization tests: they pin today's payroll formula so Phase 2 changes
  * (salary source of truth, allowances/tax, shift length) are deliberate.

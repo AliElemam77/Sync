@@ -15,7 +15,10 @@ import {
   PayrollCycleStatus,
   AdjustmentType,
   EmployeeStatus,
+  PaymentMethod,
   Prisma,
+  TransactionCategory,
+  TransactionType,
 } from '@prisma/client';
 
 @Injectable()
@@ -365,30 +368,63 @@ export class PayrollService {
       throw new BadRequestException('تم اعتماد مسير الرواتب مسبقاً.');
     }
 
-    const updatedCycle = await this.prisma.payrollCycle.update({
-      where: { id },
-      data: {
-        status: PayrollCycleStatus.APPROVED,
-        approvedAt: new Date(),
-        approvedById: user.id,
-      },
-      include: {
-        approvedBy: {
-          select: { id: true, email: true },
+    const updatedCycle = await this.prisma.$transaction(async (tx) => {
+      // Conditional update so that two concurrent approvals cannot both post to the ledger
+      const { count } = await tx.payrollCycle.updateMany({
+        where: {
+          id,
+          status: { notIn: [PayrollCycleStatus.APPROVED, PayrollCycleStatus.PAID] },
         },
-        payslips: {
-          include: {
-            employee: {
-              select: {
-                id: true,
-                fullName: true,
-                employeeCode: true,
-                department: { select: { name: true } },
+        data: {
+          status: PayrollCycleStatus.APPROVED,
+          approvedAt: new Date(),
+          approvedById: user.id,
+        },
+      });
+      if (count === 0) {
+        throw new BadRequestException('تم اعتماد مسير الرواتب مسبقاً.');
+      }
+
+      const approved = await tx.payrollCycle.findUniqueOrThrow({
+        where: { id },
+        include: {
+          approvedBy: {
+            select: { id: true, email: true },
+          },
+          payslips: {
+            include: {
+              employee: {
+                select: {
+                  id: true,
+                  fullName: true,
+                  employeeCode: true,
+                  department: { select: { name: true } },
+                },
               },
             },
           },
         },
-      },
+      });
+
+      // Post the approved month to the ledger as a single payroll expense (net amount paid out)
+      if (approved.totalNet.greaterThan(0)) {
+        await tx.financialTransaction.create({
+          data: {
+            amount: approved.totalNet,
+            type: TransactionType.EXPENSE,
+            category: TransactionCategory.PAYROLL,
+            // Staff are paid by cash or bank transfer; one entry covers both until it is split per method
+            paymentMethod: PaymentMethod.OTHER,
+            description: `مسير رواتب شهر ${approved.month}/${approved.year}`,
+            transactionDate: new Date(),
+            referenceId: approved.id,
+            referenceType: 'PAYROLL_CYCLE',
+            recordedById: user.id,
+          },
+        });
+      }
+
+      return approved;
     });
 
     this.logger.log(`Payroll cycle ${id} successfully APPROVED by ${user.email}`);
