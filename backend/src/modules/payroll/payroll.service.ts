@@ -23,6 +23,11 @@ import {
 } from '@prisma/client';
 import { businessMonthRange } from '../../common/time/business-time';
 
+const PAYOUT_LABELS: Partial<Record<PaymentMethod, string>> = {
+  [PaymentMethod.CASH]: 'نقدي',
+  [PaymentMethod.BANK_TRANSFER]: 'تحويل بنكي',
+};
+
 @Injectable()
 export class PayrollService {
   private readonly logger = new Logger(PayrollService.name);
@@ -447,16 +452,29 @@ export class PayrollService {
         },
       });
 
-      // Post the approved month to the ledger as a single payroll expense (net amount paid out)
-      if (approved.totalNet.greaterThan(0)) {
+      // Post the approved month to the ledger: one payroll expense per payout method (net amounts)
+      const payouts = await tx.payslip.findMany({
+        where: { payrollCycleId: id },
+        select: {
+          netPay: true,
+          employee: { select: { salaryProfile: { select: { paymentMethod: true } } } },
+        },
+      });
+      const netByMethod = new Map<PaymentMethod, Prisma.Decimal>();
+      for (const payout of payouts) {
+        const method = payout.employee.salaryProfile?.paymentMethod ?? PaymentMethod.BANK_TRANSFER;
+        netByMethod.set(method, (netByMethod.get(method) ?? new Prisma.Decimal(0)).add(payout.netPay));
+      }
+
+      for (const [method, amount] of netByMethod) {
+        if (!amount.greaterThan(0)) continue;
         await tx.financialTransaction.create({
           data: {
-            amount: approved.totalNet,
+            amount,
             type: TransactionType.EXPENSE,
             category: TransactionCategory.PAYROLL,
-            // Staff are paid by cash or bank transfer; one entry covers both until it is split per method
-            paymentMethod: PaymentMethod.OTHER,
-            description: `مسير رواتب شهر ${approved.month}/${approved.year}`,
+            paymentMethod: method,
+            description: `مسير رواتب شهر ${approved.month}/${approved.year} (${PAYOUT_LABELS[method] ?? method})`,
             transactionDate: new Date(),
             referenceId: approved.id,
             referenceType: 'PAYROLL_CYCLE',

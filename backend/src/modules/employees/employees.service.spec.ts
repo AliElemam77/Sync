@@ -167,6 +167,40 @@ describe('EmployeesService', () => {
   });
 
   describe('salary details', () => {
+    it('saves the salary and payout method to the salary profile', async () => {
+      prisma.employeeProfile.findUnique.mockResolvedValue(existingEmployee());
+
+      await service.updateEmployee(
+        'emp-1',
+        { salary: { baseSalary: 9000, paymentMethod: 'CASH' } },
+        makeUser(),
+      );
+
+      expect(prisma.employeeProfile.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            salaryProfile: {
+              upsert: {
+                create: { baseSalary: 9000, paymentMethod: 'CASH' },
+                update: { baseSalary: 9000, paymentMethod: 'CASH' },
+              },
+            },
+          }),
+        }),
+      );
+    });
+
+    it('rejects salary writes without employees.manage_salary', async () => {
+      prisma.employeeProfile.findUnique.mockResolvedValue(existingEmployee());
+      await expect(
+        service.updateEmployee(
+          'emp-1',
+          { salary: { baseSalary: 9000, paymentMethod: 'CASH' } },
+          makeUser({ permissions: ['employees.update'] }),
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
     it('rejects bank/salary writes without employees.manage_salary', async () => {
       prisma.employeeProfile.findUnique.mockResolvedValue(existingEmployee());
 

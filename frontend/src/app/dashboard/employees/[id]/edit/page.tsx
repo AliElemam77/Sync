@@ -75,6 +75,7 @@ const editEmployeeSchema = z.object({
   swift: z.string().optional(),
   bankBranch: z.string().optional(),
   basicSalary: z.string().optional(),
+  paymentMethod: z.enum(['CASH', 'BANK_TRANSFER']),
 });
 
 type EditEmployeeFormData = z.infer<typeof editEmployeeSchema>;
@@ -158,6 +159,7 @@ export default function EditEmployeePage() {
       swift: '',
       bankBranch: '',
       basicSalary: '',
+      paymentMethod: 'BANK_TRANSFER',
     },
   });
 
@@ -186,7 +188,8 @@ export default function EditEmployeePage() {
         joiningDate: employee.joiningDate ? new Date(employee.joiningDate).toISOString().split('T')[0] : '',
         employmentType: (employee.employmentType as any) || 'FULL_TIME',
         status: (employee.status as any) || 'ACTIVE',
-        annualLeaveDays: employee.annualLeaveDays ?? (employee.shiftType === 'RS' ? 21 : 30),
+        // Decimal balance (accrues 1.75 days/month); the API serializes it as a string
+        annualLeaveDays: Number(employee.annualLeaveDays ?? 0),
         monthlyPermissionHours: employee.monthlyPermissionHours ?? 4,
         address: employee.address || '',
         altPhone: employee.altPhone || '',
@@ -199,7 +202,8 @@ export default function EditEmployeePage() {
         iban: employee.bankInfo?.iban || '',
         swift: employee.bankInfo?.swift || '',
         bankBranch: employee.bankInfo?.branch || '',
-        basicSalary: employee.bankInfo?.basicSalary ? String(employee.bankInfo.basicSalary) : '',
+        basicSalary: employee.salaryProfile ? String(Number(employee.salaryProfile.baseSalary)) : '',
+        paymentMethod: employee.salaryProfile?.paymentMethod || 'BANK_TRANSFER',
       });
 
       if (employee.managedDepartments && employee.managedDepartments.length > 0) {
@@ -288,7 +292,7 @@ export default function EditEmployeePage() {
               }
             : undefined,
           bankInfo:
-            data.bankName || data.accountNumber || data.basicSalary
+            data.bankName || data.accountNumber || data.iban
               ? {
                   bankName: data.bankName || undefined,
                   accountHolder: data.accountHolder || undefined,
@@ -296,9 +300,12 @@ export default function EditEmployeePage() {
                   iban: data.iban || undefined,
                   swift: data.swift || undefined,
                   branch: data.bankBranch || undefined,
-                  basicSalary: data.basicSalary ? parseFloat(data.basicSalary) : undefined,
                 }
               : undefined,
+          // The salary lives in the salary profile, independent of bank details (some staff are paid cash)
+          salary: data.basicSalary
+            ? { baseSalary: parseFloat(data.basicSalary), paymentMethod: data.paymentMethod }
+            : undefined,
           managedDepartmentIds: isHeadPosition ? managedDeptIds : [],
         },
       });
@@ -626,10 +633,8 @@ export default function EditEmployeePage() {
               <select
                 {...register('shiftType')}
                 onChange={(e) => {
-                  const s = e.target.value;
-                  setValue('shiftType', s as ShiftType);
-                  if (s === 'RS') setValue('annualLeaveDays', 21);
-                  else if (s === 'LS') setValue('annualLeaveDays', 30);
+                  // Changing the shift must not overwrite the accrued leave balance
+                  setValue('shiftType', e.target.value as ShiftType);
                 }}
                 className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
               >
@@ -678,6 +683,7 @@ export default function EditEmployeePage() {
               <label className="block text-xs font-bold text-foreground-muted mb-1">رصيد الإجازات السنوية (أيام)</label>
               <input
                 type="number"
+                step="0.25"
                 {...register('annualLeaveDays', { valueAsNumber: true })}
                 className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none font-mono font-bold"
               />
@@ -748,8 +754,8 @@ export default function EditEmployeePage() {
               <FiDollarSign className="h-4 w-4" />
             </div>
             <div>
-              <h2 className="text-sm font-extrabold text-foreground">4. البيانات البنكية والراتب</h2>
-              <p className="text-[11px] text-foreground-muted">بيانات الحساب البنكي والراتب الأساسي.</p>
+              <h2 className="text-sm font-extrabold text-foreground">4. الراتب وطريقة القبض والبيانات البنكية</h2>
+              <p className="text-[11px] text-foreground-muted">البيانات البنكية مطلوبة فقط لمن يقبض بالتحويل البنكي.</p>
             </div>
           </div>
 
@@ -810,9 +816,12 @@ export default function EditEmployeePage() {
               />
             </div>
 
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
             <div>
               <label className="block text-xs font-bold text-foreground-muted mb-1">
-                الراتب الأساسي (ج.م) {!canManageSalary && <span className="text-foreground-subtle font-normal">(للقراءة فقط)</span>}
+                الراتب الأساسي الشهري (ج.م) {!canManageSalary && <span className="text-foreground-subtle font-normal">(للقراءة فقط)</span>}
               </label>
               <input
                 type="number"
@@ -821,6 +830,17 @@ export default function EditEmployeePage() {
                 {...register('basicSalary')}
                 className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground disabled:opacity-50 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none font-mono"
               />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">طريقة القبض</label>
+              <select
+                disabled={!canManageSalary}
+                {...register('paymentMethod')}
+                className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground disabled:opacity-50 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none cursor-pointer"
+              >
+                <option value="BANK_TRANSFER">تحويل بنكي</option>
+                <option value="CASH">نقدي (كاش)</option>
+              </select>
             </div>
           </div>
         </div>

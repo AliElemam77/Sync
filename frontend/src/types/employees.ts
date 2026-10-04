@@ -90,6 +90,8 @@ export interface Employee {
   address?: string | null;
   altPhone?: string | null;
   emergencyContact?: EmergencyContact | null;
+  /** Present only for viewers with employees.manage_salary */
+  salaryProfile?: { baseSalary: string | number; paymentMethod: SalaryPaymentMethod } | null;
   bankInfo?: BankInfo | null;
   documents?: EmployeeDocument[];
   managedDepartments?: Array<{
@@ -99,6 +101,13 @@ export interface Employee {
   }>;
   createdAt: string;
   updatedAt: string;
+}
+
+export type SalaryPaymentMethod = 'CASH' | 'BANK_TRANSFER';
+
+export interface SalaryInput {
+  baseSalary: number;
+  paymentMethod: SalaryPaymentMethod;
 }
 
 export interface CreateEmployeeInput {
@@ -135,6 +144,8 @@ export interface CreateEmployeeInput {
     branch?: string;
     basicSalary?: number;
   };
+  /** Fixed monthly salary and payout method (requires employees.manage_salary) */
+  salary?: SalaryInput;
 }
 
 export interface UpdateEmployeeInput {
@@ -175,6 +186,8 @@ export interface UpdateEmployeeInput {
     branch?: string;
     basicSalary?: number;
   };
+  /** Fixed monthly salary and payout method (requires employees.manage_salary) */
+  salary?: SalaryInput;
 }
 
 export interface QueryEmployeesInput {

@@ -67,6 +67,7 @@ const addEmployeeSchema = z.object({
   swift: z.string().optional(),
   bankBranch: z.string().optional(),
   basicSalary: z.string().optional(),
+  paymentMethod: z.enum(['CASH', 'BANK_TRANSFER']),
 });
 
 type AddEmployeeFormData = z.infer<typeof addEmployeeSchema>;
@@ -138,6 +139,7 @@ export default function AddEmployeePage() {
       swift: '',
       bankBranch: '',
       basicSalary: '',
+      paymentMethod: 'BANK_TRANSFER',
     },
   });
 
@@ -232,7 +234,7 @@ export default function AddEmployeePage() {
             }
           : undefined,
         bankInfo:
-          data.bankName || data.accountNumber || data.basicSalary
+          data.bankName || data.accountNumber || data.iban
             ? {
                 bankName: data.bankName || undefined,
                 accountHolder: data.accountHolder || undefined,
@@ -240,9 +242,12 @@ export default function AddEmployeePage() {
                 iban: data.iban || undefined,
                 swift: data.swift || undefined,
                 branch: data.bankBranch || undefined,
-                basicSalary: data.basicSalary ? parseFloat(data.basicSalary) : undefined,
               }
             : undefined,
+        // The salary lives in the salary profile, independent of bank details (some staff are paid cash)
+        salary: data.basicSalary
+          ? { baseSalary: parseFloat(data.basicSalary), paymentMethod: data.paymentMethod }
+          : undefined,
         managedDepartmentIds:
           isHeadPosition && managedDeptIds.length > 0 ? managedDeptIds : undefined,
       });
@@ -638,8 +643,8 @@ export default function AddEmployeePage() {
               <FiDollarSign className="h-4 w-4" />
             </div>
             <div>
-              <h2 className="text-sm font-extrabold text-foreground">4. البيانات البنكية والراتب</h2>
-              <p className="text-[11px] text-foreground-muted">بيانات التحويل المالي والراتب الأساسي للموظف.</p>
+              <h2 className="text-sm font-extrabold text-foreground">4. الراتب وطريقة القبض والبيانات البنكية</h2>
+              <p className="text-[11px] text-foreground-muted">البيانات البنكية مطلوبة فقط لمن يقبض بالتحويل البنكي.</p>
             </div>
           </div>
 
@@ -706,8 +711,11 @@ export default function AddEmployeePage() {
               />
             </div>
 
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
             <div>
-              <label className="block text-xs font-bold text-foreground-muted mb-1">الراتب الأساسي (ج.م)</label>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">الراتب الأساسي الشهري (ج.م)</label>
               <input
                 type="number"
                 step="0.01"
@@ -715,6 +723,17 @@ export default function AddEmployeePage() {
                 placeholder="0.00"
                 className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none font-mono"
               />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-foreground-muted mb-1">طريقة القبض</label>
+              <select
+                {...register('paymentMethod')}
+                className="w-full rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none cursor-pointer"
+              >
+                <option value="BANK_TRANSFER">تحويل بنكي</option>
+                <option value="CASH">نقدي (كاش)</option>
+              </select>
             </div>
           </div>
         </div>

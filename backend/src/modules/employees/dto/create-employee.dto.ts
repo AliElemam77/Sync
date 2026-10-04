@@ -1,6 +1,7 @@
 import {
   IsEmail,
   IsEnum,
+  IsIn,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -17,6 +18,7 @@ import {
   EmploymentType,
   EmployeeStatus,
   EmergencyRelationship,
+  PaymentMethod,
 } from '@prisma/client';
 
 export class EmergencyContactDto {
@@ -31,6 +33,16 @@ export class EmergencyContactDto {
   @IsString()
   @IsNotEmpty()
   phone!: string;
+}
+
+// The fixed monthly salary and how it is paid; independent of bank details (some staff are paid cash)
+export class SalaryDto {
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  baseSalary!: number;
+
+  @IsIn([PaymentMethod.CASH, PaymentMethod.BANK_TRANSFER])
+  paymentMethod!: PaymentMethod;
 }
 
 export class BankInfoDto {
@@ -152,6 +164,12 @@ export class CreateEmployeeDto {
   @Type(() => BankInfoDto)
   @IsOptional()
   bankInfo?: BankInfoDto;
+
+  // 6. Salary (requires employees.manage_salary)
+  @ValidateNested()
+  @Type(() => SalaryDto)
+  @IsOptional()
+  salary?: SalaryDto;
 
   // 6. Multi-Department Management (For Heads)
   @IsUUID('4', { each: true, message: 'كل قسم يجب أن يكون UUID صحيح' })

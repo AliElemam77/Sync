@@ -31,25 +31,38 @@ describe('PayrollService.approveCycle', () => {
           payslips: [],
         }),
       },
+      payslip: {
+        findMany: jest.fn().mockResolvedValue([
+          { netPay: new Prisma.Decimal('9000'), employee: { salaryProfile: { paymentMethod: 'CASH' } } },
+          { netPay: new Prisma.Decimal('11000.50'), employee: { salaryProfile: { paymentMethod: 'BANK_TRANSFER' } } },
+          { netPay: new Prisma.Decimal('5000'), employee: { salaryProfile: { paymentMethod: 'BANK_TRANSFER' } } },
+        ]),
+      },
       financialTransaction: { create: jest.fn() },
       $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(prisma)),
     };
     service = new PayrollService(prisma, new AccessScopeService(prisma));
   });
 
-  it('posts the approved net payroll to the ledger as a payroll expense', async () => {
+  it('posts the approved net payroll to the ledger, one payroll expense per payout method', async () => {
     await service.approveCycle('cycle-1', payrollManager);
 
-    expect(prisma.financialTransaction.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        amount: new Prisma.Decimal('125000.50'),
+    const entries = prisma.financialTransaction.create.mock.calls.map(
+      ([arg]: [{ data: { paymentMethod: string; amount: Prisma.Decimal } }]) => arg.data,
+    );
+    expect(entries.map((e: any) => [e.paymentMethod, e.amount.toString()])).toEqual([
+      ['CASH', '9000'],
+      ['BANK_TRANSFER', '16000.5'],
+    ]);
+    expect(entries[0]).toEqual(
+      expect.objectContaining({
         type: 'EXPENSE',
         category: 'PAYROLL',
         referenceId: 'cycle-1',
         referenceType: 'PAYROLL_CYCLE',
         recordedById: 'hr-user',
       }),
-    });
+    );
   });
 
   it('refuses a second approval without posting again', async () => {

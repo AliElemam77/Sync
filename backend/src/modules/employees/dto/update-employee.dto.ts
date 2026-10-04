@@ -17,7 +17,7 @@ import {
   EmploymentType,
   EmployeeStatus,
 } from '@prisma/client';
-import { EmergencyContactDto, BankInfoDto } from './create-employee.dto';
+import { EmergencyContactDto, BankInfoDto, SalaryDto } from './create-employee.dto';
 
 export class UpdateEmployeeDto {
   @IsString()
@@ -120,6 +120,12 @@ export class UpdateEmployeeDto {
   @Type(() => BankInfoDto)
   @IsOptional()
   bankInfo?: BankInfoDto;
+
+  // Salary (requires employees.manage_salary)
+  @ValidateNested()
+  @Type(() => SalaryDto)
+  @IsOptional()
+  salary?: SalaryDto;
 
   // Multi-Department Management (For Heads)
   @IsUUID('4', { each: true, message: 'كل قسم يجب أن يكون UUID صحيح' })

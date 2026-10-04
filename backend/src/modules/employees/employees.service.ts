@@ -17,6 +17,8 @@ import {
 } from '../../common/access/access-scope.service';
 import { EmployeeStatus, Prisma, ShiftType } from '@prisma/client';
 
+const SALARY_PROFILE_SELECT = { baseSalary: true, paymentMethod: true } as const;
+
 const statusBlocksLogin = (status: EmployeeStatus) =>
   status === EmployeeStatus.ENDED || status === EmployeeStatus.INACTIVE;
 
@@ -61,7 +63,7 @@ export class EmployeesService {
     dto: CreateEmployeeDto,
     currentUser?: AuthenticatedUser,
   ) {
-    this.assertCanWriteSalary(dto.bankInfo, currentUser);
+    this.assertCanWriteSalary(dto.bankInfo ?? dto.salary, currentUser);
 
     const email = dto.email.toLowerCase().trim();
 
@@ -163,6 +165,14 @@ export class EmployeesService {
               },
             },
           }),
+          ...(dto.salary && {
+            salaryProfile: {
+              create: {
+                baseSalary: dto.salary.baseSalary,
+                paymentMethod: dto.salary.paymentMethod,
+              },
+            },
+          }),
         },
         include: {
           user: { select: { id: true, email: true, isActive: true } },
@@ -171,6 +181,7 @@ export class EmployeesService {
           level: { select: { id: true, name: true, rank: true } },
           emergencyContact: true,
           bankInfo: true,
+          salaryProfile: { select: SALARY_PROFILE_SELECT },
           managedDepartments: { select: { id: true, name: true, code: true } },
         },
       });
@@ -291,6 +302,7 @@ export class EmployeesService {
         level: { select: { id: true, name: true, rank: true } },
         emergencyContact: true,
         bankInfo: true,
+        salaryProfile: { select: SALARY_PROFILE_SELECT },
         documents: true,
         managedDepartments: { select: { id: true, name: true, code: true } },
       },
@@ -376,7 +388,7 @@ export class EmployeesService {
       }
       this.assertCanChangeManagementMembership([existing.department.code, target.code], currentUser);
     }
-    this.assertCanWriteSalary(dto.bankInfo, currentUser);
+    this.assertCanWriteSalary(dto.bankInfo ?? dto.salary, currentUser);
 
     // Handle user account updates (email, password, status, role)
     if (dto.email && dto.email.toLowerCase().trim() !== existing.user.email.toLowerCase()) {
@@ -467,6 +479,14 @@ export class EmployeesService {
             },
           },
         }),
+        ...(dto.salary && {
+          salaryProfile: {
+            upsert: {
+              create: { baseSalary: dto.salary.baseSalary, paymentMethod: dto.salary.paymentMethod },
+              update: { baseSalary: dto.salary.baseSalary, paymentMethod: dto.salary.paymentMethod },
+            },
+          },
+        }),
       },
       include: {
         user: { select: { id: true, email: true, isActive: true } },
@@ -475,6 +495,7 @@ export class EmployeesService {
         level: { select: { id: true, name: true, rank: true } },
         emergencyContact: true,
         bankInfo: true,
+        salaryProfile: { select: SALARY_PROFILE_SELECT },
         managedDepartments: { select: { id: true, name: true, code: true } },
       },
     });
@@ -508,6 +529,7 @@ export class EmployeesService {
           level: { select: { id: true, name: true, rank: true } },
           emergencyContact: true,
           bankInfo: true,
+          salaryProfile: { select: SALARY_PROFILE_SELECT },
           managedDepartments: { select: { id: true, name: true, code: true } },
         },
       });
@@ -640,6 +662,9 @@ export class EmployeesService {
         isMasked: true,
         message: 'Access restricted: Missing employees.manage_salary permission',
       };
+    }
+    if (!canManageSalary && employee.salaryProfile) {
+      employee.salaryProfile = null;
     }
 
     return employee;
