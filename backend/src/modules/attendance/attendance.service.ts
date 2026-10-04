@@ -8,6 +8,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AttendanceStatus, RequestStatus, ShiftType } from '@prisma/client';
 import { AttendanceQueryDto } from './dto/attendance-query.dto';
 import { EventsGateway } from '../events/events.gateway';
+import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 
 @Injectable()
 export class AttendanceService {
@@ -338,7 +339,37 @@ export class AttendanceService {
   /**
    * Monthly Metrics Summary Report for an Employee
    */
-  async getMonthlySummary(employeeId: string, year: number, month: number) {
+  async getMonthlySummary(
+    employeeId: string,
+    year: number,
+    month: number,
+    currentUser: AuthenticatedUser,
+  ) {
+    // Same visibility rules as getRecords: HR/Admin any employee, Team Leader own department, others self
+    const isSuperAdminOrHR = ['SUPER_ADMIN', 'HR_MANAGER'].includes(currentUser.role);
+    if (!isSuperAdminOrHR) {
+      const [currentEmp, targetEmp] = await Promise.all([
+        this.prisma.employeeProfile.findUnique({
+          where: { userId: currentUser.id },
+          select: { id: true, departmentId: true },
+        }),
+        this.prisma.employeeProfile.findUnique({
+          where: { id: employeeId },
+          select: { departmentId: true },
+        }),
+      ]);
+
+      const isSelf = currentEmp?.id === employeeId;
+      const isTeamLeaderOfTarget =
+        currentUser.role === 'TEAM_LEADER' &&
+        !!currentEmp &&
+        targetEmp?.departmentId === currentEmp.departmentId;
+
+      if (!isSelf && !isTeamLeaderOfTarget) {
+        throw new ForbiddenException('You do not have access to this employee attendance summary.');
+      }
+    }
+
     const startDate = new Date(Date.UTC(year, month - 1, 1));
     const endDate = new Date(Date.UTC(year, month, 0));
 

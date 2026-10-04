@@ -36,6 +36,99 @@ export class TasksService {
   }
 
   // ---------------------------------------------------------------------------
+  // HELPERS: TASK VISIBILITY & ACTOR ROLES
+  // ---------------------------------------------------------------------------
+
+  private isTaskAdmin(user: AuthenticatedUser): boolean {
+    return ['SUPER_ADMIN', 'HR_MANAGER'].includes(user.role);
+  }
+
+  private isLeader(user: AuthenticatedUser): boolean {
+    return user.role === 'TEAM_LEADER' || user.permissions.includes('org.manage');
+  }
+
+  // Non-admins see tasks they are assigned, created, or that target their department
+  private relevantTasksFilter(employee: { id: string; departmentId: string }): Prisma.TaskWhereInput {
+    return {
+      OR: [
+        { assigneeId: employee.id },
+        { creatorId: employee.id },
+        { targetDepartmentId: employee.departmentId },
+      ],
+    };
+  }
+
+  private isTaskRelevantTo(
+    task: { creatorId: string; assigneeId: string | null; targetDepartmentId: string | null },
+    employee: { id: string; departmentId: string } | null,
+  ): boolean {
+    if (!employee) return false;
+    return (
+      task.assigneeId === employee.id ||
+      task.creatorId === employee.id ||
+      task.targetDepartmentId === employee.departmentId
+    );
+  }
+
+  private async assertCanAccessTask(
+    task: { creatorId: string; assigneeId: string | null; targetDepartmentId: string | null },
+    user: AuthenticatedUser,
+  ) {
+    if (this.isTaskAdmin(user)) return;
+    const employee = await this.getEmployeeProfile(user.id);
+    if (!this.isTaskRelevantTo(task, employee)) {
+      throw new NotFoundException('Task not found');
+    }
+  }
+
+  private assertStatusTransitionAllowed(
+    targetStatus: TaskStatus,
+    comment: string | undefined,
+    actor: { isAdmin: boolean; isCreator: boolean; isAssignee: boolean; isTargetTeamLeader: boolean },
+  ) {
+    const { isAdmin, isCreator, isAssignee, isTargetTeamLeader } = actor;
+
+    // 1. Rule: Setting to DONE requires Creator or Admin
+    if (targetStatus === TaskStatus.DONE) {
+      if (!isCreator && !isAdmin) {
+        throw new ForbiddenException(
+          'Only the task requester (Creator) or an Administrator can mark this task as DONE (Accepted).',
+        );
+      }
+    }
+
+    // 2. Rule: Setting to NEEDS_REVISION requires Creator or Admin + Mandatory Comment
+    else if (targetStatus === TaskStatus.NEEDS_REVISION) {
+      if (!isCreator && !isAdmin) {
+        throw new ForbiddenException(
+          'Only the task requester (Creator) or an Administrator can push a task back to NEEDS_REVISION.',
+        );
+      }
+      if (!comment || !comment.trim()) {
+        throw new BadRequestException(
+          'A mandatory explanation comment is required when pushing a task back to NEEDS_REVISION.',
+        );
+      }
+    }
+
+    // 3. Rule: Setting to WAITING_FOR_CLIENT requires Target Team Leader, Creator, or Admin
+    else if (targetStatus === TaskStatus.WAITING_FOR_CLIENT) {
+      if (!isTargetTeamLeader && !isCreator && !isAdmin) {
+        throw new ForbiddenException(
+          'Only the target department Team Leader or task Creator can place a task in WAITING_FOR_CLIENT status.',
+        );
+      }
+    }
+
+    // 4. Rule: Setting to TODO, IN_PROGRESS, REVIEW allowed for Assignee, Team Leader, Creator, or Admin
+    else if ([TaskStatus.TODO, TaskStatus.IN_PROGRESS, TaskStatus.REVIEW].includes(targetStatus)) {
+      if (!isAssignee && !isTargetTeamLeader && !isCreator && !isAdmin) {
+        throw new ForbiddenException('You do not have permission to transition the status of this task.');
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // CREATE TASK (CROSS-DEPARTMENT ROUTING & DIRECT ASSIGNMENT)
   // ---------------------------------------------------------------------------
 
@@ -158,9 +251,9 @@ export class TasksService {
     const { assigneeId, targetDepartmentId, creatorId, status, priority, assignmentType, search } = query;
 
     const employee = user ? await this.getEmployeeProfile(user.id) : null;
-    const isAdmin = user ? ['SUPER_ADMIN', 'HR_MANAGER'].includes(user.role) : false;
+    const isAdmin = user ? this.isTaskAdmin(user) : false;
 
-    const where: Prisma.TaskWhereInput = {
+    const filters: Prisma.TaskWhereInput = {
       ...(assigneeId && { assigneeId }),
       ...(targetDepartmentId && { targetDepartmentId }),
       ...(creatorId && { creatorId }),
@@ -178,13 +271,13 @@ export class TasksService {
       }),
     };
 
-    // For non-admin employees, if no specific query filter was provided, only show tasks relevant to them or their department
-    if (!isAdmin && employee && !assigneeId && !targetDepartmentId && !creatorId && !search) {
-      where.OR = [
-        { assigneeId: employee.id },
-        { creatorId: employee.id },
-        { targetDepartmentId: employee.departmentId },
-      ];
+    // Non-admins only ever see tasks relevant to them or their department; query filters narrow within that scope
+    let where: Prisma.TaskWhereInput = filters;
+    if (!isAdmin) {
+      if (!employee) {
+        return [];
+      }
+      where = { AND: [filters, this.relevantTasksFilter(employee)] };
     }
 
     return this.prisma.task.findMany({
@@ -275,7 +368,13 @@ export class TasksService {
   // GET SINGLE TASK BY ID
   // ---------------------------------------------------------------------------
 
-  async getTaskById(id: string) {
+  async getTaskById(id: string, user: AuthenticatedUser) {
+    const task = await this.findTaskOrThrow(id);
+    await this.assertCanAccessTask(task, user);
+    return task;
+  }
+
+  private async findTaskOrThrow(id: string) {
     const task = await this.prisma.task.findUnique({
       where: { id },
       include: {
@@ -328,64 +427,36 @@ export class TasksService {
     dto: UpdateTaskStatusDto,
     user: AuthenticatedUser,
   ) {
-    const task = await this.getTaskById(id);
+    const task = await this.findTaskOrThrow(id);
     const actorEmployee = await this.getEmployeeProfile(user.id);
 
-    const isAdmin = ['SUPER_ADMIN', 'HR_MANAGER'].includes(user.role);
+    const isAdmin = this.isTaskAdmin(user);
     const isCreator = task.creator?.userId === user.id;
     const isAssignee = task.assignee?.userId === user.id;
-    
-    const isLeader = user.role === 'TEAM_LEADER' || user.permissions.includes('org.manage');
-    
+
     // Team Leader of Target Department
-    const isTargetTeamLeader =
+    const isTargetTeamLeader = Boolean(
       actorEmployee &&
-      task.targetDepartmentId &&
-      actorEmployee.departmentId === task.targetDepartmentId &&
-      isLeader;
+        task.targetDepartmentId &&
+        actorEmployee.departmentId === task.targetDepartmentId &&
+        this.isLeader(user),
+    );
+
+    // Reordering or commenting without a status change still requires a relationship to the task
+    if (!isAdmin && !isCreator && !isAssignee && !isTargetTeamLeader) {
+      throw new ForbiddenException('You do not have permission to update this task.');
+    }
 
     const targetStatus = dto.status;
 
     // If status is changing, enforce state transition rules
     if (task.status !== targetStatus) {
-      // 1. Rule: Setting to DONE requires Creator or Admin
-      if (targetStatus === TaskStatus.DONE) {
-        if (!isCreator && !isAdmin) {
-          throw new ForbiddenException(
-            'Only the task requester (Creator) or an Administrator can mark this task as DONE (Accepted).',
-          );
-        }
-      }
-
-      // 2. Rule: Setting to NEEDS_REVISION requires Creator or Admin + Mandatory Comment
-      else if (targetStatus === TaskStatus.NEEDS_REVISION) {
-        if (!isCreator && !isAdmin) {
-          throw new ForbiddenException(
-            'Only the task requester (Creator) or an Administrator can push a task back to NEEDS_REVISION.',
-          );
-        }
-        if (!dto.comment || !dto.comment.trim()) {
-          throw new BadRequestException(
-            'A mandatory explanation comment is required when pushing a task back to NEEDS_REVISION.',
-          );
-        }
-      }
-
-      // 3. Rule: Setting to WAITING_FOR_CLIENT requires Target Team Leader, Creator, or Admin
-      else if (targetStatus === TaskStatus.WAITING_FOR_CLIENT) {
-        if (!isTargetTeamLeader && !isCreator && !isAdmin) {
-          throw new ForbiddenException(
-            'Only the target department Team Leader or task Creator can place a task in WAITING_FOR_CLIENT status.',
-          );
-        }
-      }
-
-      // 4. Rule: Setting to TODO, IN_PROGRESS, REVIEW allowed for Assignee, Team Leader, Creator, or Admin
-      else if ([TaskStatus.TODO, TaskStatus.IN_PROGRESS, TaskStatus.REVIEW].includes(targetStatus)) {
-        if (!isAssignee && !isTargetTeamLeader && !isCreator && !isAdmin) {
-          throw new ForbiddenException('You do not have permission to transition the status of this task.');
-        }
-      }
+      this.assertStatusTransitionAllowed(targetStatus, dto.comment, {
+        isAdmin,
+        isCreator,
+        isAssignee,
+        isTargetTeamLeader,
+      });
     }
 
     // Execute state update & auto-post comment if provided
@@ -435,19 +506,34 @@ export class TasksService {
   // ---------------------------------------------------------------------------
 
   async updateTask(id: string, dto: UpdateTaskDto, user: AuthenticatedUser) {
-    const task = await this.getTaskById(id);
+    const task = await this.findTaskOrThrow(id);
     const actorEmployee = await this.getEmployeeProfile(user.id);
 
-    const isAdmin = ['SUPER_ADMIN', 'HR_MANAGER'].includes(user.role);
+    const isAdmin = this.isTaskAdmin(user);
     const isCreator = task.creator?.userId === user.id;
-    const isLeader = user.role === 'TEAM_LEADER' || user.permissions.includes('org.manage');
+    const isAssignee = task.assignee?.userId === user.id;
 
     // Team Leader of Target Department
-    const isTargetTeamLeader =
+    const isTargetTeamLeader = Boolean(
       actorEmployee &&
-      task.targetDepartmentId &&
-      actorEmployee.departmentId === task.targetDepartmentId &&
-      isLeader;
+        task.targetDepartmentId &&
+        actorEmployee.departmentId === task.targetDepartmentId &&
+        this.isLeader(user),
+    );
+
+    if (!isAdmin && !isCreator && !isAssignee && !isTargetTeamLeader) {
+      throw new ForbiddenException('You do not have permission to update this task.');
+    }
+
+    // Status changes through this endpoint follow the same state machine as PATCH /tasks/:id/status
+    if (dto.status !== undefined && dto.status !== task.status) {
+      this.assertStatusTransitionAllowed(dto.status, undefined, {
+        isAdmin,
+        isCreator,
+        isAssignee,
+        isTargetTeamLeader,
+      });
+    }
 
     // Check if user is setting or modifying the assigneeId
     if (dto.assigneeId !== undefined && dto.assigneeId !== task.assigneeId) {
@@ -463,6 +549,7 @@ export class TasksService {
       dto.title !== undefined ||
       dto.description !== undefined ||
       dto.priority !== undefined ||
+      dto.assignmentType !== undefined ||
       dto.targetDepartmentId !== undefined ||
       dto.dueDate !== undefined ||
       dto.attachmentUrls !== undefined;
@@ -522,10 +609,13 @@ export class TasksService {
   // ---------------------------------------------------------------------------
 
   async addComment(taskId: string, dto: CreateTaskCommentDto, user: AuthenticatedUser) {
-    const task = await this.getTaskById(taskId);
+    const task = await this.findTaskOrThrow(taskId);
     const author = await this.getEmployeeProfile(user.id);
     if (!author) {
       throw new BadRequestException('Authenticated user must have an employee profile to post comments.');
+    }
+    if (!this.isTaskAdmin(user) && !this.isTaskRelevantTo(task, author)) {
+      throw new NotFoundException('Task not found');
     }
 
     const comment = await this.prisma.taskComment.create({
@@ -551,9 +641,9 @@ export class TasksService {
   // ---------------------------------------------------------------------------
 
   async deleteTask(id: string, user: AuthenticatedUser) {
-    const task = await this.getTaskById(id);
+    const task = await this.findTaskOrThrow(id);
 
-    const isAdmin = ['SUPER_ADMIN', 'HR_MANAGER'].includes(user.role);
+    const isAdmin = this.isTaskAdmin(user);
     const isCreator = task.creator?.userId === user.id;
 
     if (!isCreator && !isAdmin) {
@@ -571,7 +661,7 @@ export class TasksService {
       where: { id },
     });
 
-    this.eventsGateway.broadcastTaskDeleted(id, task.title);
+    this.eventsGateway.broadcastTaskDeleted(id);
     return deleted;
   }
 }

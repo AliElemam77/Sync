@@ -7,10 +7,11 @@ import {
   Param,
   UseGuards,
   ParseIntPipe,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { AttendanceService } from './attendance.service';
 import { AttendanceQueryDto } from './dto/attendance-query.dto';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 
@@ -60,10 +61,11 @@ export class AttendanceController {
   @Get('summary/:employeeId')
   @RequirePermissions('attendance.view')
   async getMonthlySummary(
-    @Param('employeeId') employeeId: string,
+    @Param('employeeId', ParseUUIDPipe) employeeId: string,
     @Query('year', ParseIntPipe) year: number,
     @Query('month', ParseIntPipe) month: number,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.attendanceService.getMonthlySummary(employeeId, year, month);
+    return this.attendanceService.getMonthlySummary(employeeId, year, month, user);
   }
 }

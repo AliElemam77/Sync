@@ -54,8 +54,11 @@ export class TasksController {
 
   @Get(':id')
   @RequirePermissions('tasks.view')
-  async getTaskById(@Param('id', ParseUUIDPipe) id: string) {
-    return this.tasksService.getTaskById(id);
+  async getTaskById(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.tasksService.getTaskById(id, user);
   }
 
   // ---------------------------------------------------------------------------
