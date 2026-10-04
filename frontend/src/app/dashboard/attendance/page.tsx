@@ -142,12 +142,15 @@ function formatDurationDetailed(minutes: number): string {
   return `${hourName}${fraction} (${hours}h${mins > 0 ? ` ${mins}m` : ''})`;
 }
 
+/** Missing minutes a day that are not deducted (same as the backend payroll rule) */
+const LATE_GRACE_MINUTES = 15;
+
 function calculateMorningDelay(checkInTimeStr: string | null | undefined): { delayMinutes: number; isLate: boolean; label: string } {
   if (!checkInTimeStr) return { delayMinutes: 0, isLate: false, label: '—' };
   const d = new Date(checkInTimeStr);
   const checkInMinutes = d.getHours() * 60 + d.getMinutes();
   const shiftStartMinutes = 9 * 60; // 09:00 AM
-  const graceEndMinutes = shiftStartMinutes + 15; // 09:15 AM
+  const graceEndMinutes = shiftStartMinutes + LATE_GRACE_MINUTES; // 09:15 AM
 
   if (checkInMinutes > graceEndMinutes) {
     const delayMins = checkInMinutes - shiftStartMinutes;
@@ -187,50 +190,37 @@ function getDelayPenalty(
       if (currentMinutes < cutoffMinutes) {
         return {
           penaltyLabel: 'الوردية جارية (بانتظار الانصراف)',
-          deductionDays: 0,
           badgeColor: 'bg-primary/10 text-primary border-primary/20 font-bold',
         };
       }
 
       return {
-        penaltyLabel: 'نسيان بصمة الخروج (بعد انتهاء الدوام بساعة)',
-        deductionDays: 1.0,
+        penaltyLabel: 'لم يُسجَّل الانصراف (انتهى الدوام)',
         badgeColor: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30 font-bold',
       };
     }
 
     return {
-      penaltyLabel: 'خصم يوم كامل (نسيان بصمة الخروج)',
-      deductionDays: 1.0,
+      penaltyLabel: 'لم يُسجَّل الانصراف',
       badgeColor: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30 font-bold',
     };
   }
 
-  if (delayMinutes <= 15) {
+  // Same rule as payroll: up to 15 missing minutes are forgiven, past that every minute is deducted
+  if (delayMinutes <= LATE_GRACE_MINUTES) {
     return {
-      penaltyLabel: 'فترة سماح (بدون خصم)',
-      deductionDays: 0,
+      penaltyLabel: delayMinutes > 0 ? `فترة سماح (${delayMinutes} دقيقة بدون خصم)` : 'بدون خصم',
       badgeColor: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-bold',
     };
-  } else if (delayMinutes <= 30) {
-    return {
-      penaltyLabel: 'خصم ربع يوم (-0.25d)',
-      deductionDays: 0.25,
-      badgeColor: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 font-bold',
-    };
-  } else if (delayMinutes <= 60) {
-    return {
-      penaltyLabel: 'خصم نصف يوم (-0.50d)',
-      deductionDays: 0.5,
-      badgeColor: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/30 font-bold',
-    };
-  } else {
-    return {
-      penaltyLabel: 'خصم يوم عمل كامل (-1.00d)',
-      deductionDays: 1.0,
-      badgeColor: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30 font-bold',
-    };
   }
+
+  return {
+    penaltyLabel: `خصم ${delayMinutes} دقيقة من الراتب`,
+    badgeColor:
+      delayMinutes <= 60
+        ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 font-bold'
+        : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30 font-bold',
+  };
 }
 
 // -----------------------------------------------------------------------------
@@ -500,7 +490,7 @@ export default function AttendancePage() {
                     <div>
                       <span className="font-black text-sm block">⏰ حان الآن موعد انتهاء ورديتك الرسمية ({shiftEndLabel})!</span>
                       <span className="text-[11px] opacity-90 block pt-0.5">
-                        يرجى تسجيل بصمة الانصراف لتوثيق ساعات عملك (مهلة إضافية لمدة ساعة حتى {graceEndLabel} بدون خصم نسيان الانصراف).
+                        يرجى تسجيل بصمة الانصراف قبل {graceEndLabel} لتوثيق ساعات عملك.
                       </span>
                     </div>
                   </div>
@@ -1005,9 +995,9 @@ export default function AttendancePage() {
                 ) : (
                   attendanceLogs.map((log) => {
                     const morningDelay = calculateMorningDelay(log.checkInTime);
-                    const effectiveDelay = log.delayMinutes || morningDelay.delayMinutes;
+                    // The server's figure already credits approved permissions
                     const penalty = getDelayPenalty(
-                      effectiveDelay,
+                      log.delayMinutes,
                       !!log.checkOutTime,
                       log.date,
                       log.employee?.shiftType || 'RS',

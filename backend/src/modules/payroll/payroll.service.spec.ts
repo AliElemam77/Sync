@@ -135,11 +135,27 @@ describe('PayrollService.generatePayroll', () => {
 
     const adjustments = prisma.financialAdjustment.createMany.mock.calls[0][0].data;
     expect(adjustments).toHaveLength(2);
+    expect(adjustments[0].reason).toContain('30 دقيقة');
     expect(adjustments.every((a: { payslipId: string }) => a.payslipId === payslip.id)).toBe(true);
     expect(adjustments.map((a: { amount: Prisma.Decimal }) => a.amount.toString())).toEqual([
       '18.75',
       '56.25',
     ]);
+  });
+
+  it('does not deduct days missing 15 minutes or less', async () => {
+    prisma.employeeProfile.findMany.mockResolvedValue([
+      employee({ baseSalary: new Prisma.Decimal(9000) }),
+    ]);
+    prisma.attendanceRecord.findMany.mockResolvedValue([
+      { employeeId: 'emp-1', date: new Date('2026-09-02'), delayMinutes: 15, overtimeMinutes: 0 },
+      { employeeId: 'emp-1', date: new Date('2026-09-03'), delayMinutes: 16, overtimeMinutes: 0 },
+    ]);
+
+    await service.generatePayroll({ month: 9, year: 2026 }, payrollManager);
+
+    const [payslip] = prisma.payslip.createMany.mock.calls[0][0].data;
+    expect(payslip.attendancePenalties.toString()).toBe('10'); // 16 min x 0.625
   });
 
   it('pays 0 when an employee has no SalaryProfile (BankInfo.basicSalary is not read; decision #1)', async () => {

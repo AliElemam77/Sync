@@ -22,6 +22,7 @@ import {
   TransactionType,
 } from '@prisma/client';
 import { businessMonthRange } from '../../common/time/business-time';
+import { deductibleDelayMinutes } from '../attendance/attendance-policy';
 
 const PAYOUT_LABELS: Partial<Record<PaymentMethod, string>> = {
   [PaymentMethod.CASH]: 'نقدي',
@@ -157,7 +158,8 @@ export class PayrollService {
       const minuteRate = dailyRate.div(new Prisma.Decimal(480));
 
       const employeeRecords = recordsByEmployee.get(emp.id) ?? [];
-      const lateRecords = employeeRecords.filter((r) => r.delayMinutes > 0);
+      // Up to 15 missing minutes a day are forgiven; past that every missing minute is deducted
+      const lateRecords = employeeRecords.filter((r) => deductibleDelayMinutes(r.delayMinutes) > 0);
 
       let employeeAttendancePenalties = new Prisma.Decimal(0);
       const adjustments: {

@@ -4,7 +4,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { AttendanceStatus, Prisma, RequestStatus, ShiftType } from '@prisma/client';
+import { AttendanceStatus, Prisma, RequestStatus } from '@prisma/client';
 import { AttendanceQueryDto } from './dto/attendance-query.dto';
 import { EventsGateway } from '../events/events.gateway';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
@@ -18,6 +18,7 @@ import {
   HALF_DAY_PERMISSION_HOURS,
   permissionMonthRange,
 } from '../work-permissions/permission-policy';
+import { arrivalDelayMinutes, shiftBalance } from './attendance-policy';
 
 @Injectable()
 export class AttendanceService {
@@ -51,6 +52,15 @@ export class AttendanceService {
     }
 
     return employee;
+  }
+
+  /** Approved permission time for one employee on one day, in minutes */
+  private async getApprovedPermissionMinutes(employeeId: string, date: Date): Promise<number> {
+    const { _sum } = await this.prisma.permissionRequest.aggregate({
+      where: { employeeId, date, status: RequestStatus.APPROVED },
+      _sum: { hoursRequested: true },
+    });
+    return (_sum.hoursRequested ?? 0) * 60;
   }
 
   /**
@@ -166,15 +176,11 @@ export class AttendanceService {
       );
     }
 
-    // Calculate morning arrival delay based on standard 09:00 AM start with 15 mins grace (until 09:15 AM)
-    const checkInMinutes = businessMinutesOfDay(now);
-    const shiftStartMinutes = 9 * 60; // 09:00 AM = 540
-    const graceEndMinutes = shiftStartMinutes + 15; // 09:15 AM = 555
-
-    let delayMinutes = 0;
-    if (checkInMinutes > graceEndMinutes) {
-      delayMinutes = checkInMinutes - shiftStartMinutes;
-    }
+    // Minutes late after 09:00, less approved permission time today (the grace period applies in payroll)
+    const delayMinutes = arrivalDelayMinutes(
+      businessMinutesOfDay(now),
+      await this.getApprovedPermissionMinutes(employee.id, today),
+    );
 
     const record = await this.prisma.attendanceRecord.create({
       data: {
@@ -227,46 +233,16 @@ export class AttendanceService {
       );
     }
 
-    // -------------------------------------------------------------------------
-    // DYNAMIC SHIFT CALCULATION WITH SMART PERMISSION CREDITING
-    // -------------------------------------------------------------------------
-    // RS Shift = 8 working hours (480 minutes)
-    // LS Shift = 9 working hours (540 minutes)
-    // -------------------------------------------------------------------------
-    const approvedPermissions = await this.prisma.permissionRequest.findMany({
-      where: {
-        employeeId: employee.id,
-        date: today,
-        status: RequestStatus.APPROVED,
-      },
-    });
-
-    const approvedPermissionMinutes = approvedPermissions.reduce(
-      (sum, p) => sum + p.hoursRequested * 60,
+    // Worked time plus approved permission time against the shift (RS 8 hours, LS 9 hours)
+    const workedMinutes = Math.max(
       0,
+      Math.floor((now.getTime() - new Date(record.checkInTime).getTime()) / (1000 * 60)),
     );
-
-    const checkInMs = new Date(record.checkInTime).getTime();
-    const checkOutMs = now.getTime();
-    const workedMinutes = Math.max(0, Math.floor((checkOutMs - checkInMs) / (1000 * 60)));
-
-    const standardShiftMinutes = employee.shiftType === ShiftType.LS ? 540 : 480;
-    // Total credits earned today = worked time + approved official permission time
-    const totalEarnedMinutes = workedMinutes + approvedPermissionMinutes;
-
-    let delayMinutes = 0;
-    let overtimeMinutes = 0;
-
-    if (totalEarnedMinutes < standardShiftMinutes) {
-      delayMinutes = standardShiftMinutes - totalEarnedMinutes;
-      overtimeMinutes = 0;
-    } else if (totalEarnedMinutes > standardShiftMinutes) {
-      delayMinutes = 0;
-      overtimeMinutes = totalEarnedMinutes - standardShiftMinutes;
-    } else {
-      delayMinutes = 0;
-      overtimeMinutes = 0;
-    }
+    const { delayMinutes, overtimeMinutes } = shiftBalance(
+      workedMinutes,
+      await this.getApprovedPermissionMinutes(employee.id, today),
+      employee.shiftType,
+    );
 
     const updatedRecord = await this.prisma.attendanceRecord.update({
       where: { id: record.id },
