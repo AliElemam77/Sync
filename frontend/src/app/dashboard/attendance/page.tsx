@@ -60,7 +60,6 @@ const createLeaveSchema = z
     type: z.enum(['ANNUAL', 'SICK', 'UNPAID', 'MATERNITY']),
     startDate: z.string().min(1, 'تاريخ البداية مطلوب'),
     endDate: z.string().min(1, 'تاريخ النهاية مطلوب'),
-    totalDaysRequested: z.number().min(1, 'يوم واحد على الأقل مطلوب'),
     reason: z.string().optional(),
   })
   .refine(
@@ -81,7 +80,11 @@ const createPermissionSchema = z
     date: z.string().min(1, 'تاريخ الإذن مطلوب'),
     startTime: z.string().min(1, 'وقت البداية مطلوب (من الساعة)'),
     endTime: z.string().min(1, 'وقت النهاية مطلوب (إلى الساعة)'),
-    hoursRequested: z.number().min(1, 'ساعة واحدة على الأقل').max(8, 'الحد الأقصى 8 ساعات'),
+    hoursRequested: z
+      .number()
+      .int('الإذن بالساعات الكاملة فقط (مثال: من 10:00 إلى 12:00)')
+      .min(1, 'ساعة واحدة على الأقل')
+      .max(4, 'الحد الأقصى 4 ساعات (الأربع ساعات تُحسب نصف يوم)'),
     reason: z.string().min(3, 'يرجى كتابة سبب واضح لطلب الإذن'),
   })
   .refine(
@@ -102,6 +105,16 @@ const rejectSchema = z.object({
 });
 
 type RejectFormData = z.infer<typeof rejectSchema>;
+
+// Today's date (YYYY-MM-DD) in the user's local time; toISOString() would give the UTC date
+function localDateInputValue(): string {
+  return new Date().toLocaleDateString('en-CA');
+}
+
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null;
+  return <p className="mt-1 text-[11px] font-bold text-rose-500 dark:text-rose-400">{message}</p>;
+}
 
 // -----------------------------------------------------------------------------
 // DURATION & PENALTY FORMATTING HELPERS (HR POLICY)
@@ -1098,35 +1111,16 @@ function CreateLeaveModal({
   const {
     register,
     handleSubmit,
-    watch,
-    setValue,
     formState: { errors, isSubmitting },
   } = useForm<CreateLeaveFormData>({
     resolver: zodResolver(createLeaveSchema),
     defaultValues: {
       type: 'ANNUAL',
-      startDate: new Date().toISOString().split('T')[0],
-      endDate: new Date().toISOString().split('T')[0],
-      totalDaysRequested: 1,
+      startDate: localDateInputValue(),
+      endDate: localDateInputValue(),
       reason: '',
     },
   });
-
-  const startDate = watch('startDate');
-  const endDate = watch('endDate');
-
-  // Auto calculate total days
-  useEffect(() => {
-    if (startDate && endDate) {
-      const s = new Date(startDate);
-      const e = new Date(endDate);
-      if (e >= s) {
-        const diffTime = Math.abs(e.getTime() - s.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-        setValue('totalDaysRequested', diffDays);
-      }
-    }
-  }, [startDate, endDate, setValue]);
 
   const onSubmit = async (data: CreateLeaveFormData) => {
     setErrorMsg(null);
@@ -1183,6 +1177,7 @@ function CreateLeaveModal({
               <option value="UNPAID">💼 إجازة بدون راتب</option>
               <option value="MATERNITY">👶 إجازة رعاية طفل / وضع</option>
             </select>
+            <FieldError message={errors.type?.message} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -1193,6 +1188,7 @@ function CreateLeaveModal({
                 {...register('startDate')}
                 className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-3.5 py-2.5 text-xs text-foreground focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20 font-mono"
               />
+              <FieldError message={errors.startDate?.message} />
             </div>
             <div>
               <label className="block text-xs font-bold text-foreground mb-1.5">إلى تاريخ</label>
@@ -1201,18 +1197,13 @@ function CreateLeaveModal({
                 {...register('endDate')}
                 className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-3.5 py-2.5 text-xs text-foreground focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20 font-mono"
               />
+              <FieldError message={errors.endDate?.message} />
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-foreground mb-1.5">إجمالي الأيام المطلوبة</label>
-            <input
-              type="number"
-              readOnly
-              {...register('totalDaysRequested', { valueAsNumber: true })}
-              className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface-raised px-4 py-2.5 text-xs text-primary font-black font-mono focus:outline-none"
-            />
-          </div>
+          <p className="rounded-2xl bg-surface-raised px-4 py-2.5 text-[11px] text-foreground-muted leading-relaxed">
+            يتم احتساب أيام العمل تلقائيًا بدون أيام الإجازة الأسبوعية. الحد الأقصى للإجازة السنوية 3 أيام عمل في الطلب الواحد.
+          </p>
 
           <div>
             <label className="block text-xs font-bold text-foreground mb-1.5">السبب / الملاحظات (اختياري)</label>
@@ -1270,7 +1261,7 @@ function CreatePermissionModal({
   } = useForm<CreatePermissionFormData>({
     resolver: zodResolver(createPermissionSchema),
     defaultValues: {
-      date: new Date().toISOString().split('T')[0],
+      date: localDateInputValue(),
       startTime: '10:00',
       endTime: '12:00',
       hoursRequested: 2,
@@ -1281,15 +1272,14 @@ function CreatePermissionModal({
   const startTime = watch('startTime');
   const endTime = watch('endTime');
 
-  // Auto calculate hours
+  // Auto calculate hours (whole hours only; partial hours are flagged by validation)
   useEffect(() => {
     if (startTime && endTime) {
       const [sh, sm] = startTime.split(':').map(Number);
       const [eh, em] = endTime.split(':').map(Number);
       const totalMins = (eh * 60 + em) - (sh * 60 + sm);
       if (totalMins > 0) {
-        const hrs = parseFloat((totalMins / 60).toFixed(1));
-        setValue('hoursRequested', hrs);
+        setValue('hoursRequested', totalMins / 60, { shouldValidate: true });
       }
     }
   }, [startTime, endTime, setValue]);
@@ -1345,6 +1335,7 @@ function CreatePermissionModal({
               {...register('date')}
               className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 text-xs text-foreground focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20 font-mono"
             />
+            <FieldError message={errors.date?.message} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -1355,6 +1346,7 @@ function CreatePermissionModal({
                 {...register('startTime')}
                 className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-3.5 py-2.5 text-xs text-foreground focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20 font-mono"
               />
+              <FieldError message={errors.startTime?.message} />
             </div>
             <div>
               <label className="block text-xs font-bold text-foreground mb-1.5">إلى الساعة</label>
@@ -1363,6 +1355,7 @@ function CreatePermissionModal({
                 {...register('endTime')}
                 className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-3.5 py-2.5 text-xs text-foreground focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20 font-mono"
               />
+              <FieldError message={errors.endTime?.message} />
             </div>
           </div>
 
@@ -1370,11 +1363,12 @@ function CreatePermissionModal({
             <label className="block text-xs font-bold text-foreground mb-1.5">إجمالي الساعات المطلوبة</label>
             <input
               type="number"
-              step="0.5"
+              step="1"
               readOnly
               {...register('hoursRequested', { valueAsNumber: true })}
               className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface-raised px-4 py-2.5 text-xs text-primary font-black font-mono focus:outline-none"
             />
+            <FieldError message={errors.hoursRequested?.message} />
           </div>
 
           <div>
@@ -1385,6 +1379,7 @@ function CreatePermissionModal({
               placeholder="اكتب سبب طلب الإذن بوضوح..."
               className="w-full rounded-2xl border border-border/80 dark:border-white/10 bg-surface/80 px-4 py-2.5 text-xs text-foreground placeholder:text-foreground-subtle focus:bg-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
             />
+            <FieldError message={errors.reason?.message} />
           </div>
         </form>
 

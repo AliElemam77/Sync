@@ -12,6 +12,13 @@ import { Prisma, RequestStatus, LeaveType } from '@prisma/client';
 import { EventsGateway } from '../events/events.gateway';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { AccessScopeService } from '../../common/access/access-scope.service';
+import {
+  MAX_ANNUAL_LEAVE_DAYS_PER_REQUEST,
+  MAX_LEAVE_RANGE_DAYS,
+  calendarDaysBetween,
+  countWorkingDays,
+  toDateOnly,
+} from './leave-policy';
 
 @Injectable()
 export class LeavesService {
@@ -45,18 +52,31 @@ export class LeavesService {
   async createLeaveRequest(userId: string, dto: CreateLeaveDto) {
     const employee = await this.getEmployeeByUserId(userId);
 
-    const start = new Date(dto.startDate);
-    const end = new Date(dto.endDate);
+    const start = toDateOnly(new Date(dto.startDate));
+    const end = toDateOnly(new Date(dto.endDate));
 
     if (start > end) {
       throw new BadRequestException('Start date cannot be after end date.');
     }
+    if (calendarDaysBetween(start, end) > MAX_LEAVE_RANGE_DAYS) {
+      throw new BadRequestException('The selected leave period is too long.');
+    }
 
-    // Balance check for ANNUAL leave
+    // The server counts the days: working days only, weekly days off excluded
+    const totalDaysRequested = countWorkingDays(start, end, employee.shiftType);
+    if (totalDaysRequested === 0) {
+      throw new BadRequestException('The selected dates fall entirely on weekly days off.');
+    }
+
     if (dto.type === LeaveType.ANNUAL) {
-      if (employee.annualLeaveDays < dto.totalDaysRequested) {
+      if (totalDaysRequested > MAX_ANNUAL_LEAVE_DAYS_PER_REQUEST) {
         throw new BadRequestException(
-          `Insufficient annual leave balance. Remaining: ${employee.annualLeaveDays} day(s), requested: ${dto.totalDaysRequested} day(s).`,
+          `Annual leave is limited to ${MAX_ANNUAL_LEAVE_DAYS_PER_REQUEST} working days per request (requested ${totalDaysRequested}).`,
+        );
+      }
+      if (employee.annualLeaveDays < totalDaysRequested) {
+        throw new BadRequestException(
+          `Insufficient annual leave balance. Remaining: ${employee.annualLeaveDays} day(s), requested: ${totalDaysRequested} day(s).`,
         );
       }
     }
@@ -66,7 +86,7 @@ export class LeavesService {
         employeeId: employee.id,
         startDate: start,
         endDate: end,
-        totalDaysRequested: dto.totalDaysRequested,
+        totalDaysRequested,
         type: dto.type,
         status: RequestStatus.PENDING,
         reason: dto.reason,

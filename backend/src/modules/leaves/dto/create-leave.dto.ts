@@ -10,9 +10,11 @@ export class CreateLeaveDto {
   @IsNotEmpty()
   endDate: string;
 
+  // Ignored: the server counts working days between the dates. Accepted so existing clients keep working.
+  @IsOptional()
   @IsInt()
   @Min(1)
-  totalDaysRequested: number;
+  totalDaysRequested?: number;
 
   @IsEnum(LeaveType)
   type: LeaveType;

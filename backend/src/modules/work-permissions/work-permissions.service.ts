@@ -12,6 +12,7 @@ import { Prisma, RequestStatus } from '@prisma/client';
 import { EventsGateway } from '../events/events.gateway';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { AccessScopeService } from '../../common/access/access-scope.service';
+import { MAX_PERMISSION_HOURS, wholeHoursBetween } from './permission-policy';
 
 @Injectable()
 export class WorkPermissionsService {
@@ -45,10 +46,22 @@ export class WorkPermissionsService {
   async createPermissionRequest(userId: string, dto: CreatePermissionRequestDto) {
     const employee = await this.getEmployeeByUserId(userId);
 
+    // When both times are given they define the duration: whole hours only, 1 to MAX_PERMISSION_HOURS
+    let hoursRequested = dto.hoursRequested;
+    if (dto.startTime && dto.endTime) {
+      const hours = wholeHoursBetween(dto.startTime, dto.endTime);
+      if (hours === null || hours > MAX_PERMISSION_HOURS) {
+        throw new BadRequestException(
+          `A permission must span whole hours, from 1 to ${MAX_PERMISSION_HOURS} (e.g. 10:00-12:00).`,
+        );
+      }
+      hoursRequested = hours;
+    }
+
     // Validate monthly permission hours balance
-    if (employee.monthlyPermissionHours < dto.hoursRequested) {
+    if (employee.monthlyPermissionHours < hoursRequested) {
       throw new BadRequestException(
-        `Insufficient monthly permission hours balance. Remaining: ${employee.monthlyPermissionHours} hour(s), requested: ${dto.hoursRequested} hour(s).`,
+        `Insufficient monthly permission hours balance. Remaining: ${employee.monthlyPermissionHours} hour(s), requested: ${hoursRequested} hour(s).`,
       );
     }
 
@@ -58,7 +71,7 @@ export class WorkPermissionsService {
         date: new Date(dto.date),
         startTime: dto.startTime,
         endTime: dto.endTime,
-        hoursRequested: dto.hoursRequested,
+        hoursRequested,
         status: RequestStatus.PENDING,
         reason: dto.reason,
       },

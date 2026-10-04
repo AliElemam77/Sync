@@ -1,4 +1,7 @@
-import { IsDateString, IsInt, IsNotEmpty, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsDateString, IsInt, IsNotEmpty, IsOptional, IsString, Matches, Max, Min } from 'class-validator';
+import { MAX_PERMISSION_HOURS } from '../permission-policy';
+
+const TIME_OF_DAY = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 export class CreatePermissionRequestDto {
   @IsDateString()
@@ -6,16 +9,17 @@ export class CreatePermissionRequestDto {
   date: string;
 
   @IsOptional()
-  @IsString()
+  @Matches(TIME_OF_DAY, { message: 'startTime must be HH:mm' })
   startTime?: string;
 
   @IsOptional()
-  @IsString()
+  @Matches(TIME_OF_DAY, { message: 'endTime must be HH:mm' })
   endTime?: string;
 
-  @IsInt()
+  // Whole hours only; recomputed from startTime/endTime when both are given
+  @IsInt({ message: 'Permissions are requested in whole hours' })
   @Min(1)
-  @Max(8)
+  @Max(MAX_PERMISSION_HOURS)
   hoursRequested: number;
 
   @IsString()

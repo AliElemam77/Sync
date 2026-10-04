@@ -25,6 +25,47 @@ const pendingLeave = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
+describe('LeavesService.createLeaveRequest', () => {
+  let prisma: any;
+  let service: LeavesService;
+
+  beforeEach(() => {
+    prisma = {
+      employeeProfile: {
+        findUnique: jest.fn().mockResolvedValue({ id: 'emp-1', shiftType: 'LS', annualLeaveDays: 10 }),
+      },
+      leaveRequest: { create: jest.fn(({ data }) => data) },
+    };
+    service = new LeavesService(prisma, {} as any, new AccessScopeService(prisma));
+  });
+
+  const request = (startDate: string, endDate: string, extra: Record<string, unknown> = {}) =>
+    service.createLeaveRequest('emp-user', {
+      startDate,
+      endDate,
+      type: LeaveType.ANNUAL,
+      ...extra,
+    } as any);
+
+  it('counts working days on the server and ignores the client total', async () => {
+    // Thursday to Sunday on the 5-day shift: Friday and Saturday are off
+    const leave: any = await request('2026-10-08', '2026-10-11', { totalDaysRequested: 1 });
+    expect(leave.totalDaysRequested).toBe(2);
+  });
+
+  it('limits annual leave to 3 working days per request', async () => {
+    // Sunday to Thursday = 5 working days
+    await expect(request('2026-10-11', '2026-10-15')).rejects.toThrow(BadRequestException);
+    expect(prisma.leaveRequest.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects ranges made only of weekly days off', async () => {
+    await expect(request('2026-10-09', '2026-10-10')).rejects.toThrow(
+      'The selected dates fall entirely on weekly days off.',
+    );
+  });
+});
+
 describe('LeavesService approvals', () => {
   let prisma: any;
   let events: { sendNotification: jest.Mock };

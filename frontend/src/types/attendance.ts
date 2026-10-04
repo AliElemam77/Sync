@@ -98,7 +98,6 @@ export interface PermissionRequest {
 export interface CreateLeaveInput {
   startDate: string;
   endDate: string;
-  totalDaysRequested: number;
   type: LeaveType;
   reason?: string;
 }
