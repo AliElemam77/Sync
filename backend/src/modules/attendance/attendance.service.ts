@@ -14,6 +14,7 @@ import {
   businessToday,
   formatBusinessTime,
 } from '../../common/time/business-time';
+import { permissionMonthRange } from '../work-permissions/permission-policy';
 
 @Injectable()
 export class AttendanceService {
@@ -80,8 +81,9 @@ export class AttendanceService {
 
     const today = this.getTodayDateOnly();
 
-    // Today's record and any approved permissions for today (independent lookups)
-    const [record, approvedPermissions] = await Promise.all([
+    // Today's record, today's approved permissions and this month's approved hours (independent lookups)
+    const month = permissionMonthRange(today);
+    const [record, approvedPermissions, monthUsage] = await Promise.all([
       this.prisma.attendanceRecord.findUnique({
         where: {
           employeeId_date: {
@@ -96,6 +98,14 @@ export class AttendanceService {
           date: today,
           status: RequestStatus.APPROVED,
         },
+      }),
+      this.prisma.permissionRequest.aggregate({
+        where: {
+          employeeId: employee.id,
+          status: RequestStatus.APPROVED,
+          date: { gte: month.start, lt: month.end },
+        },
+        _sum: { hoursRequested: true },
       }),
     ]);
 
@@ -112,7 +122,12 @@ export class AttendanceService {
         fullName: employee.fullName,
         shiftType: employee.shiftType,
         annualLeaveDays: employee.annualLeaveDays,
+        // Monthly allowance, and what is left of it this month (renews every month)
         monthlyPermissionHours: employee.monthlyPermissionHours,
+        remainingPermissionHours: Math.max(
+          employee.monthlyPermissionHours - (monthUsage._sum.hoursRequested ?? 0),
+          0,
+        ),
       },
       approvedPermissionHours,
       approvedPermissions,

@@ -34,7 +34,10 @@ export interface TodayAttendanceStatus {
     fullName: string;
     shiftType: 'RS' | 'LS';
     annualLeaveDays: number;
+    /** Monthly allowance */
     monthlyPermissionHours: number;
+    /** Allowance left in the current month */
+    remainingPermissionHours?: number;
   } | null;
   approvedPermissionHours?: number;
   approvedPermissions?: PermissionRequest[];

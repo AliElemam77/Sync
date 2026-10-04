@@ -75,11 +75,11 @@ describe('LeavesService approvals', () => {
     prisma = {
       leaveRequest: {
         findUnique: jest.fn().mockResolvedValue(pendingLeave()),
-        update: jest.fn().mockImplementation(({ data }) => ({
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: jest.fn().mockResolvedValue({
           ...pendingLeave(),
-          ...data,
           employee: { id: 'emp-1', userId: 'emp-user' },
-        })),
+        }),
       },
       employeeProfile: {
         findUnique: jest.fn().mockResolvedValue({ id: 'emp-1', annualLeaveDays: 10 }),
@@ -98,7 +98,7 @@ describe('LeavesService approvals', () => {
 
     it('lets a Team Leader approve requests from their own department', async () => {
       await service.approveLeaveRequest('leave-1', leaderOf('dept-eng'));
-      expect(prisma.leaveRequest.update).toHaveBeenCalled();
+      expect(prisma.leaveRequest.updateMany).toHaveBeenCalled();
     });
 
     it("forbids a Team Leader from deciding another department's requests", async () => {
@@ -112,7 +112,7 @@ describe('LeavesService approvals', () => {
       const head = makeUser({ id: 'head-user', role: 'EMPLOYEE', employeeId: 'head-emp', departmentId: 'dept-ops' });
 
       await service.rejectLeaveRequest('leave-1', { rejectionReason: 'Release week' }, head);
-      expect(prisma.leaveRequest.update).toHaveBeenCalled();
+      expect(prisma.leaveRequest.updateMany).toHaveBeenCalled();
     });
 
     it('forbids approving your own request', async () => {
@@ -162,10 +162,18 @@ describe('LeavesService approvals', () => {
 
   it('records the rejection reason', async () => {
     await service.rejectLeaveRequest('leave-1', { rejectionReason: 'Peak season' }, makeUser());
-    expect(prisma.leaveRequest.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: { status: RequestStatus.REJECTED, rejectionReason: 'Peak season' },
-      }),
+    expect(prisma.leaveRequest.updateMany).toHaveBeenCalledWith({
+      where: { id: 'leave-1', status: RequestStatus.PENDING },
+      data: { status: RequestStatus.REJECTED, rejectionReason: 'Peak season' },
+    });
+  });
+
+  it('refuses to decide a request another approver already decided', async () => {
+    prisma.leaveRequest.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(service.approveLeaveRequest('leave-1', makeUser())).rejects.toThrow(
+      'This request has already been decided.',
     );
+    expect(prisma.employeeProfile.update).not.toHaveBeenCalled();
   });
 });

@@ -12,7 +12,7 @@ import { Prisma, RequestStatus } from '@prisma/client';
 import { EventsGateway } from '../events/events.gateway';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { AccessScopeService } from '../../common/access/access-scope.service';
-import { MAX_PERMISSION_HOURS, wholeHoursBetween } from './permission-policy';
+import { MAX_PERMISSION_HOURS, permissionMonthRange, wholeHoursBetween } from './permission-policy';
 
 @Injectable()
 export class WorkPermissionsService {
@@ -40,6 +40,24 @@ export class WorkPermissionsService {
     return employee;
   }
 
+  /** Hours already approved in the calendar month a permission date falls in */
+  private async getApprovedHoursInMonth(
+    client: Pick<Prisma.TransactionClient, 'permissionRequest'>,
+    employeeId: string,
+    date: Date,
+  ): Promise<number> {
+    const { start, end } = permissionMonthRange(date);
+    const { _sum } = await client.permissionRequest.aggregate({
+      where: {
+        employeeId,
+        status: RequestStatus.APPROVED,
+        date: { gte: start, lt: end },
+      },
+      _sum: { hoursRequested: true },
+    });
+    return _sum.hoursRequested ?? 0;
+  }
+
   /**
    * Submit a new Work Permission Request (الأذونات)
    */
@@ -58,10 +76,13 @@ export class WorkPermissionsService {
       hoursRequested = hours;
     }
 
-    // Validate monthly permission hours balance
-    if (employee.monthlyPermissionHours < hoursRequested) {
+    // The allowance renews monthly: compare with what is left in the permission's month
+    const remaining =
+      employee.monthlyPermissionHours -
+      (await this.getApprovedHoursInMonth(this.prisma, employee.id, new Date(dto.date)));
+    if (remaining < hoursRequested) {
       throw new BadRequestException(
-        `Insufficient monthly permission hours balance. Remaining: ${employee.monthlyPermissionHours} hour(s), requested: ${hoursRequested} hour(s).`,
+        `Insufficient monthly permission hours balance. Remaining this month: ${Math.max(remaining, 0)} hour(s), requested: ${hoursRequested} hour(s).`,
       );
     }
 
@@ -168,36 +189,33 @@ export class WorkPermissionsService {
       throw new BadRequestException(`Cannot approve request that is already ${permission.status}.`);
     }
 
-    // Execute atomic transaction for safe balance decrement
     const result = await this.prisma.$transaction(async (tx) => {
-      // Re-verify balance in atomic block
+      // Re-verify what is left of the monthly allowance for the permission's month
       const latestEmployee = await tx.employeeProfile.findUnique({
         where: { id: permission.employeeId },
+        select: { monthlyPermissionHours: true },
       });
+      const remaining =
+        (latestEmployee?.monthlyPermissionHours ?? 0) -
+        (await this.getApprovedHoursInMonth(tx, permission.employeeId, permission.date));
 
-      if (!latestEmployee || latestEmployee.monthlyPermissionHours < permission.hoursRequested) {
+      if (remaining < permission.hoursRequested) {
         throw new BadRequestException(
-          `Insufficient balance to approve. Employee has ${latestEmployee?.monthlyPermissionHours || 0} hour(s) remaining, requested ${permission.hoursRequested}.`,
+          `Insufficient balance to approve. Employee has ${Math.max(remaining, 0)} hour(s) left this month, requested ${permission.hoursRequested}.`,
         );
       }
 
-      // Safely decrement monthly permission hours
-      await tx.employeeProfile.update({
-        where: { id: permission.employeeId },
-        data: {
-          monthlyPermissionHours: {
-            decrement: permission.hoursRequested,
-          },
-        },
+      // Claim the request only if it is still pending, so concurrent decisions cannot both apply
+      const { count } = await tx.permissionRequest.updateMany({
+        where: { id: permission.id, status: RequestStatus.PENDING },
+        data: { status: RequestStatus.APPROVED, rejectionReason: null },
       });
+      if (count === 0) {
+        throw new BadRequestException('This request has already been decided.');
+      }
 
-      // Mark request as APPROVED
-      const updatedPermission = await tx.permissionRequest.update({
+      const updatedPermission = await tx.permissionRequest.findUniqueOrThrow({
         where: { id: permission.id },
-        data: {
-          status: RequestStatus.APPROVED,
-          rejectionReason: null,
-        },
         include: {
           employee: {
             select: {
@@ -258,12 +276,20 @@ export class WorkPermissionsService {
       throw new BadRequestException(`Cannot reject request that is already ${permission.status}.`);
     }
 
-    const updatedPermission = await this.prisma.permissionRequest.update({
-      where: { id },
+    // Conditional transition: fails if the request was decided in the meantime
+    const { count } = await this.prisma.permissionRequest.updateMany({
+      where: { id, status: RequestStatus.PENDING },
       data: {
         status: RequestStatus.REJECTED,
         rejectionReason: dto.rejectionReason,
       },
+    });
+    if (count === 0) {
+      throw new BadRequestException('This request has already been decided.');
+    }
+
+    const updatedPermission = await this.prisma.permissionRequest.findUniqueOrThrow({
+      where: { id },
       include: {
         employee: {
           select: {

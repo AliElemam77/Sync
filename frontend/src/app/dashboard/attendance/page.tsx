@@ -611,10 +611,15 @@ export default function AttendancePage() {
               <div className="p-3.5 rounded-2xl bg-surface border border-border flex items-center justify-between">
                 <div>
                   <span className="text-xs font-bold text-foreground">الأذونات الشهرية</span>
-                  <p className="text-[10px] text-foreground-muted">المسموح به للشهر الحالي</p>
+                  <p className="text-[10px] text-foreground-muted">
+                    المتبقي هذا الشهر من {todayStatus?.employee?.monthlyPermissionHours ?? 4} ساعات (يتجدد أول كل شهر)
+                  </p>
                 </div>
                 <div className="text-xl font-black font-mono text-amber-500">
-                  {todayStatus?.employee?.monthlyPermissionHours ?? 4} <span className="text-xs">ساعات</span>
+                  {todayStatus?.employee?.remainingPermissionHours ??
+                    todayStatus?.employee?.monthlyPermissionHours ??
+                    4}{' '}
+                  <span className="text-xs">ساعات</span>
                 </div>
               </div>
             </div>

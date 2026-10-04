@@ -187,6 +187,15 @@ export class LeavesService {
 
     // Execute atomic transaction for safe balance decrement
     const result = await this.prisma.$transaction(async (tx) => {
+      // Claim the request only if it is still pending, so concurrent approvals cannot both deduct
+      const { count } = await tx.leaveRequest.updateMany({
+        where: { id: leave.id, status: RequestStatus.PENDING },
+        data: { status: RequestStatus.APPROVED, rejectionReason: null },
+      });
+      if (count === 0) {
+        throw new BadRequestException('This request has already been decided.');
+      }
+
       if (leave.type === LeaveType.ANNUAL) {
         // Re-verify balance in atomic block
         const latestEmployee = await tx.employeeProfile.findUnique({
@@ -210,13 +219,8 @@ export class LeavesService {
         });
       }
 
-      // Mark request as APPROVED
-      const updatedLeave = await tx.leaveRequest.update({
+      const updatedLeave = await tx.leaveRequest.findUniqueOrThrow({
         where: { id: leave.id },
-        data: {
-          status: RequestStatus.APPROVED,
-          rejectionReason: null,
-        },
         include: {
           employee: {
             select: {
@@ -273,12 +277,20 @@ export class LeavesService {
       throw new BadRequestException(`Cannot reject leave that is already ${leave.status}.`);
     }
 
-    const updatedLeave = await this.prisma.leaveRequest.update({
-      where: { id },
+    // Conditional transition: fails if the request was decided in the meantime
+    const { count } = await this.prisma.leaveRequest.updateMany({
+      where: { id, status: RequestStatus.PENDING },
       data: {
         status: RequestStatus.REJECTED,
         rejectionReason: dto.rejectionReason,
       },
+    });
+    if (count === 0) {
+      throw new BadRequestException('This request has already been decided.');
+    }
+
+    const updatedLeave = await this.prisma.leaveRequest.findUniqueOrThrow({
+      where: { id },
       include: {
         employee: {
           select: {
