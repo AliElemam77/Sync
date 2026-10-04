@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { PrismaModule } from './prisma/prisma.module';
+import { AccessModule } from './common/access/access.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { OrganizationModule } from './modules/organization/organization.module';
@@ -27,6 +28,7 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
       envFilePath: '.env',
     }),
     PrismaModule,
+    AccessModule,
     AuditModule,
     AuthModule,
     OrganizationModule,

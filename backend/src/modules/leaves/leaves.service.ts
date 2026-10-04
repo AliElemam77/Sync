@@ -8,14 +8,17 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateLeaveDto } from './dto/create-leave.dto';
 import { RejectLeaveDto } from './dto/reject-leave.dto';
 import { LeaveQueryDto } from './dto/leave-query.dto';
-import { RequestStatus, LeaveType } from '@prisma/client';
+import { Prisma, RequestStatus, LeaveType } from '@prisma/client';
 import { EventsGateway } from '../events/events.gateway';
+import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+import { AccessScopeService } from '../../common/access/access-scope.service';
 
 @Injectable()
 export class LeavesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventsGateway: EventsGateway,
+    private readonly access: AccessScopeService,
   ) {}
 
   /**
@@ -93,28 +96,21 @@ export class LeavesService {
   /**
    * Get Leave Requests with Dynamic Role & Department Scoping
    */
-  async getLeaveRequests(query: LeaveQueryDto, currentUser: any) {
-    const roleName = typeof currentUser.role === 'string' ? currentUser.role : currentUser.role?.name;
-    const isSuperAdminOrHR = ['SUPER_ADMIN', 'HR_MANAGER'].includes(roleName || '');
-
-    const currentEmp = await this.prisma.employeeProfile.findUnique({
-      where: { userId: currentUser.id },
-    });
-
-    const where: any = {};
+  async getLeaveRequests(query: LeaveQueryDto, currentUser: AuthenticatedUser) {
+    const where: Prisma.LeaveRequestWhereInput = {};
 
     if (query.status) where.status = query.status;
     if (query.type) where.type = query.type;
 
-    if (isSuperAdminOrHR) {
+    if (this.access.isHrAdmin(currentUser)) {
       if (query.employeeId) where.employeeId = query.employeeId;
       if (query.departmentId) where.employee = { departmentId: query.departmentId };
     } else {
       // Non-HR users (including Team Leaders) see only their own requests
-      if (!currentEmp) {
+      if (!currentUser.employeeId) {
         return [];
       }
-      where.employeeId = currentEmp.id;
+      where.employeeId = currentUser.employeeId;
     }
 
     const leaves = await this.prisma.leaveRequest.findMany({
@@ -147,10 +143,8 @@ export class LeavesService {
   /**
    * Approve Leave Request with Atomic Balance Deduction & Attendance Synchronization
    */
-  async approveLeaveRequest(id: string, approverUser: any) {
-    const roleName = typeof approverUser.role === 'string' ? approverUser.role : approverUser.role?.name;
-    const isSuperAdminOrHR = ['SUPER_ADMIN', 'HR_MANAGER'].includes(roleName || '');
-    if (!isSuperAdminOrHR) {
+  async approveLeaveRequest(id: string, approverUser: AuthenticatedUser) {
+    if (!this.access.isHrAdmin(approverUser)) {
       throw new ForbiddenException('Only HR Managers or Admins have the authority to approve leaves.');
     }
 
@@ -235,10 +229,8 @@ export class LeavesService {
   /**
    * Reject Leave Request with Reason
    */
-  async rejectLeaveRequest(id: string, dto: RejectLeaveDto, rejectorUser: any) {
-    const roleName = typeof rejectorUser.role === 'string' ? rejectorUser.role : rejectorUser.role?.name;
-    const isSuperAdminOrHR = ['SUPER_ADMIN', 'HR_MANAGER'].includes(roleName || '');
-    if (!isSuperAdminOrHR) {
+  async rejectLeaveRequest(id: string, dto: RejectLeaveDto, rejectorUser: AuthenticatedUser) {
+    if (!this.access.isHrAdmin(rejectorUser)) {
       throw new ForbiddenException('Only HR Managers or Admins have the authority to reject leaves.');
     }
 

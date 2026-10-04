@@ -13,12 +13,14 @@ import { CreateTaskCommentDto } from './dto/create-task-comment.dto';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Prisma, TaskStatus, TaskAssignmentType } from '@prisma/client';
 import { EventsGateway } from '../events/events.gateway';
+import { AccessScopeService } from '../../common/access/access-scope.service';
 
 @Injectable()
 export class TasksService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventsGateway: EventsGateway,
+    private readonly access: AccessScopeService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -38,14 +40,6 @@ export class TasksService {
   // ---------------------------------------------------------------------------
   // HELPERS: TASK VISIBILITY & ACTOR ROLES
   // ---------------------------------------------------------------------------
-
-  private isTaskAdmin(user: AuthenticatedUser): boolean {
-    return ['SUPER_ADMIN', 'HR_MANAGER'].includes(user.role);
-  }
-
-  private isLeader(user: AuthenticatedUser): boolean {
-    return user.role === 'TEAM_LEADER' || user.permissions.includes('org.manage');
-  }
 
   // Non-admins see tasks they are assigned, created, or that target their department
   private relevantTasksFilter(employee: { id: string; departmentId: string }): Prisma.TaskWhereInput {
@@ -74,7 +68,7 @@ export class TasksService {
     task: { creatorId: string; assigneeId: string | null; targetDepartmentId: string | null },
     user: AuthenticatedUser,
   ) {
-    if (this.isTaskAdmin(user)) return;
+    if (this.access.isHrAdmin(user)) return;
     const employee = await this.getEmployeeProfile(user.id);
     if (!this.isTaskRelevantTo(task, employee)) {
       throw new NotFoundException('Task not found');
@@ -150,8 +144,7 @@ export class TasksService {
       }
 
       // Rule: Regular agents cannot route department tasks to their own department
-      const isAgent = user.role === 'EMPLOYEE' && !user.permissions.includes('org.manage');
-      if (isAgent && creatorEmployee.departmentId === dept.id) {
+      if (this.access.isAgent(user) && creatorEmployee.departmentId === dept.id) {
         throw new BadRequestException(
           'Agents cannot route department tasks to their own department. Please assign to yourself or select another department.',
         );
@@ -169,10 +162,8 @@ export class TasksService {
 
       // Rule: Regular agents can only assign to themselves. Only Team Leaders / Admins can assign to colleagues.
       const isAssigningToSelf = assignee.id === creatorEmployee.id;
-      const isAdmin = ['SUPER_ADMIN', 'HR_MANAGER'].includes(user.role);
-      const isTeamLeader = user.role === 'TEAM_LEADER' || user.permissions.includes('org.manage');
 
-      if (!isAssigningToSelf && !isTeamLeader && !isAdmin) {
+      if (!isAssigningToSelf && !this.access.isTaskLeader(user) && !this.access.isHrAdmin(user)) {
         throw new ForbiddenException(
           'Regular agents can only assign tasks to themselves or request tasks from other departments. Only Team Leaders and Managers can assign tasks to colleagues.',
         );
@@ -251,7 +242,7 @@ export class TasksService {
     const { assigneeId, targetDepartmentId, creatorId, status, priority, assignmentType, search } = query;
 
     const employee = user ? await this.getEmployeeProfile(user.id) : null;
-    const isAdmin = user ? this.isTaskAdmin(user) : false;
+    const isAdmin = user ? this.access.isHrAdmin(user) : false;
 
     const filters: Prisma.TaskWhereInput = {
       ...(assigneeId && { assigneeId }),
@@ -321,8 +312,8 @@ export class TasksService {
   // ---------------------------------------------------------------------------
 
   async getDepartmentBacklog(user: AuthenticatedUser) {
-    const isAdmin = ['SUPER_ADMIN', 'HR_MANAGER'].includes(user.role);
-    const isLeader = user.role === 'TEAM_LEADER' || user.permissions.includes('org.manage');
+    const isAdmin = this.access.isHrAdmin(user);
+    const isLeader = this.access.isTaskLeader(user);
 
     // Regular agents do not have access to unassigned department backlog
     if (!isLeader && !isAdmin) {
@@ -430,7 +421,7 @@ export class TasksService {
     const task = await this.findTaskOrThrow(id);
     const actorEmployee = await this.getEmployeeProfile(user.id);
 
-    const isAdmin = this.isTaskAdmin(user);
+    const isAdmin = this.access.isHrAdmin(user);
     const isCreator = task.creator?.userId === user.id;
     const isAssignee = task.assignee?.userId === user.id;
 
@@ -439,7 +430,7 @@ export class TasksService {
       actorEmployee &&
         task.targetDepartmentId &&
         actorEmployee.departmentId === task.targetDepartmentId &&
-        this.isLeader(user),
+        this.access.isTaskLeader(user),
     );
 
     // Reordering or commenting without a status change still requires a relationship to the task
@@ -509,7 +500,7 @@ export class TasksService {
     const task = await this.findTaskOrThrow(id);
     const actorEmployee = await this.getEmployeeProfile(user.id);
 
-    const isAdmin = this.isTaskAdmin(user);
+    const isAdmin = this.access.isHrAdmin(user);
     const isCreator = task.creator?.userId === user.id;
     const isAssignee = task.assignee?.userId === user.id;
 
@@ -518,7 +509,7 @@ export class TasksService {
       actorEmployee &&
         task.targetDepartmentId &&
         actorEmployee.departmentId === task.targetDepartmentId &&
-        this.isLeader(user),
+        this.access.isTaskLeader(user),
     );
 
     if (!isAdmin && !isCreator && !isAssignee && !isTargetTeamLeader) {
@@ -614,7 +605,7 @@ export class TasksService {
     if (!author) {
       throw new BadRequestException('Authenticated user must have an employee profile to post comments.');
     }
-    if (!this.isTaskAdmin(user) && !this.isTaskRelevantTo(task, author)) {
+    if (!this.access.isHrAdmin(user) && !this.isTaskRelevantTo(task, author)) {
       throw new NotFoundException('Task not found');
     }
 
@@ -643,7 +634,7 @@ export class TasksService {
   async deleteTask(id: string, user: AuthenticatedUser) {
     const task = await this.findTaskOrThrow(id);
 
-    const isAdmin = this.isTaskAdmin(user);
+    const isAdmin = this.access.isHrAdmin(user);
     const isCreator = task.creator?.userId === user.id;
 
     if (!isCreator && !isAdmin) {

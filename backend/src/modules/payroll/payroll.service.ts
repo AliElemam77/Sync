@@ -9,6 +9,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { GeneratePayrollDto } from './dto/generate-payroll.dto';
 import { QueryPayrollCyclesDto } from './dto/query-payroll-cycles.dto';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+import { AccessScopeService } from '../../common/access/access-scope.service';
 import {
   PayrollCycleStatus,
   AdjustmentType,
@@ -19,7 +20,10 @@ import {
 export class PayrollService {
   private readonly logger = new Logger(PayrollService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly access: AccessScopeService,
+  ) {}
 
   // ---------------------------------------------------------------------------
   // 1. GENERATE PAYROLL CYCLE & CALCULATE COMPLIANT SALARIES
@@ -451,10 +455,9 @@ export class PayrollService {
 
     // Permission check: If not HR / Admin, user must be the owner
     const canManagePayroll =
-      user.permissions.includes('payroll.manage') ||
-      user.permissions.includes('payroll.view') ||
-      user.role === 'SUPER_ADMIN' ||
-      user.role === 'HR_MANAGER';
+      this.access.hasPermission(user, 'payroll.manage') ||
+      this.access.hasPermission(user, 'payroll.view') ||
+      this.access.isHrAdmin(user);
 
     if (!canManagePayroll && payslip.employee.userId !== user.id) {
       throw new ForbiddenException('ليس لديك صلاحية للاطلاع على قسيمة راتب موظف آخر.');

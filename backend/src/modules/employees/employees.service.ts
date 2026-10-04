@@ -11,11 +11,15 @@ import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { QueryEmployeesDto } from './dto/query-employees.dto';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+import { AccessScopeService } from '../../common/access/access-scope.service';
 import { Prisma, ShiftType } from '@prisma/client';
 
 @Injectable()
 export class EmployeesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly access: AccessScopeService,
+  ) {}
 
   // ---------------------------------------------------------------------------
   // AUTO-SEQUENTIAL CODE GENERATION (TAR0001, TAR0002, ...)
@@ -192,7 +196,7 @@ export class EmployeesService {
     const skip = (page - 1) * limit;
 
     const scopedDepartmentIds = currentUser
-      ? await this.resolveDirectoryScope(currentUser)
+      ? await this.access.resolveDirectoryScope(currentUser)
       : null;
 
     const where: Prisma.EmployeeProfileWhereInput = {
@@ -276,7 +280,7 @@ export class EmployeesService {
 
     // Same visibility as the directory list: users may open profiles they can see there, plus their own
     if (currentUser && employee.userId !== currentUser.id) {
-      const scopedDepartmentIds = await this.resolveDirectoryScope(currentUser);
+      const scopedDepartmentIds = await this.access.resolveDirectoryScope(currentUser);
       if (scopedDepartmentIds !== null && !scopedDepartmentIds.includes(employee.departmentId)) {
         throw new NotFoundException(`Employee with ID '${id}' not found`);
       }
@@ -482,7 +486,7 @@ export class EmployeesService {
 
     if (!changesAccount) return;
 
-    const actorIsSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
+    const actorIsSuperAdmin = !!currentUser && this.access.isSuperAdmin(currentUser);
 
     // Only a Super Admin may change a Super Admin's login, password, activation or role
     if (targetRoleName === 'SUPER_ADMIN' && !actorIsSuperAdmin) {
@@ -491,8 +495,7 @@ export class EmployeesService {
 
     if (dto.roleId === undefined) return;
 
-    const canManageRoles =
-      actorIsSuperAdmin || currentUser?.permissions?.includes('roles.manage');
+    const canManageRoles = !!currentUser && this.access.hasPermission(currentUser, 'roles.manage');
     if (!canManageRoles) {
       throw new ForbiddenException('Changing user roles requires the roles.manage permission.');
     }
@@ -514,80 +517,14 @@ export class EmployeesService {
   }
 
   // ---------------------------------------------------------------------------
-  // DIRECTORY SCOPE (departments the requesting user may see; null = whole company)
-  // ---------------------------------------------------------------------------
-
-  private async resolveDirectoryScope(currentUser: AuthenticatedUser): Promise<string[] | null> {
-    const roleName = currentUser.role?.toUpperCase() || '';
-    const isSuperAdminOrAdmin = [
-      'SUPER_ADMIN',
-      'ADMIN',
-      'HR_MANAGER',
-      'GENERAL_MANAGER',
-      'EXECUTIVE_MANAGER',
-      'DIRECTOR',
-    ].includes(roleName);
-
-    if (isSuperAdminOrAdmin) return null;
-
-    const actorEmployee = await this.prisma.employeeProfile.findUnique({
-      where: { userId: currentUser.id },
-      include: { department: true, position: true },
-    });
-
-    const deptCode = actorEmployee?.department?.code?.toUpperCase() || '';
-    const deptName = actorEmployee?.department?.name?.toLowerCase() || '';
-
-    const isHR =
-      ['HR', 'HRD', 'HUMAN_RESOURCES'].includes(deptCode) ||
-      deptName.includes('موارد بشرية') ||
-      deptName.includes('hr');
-
-    const isMgmt =
-      ['MGMT', 'MGT', 'CORP', 'ADMIN', 'EXEC', 'HQ', 'BOARD'].includes(deptCode) ||
-      deptName.includes('إدارة عامة') ||
-      deptName.includes('management') ||
-      deptName.includes('executive');
-
-    if (isHR || isMgmt) return null;
-
-    if (!actorEmployee?.id) return [];
-
-    const posName = actorEmployee.position?.name?.toLowerCase() || '';
-    const isHead =
-      roleName.includes('HEAD') ||
-      posName.includes('head') ||
-      posName.includes('رئيس') ||
-      posName.includes('مدير إدارة');
-
-    if (isHead) {
-      // A Head oversees their home department PLUS all departments they manage as headId
-      const managedDepts = await this.prisma.department.findMany({
-        where: {
-          OR: [
-            { headId: actorEmployee.id },
-            { id: actorEmployee.departmentId },
-          ],
-        },
-        select: { id: true },
-      });
-      return managedDepts.map((d) => d.id);
-    }
-
-    // Team Leaders and Agents see their own department (team members / colleagues)
-    return [actorEmployee.departmentId];
-  }
-
-  // ---------------------------------------------------------------------------
   // DATA MASKING UTILITY (RBAC Field-Level Privacy)
   // ---------------------------------------------------------------------------
 
   private maskSensitiveData(employee: any, currentUser?: AuthenticatedUser) {
     if (!employee) return null;
 
-    const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
     const canManageSalary =
-      currentUser?.permissions?.includes('employees.manage_salary') || isSuperAdmin;
+      !!currentUser && this.access.hasPermission(currentUser, 'employees.manage_salary');
 
     if (!canManageSalary && employee.bankInfo) {
       employee.bankInfo = {

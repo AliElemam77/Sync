@@ -4,16 +4,18 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { AttendanceStatus, RequestStatus, ShiftType } from '@prisma/client';
+import { AttendanceStatus, Prisma, RequestStatus, ShiftType } from '@prisma/client';
 import { AttendanceQueryDto } from './dto/attendance-query.dto';
 import { EventsGateway } from '../events/events.gateway';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+import { AccessScopeService } from '../../common/access/access-scope.service';
 
 @Injectable()
 export class AttendanceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventsGateway: EventsGateway,
+    private readonly access: AccessScopeService,
   ) {}
 
   /**
@@ -46,13 +48,8 @@ export class AttendanceService {
   /**
    * Get today's attendance status & live shift data for authenticated user
    */
-  async getTodayStatus(userId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: { role: true },
-    });
-
-    if (user?.role?.name === 'SUPER_ADMIN') {
+  async getTodayStatus(user: AuthenticatedUser) {
+    if (this.access.isSuperAdmin(user)) {
       return {
         isSuperAdmin: true,
         employee: null,
@@ -63,7 +60,7 @@ export class AttendanceService {
     }
 
     const employee = await this.prisma.employeeProfile.findUnique({
-      where: { userId },
+      where: { userId: user.id },
       include: { department: true, position: true },
     });
 
@@ -271,42 +268,31 @@ export class AttendanceService {
   /**
    * Query Attendance Records with Scoped Permissions
    */
-  async getRecords(query: AttendanceQueryDto, currentUser: any) {
-    const roleName = typeof currentUser.role === 'string' ? currentUser.role : currentUser.role?.name;
-    const isSuperAdminOrHR = ['SUPER_ADMIN', 'HR_MANAGER'].includes(roleName || '');
-    const isTeamLeader = roleName === 'TEAM_LEADER';
-
-    const currentEmp = await this.prisma.employeeProfile.findUnique({
-      where: { userId: currentUser.id },
-    });
-
-    const where: any = {};
+  async getRecords(query: AttendanceQueryDto, currentUser: AuthenticatedUser) {
+    const where: Prisma.AttendanceRecordWhereInput = {};
 
     if (query.startDate || query.endDate) {
-      where.date = {};
-      if (query.startDate) {
-        where.date.gte = new Date(query.startDate);
-      }
-      if (query.endDate) {
-        where.date.lte = new Date(query.endDate);
-      }
+      where.date = {
+        ...(query.startDate && { gte: new Date(query.startDate) }),
+        ...(query.endDate && { lte: new Date(query.endDate) }),
+      };
     }
 
-    if (isSuperAdminOrHR) {
+    if (this.access.isHrAdmin(currentUser)) {
       if (query.employeeId) where.employeeId = query.employeeId;
       if (query.departmentId) where.employee = { departmentId: query.departmentId };
-    } else if (isTeamLeader) {
-      if (!currentEmp?.departmentId) {
+    } else if (this.access.isTeamLeader(currentUser)) {
+      if (!currentUser.departmentId) {
         throw new ForbiddenException('Team Leader profile has no associated department.');
       }
-      where.employee = { departmentId: currentEmp.departmentId };
+      where.employee = { departmentId: currentUser.departmentId };
       if (query.employeeId) where.employeeId = query.employeeId;
     } else {
       // Regular Employee: Strictly restrict to own records
-      if (!currentEmp) {
+      if (!currentUser.employeeId) {
         return [];
       }
-      where.employeeId = currentEmp.id;
+      where.employeeId = currentUser.employeeId;
     }
 
     const records = await this.prisma.attendanceRecord.findMany({
@@ -345,24 +331,17 @@ export class AttendanceService {
     currentUser: AuthenticatedUser,
   ) {
     // Same visibility rules as getRecords: HR/Admin any employee, Team Leader own department, others self
-    const isSuperAdminOrHR = ['SUPER_ADMIN', 'HR_MANAGER'].includes(currentUser.role);
-    if (!isSuperAdminOrHR) {
-      const [currentEmp, targetEmp] = await Promise.all([
-        this.prisma.employeeProfile.findUnique({
-          where: { userId: currentUser.id },
-          select: { id: true, departmentId: true },
-        }),
-        this.prisma.employeeProfile.findUnique({
+    if (!this.access.isHrAdmin(currentUser)) {
+      const isSelf = !!currentUser.employeeId && currentUser.employeeId === employeeId;
+
+      let isTeamLeaderOfTarget = false;
+      if (!isSelf && this.access.isTeamLeader(currentUser) && currentUser.departmentId) {
+        const targetEmp = await this.prisma.employeeProfile.findUnique({
           where: { id: employeeId },
           select: { departmentId: true },
-        }),
-      ]);
-
-      const isSelf = currentEmp?.id === employeeId;
-      const isTeamLeaderOfTarget =
-        currentUser.role === 'TEAM_LEADER' &&
-        !!currentEmp &&
-        targetEmp?.departmentId === currentEmp.departmentId;
+        });
+        isTeamLeaderOfTarget = targetEmp?.departmentId === currentUser.departmentId;
+      }
 
       if (!isSelf && !isTeamLeaderOfTarget) {
         throw new ForbiddenException('You do not have access to this employee attendance summary.');

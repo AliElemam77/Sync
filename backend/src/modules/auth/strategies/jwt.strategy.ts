@@ -32,6 +32,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
         email: true,
         isActive: true,
         roleId: true,
+        employeeProfile: { select: { id: true, departmentId: true } },
         role: {
           select: {
             name: true,
@@ -61,6 +62,8 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       roleId: user.roleId,
       role: user.role.name,
       permissions,
+      employeeId: user.employeeProfile?.id ?? null,
+      departmentId: user.employeeProfile?.departmentId ?? null,
     };
   }
 }

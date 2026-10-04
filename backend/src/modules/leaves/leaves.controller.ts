@@ -12,7 +12,7 @@ import { LeavesService } from './leaves.service';
 import { CreateLeaveDto } from './dto/create-leave.dto';
 import { RejectLeaveDto } from './dto/reject-leave.dto';
 import { LeaveQueryDto } from './dto/leave-query.dto';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
 
 @Controller('api/v1/leaves')
@@ -26,7 +26,7 @@ export class LeavesController {
   @RequirePermissions('leaves.request')
   async createLeave(
     @Body() dto: CreateLeaveDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.leavesService.createLeaveRequest(user.id, dto);
   }
@@ -37,7 +37,7 @@ export class LeavesController {
   @Get()
   async getLeaves(
     @Query() query: LeaveQueryDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.leavesService.getLeaveRequests(query, user);
   }
@@ -49,7 +49,7 @@ export class LeavesController {
   @RequirePermissions('leaves.approve')
   async approveLeave(
     @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.leavesService.approveLeaveRequest(id, user);
   }
@@ -62,7 +62,7 @@ export class LeavesController {
   async rejectLeave(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RejectLeaveDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.leavesService.rejectLeaveRequest(id, dto, user);
   }

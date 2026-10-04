@@ -12,7 +12,7 @@ import { WorkPermissionsService } from './work-permissions.service';
 import { CreatePermissionRequestDto } from './dto/create-permission-request.dto';
 import { RejectPermissionRequestDto } from './dto/reject-permission-request.dto';
 import { PermissionQueryDto } from './dto/permission-query.dto';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
 
 @Controller('api/v1/work-permissions')
@@ -26,7 +26,7 @@ export class WorkPermissionsController {
   @RequirePermissions('leaves.request')
   async createPermission(
     @Body() dto: CreatePermissionRequestDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.workPermissionsService.createPermissionRequest(user.id, dto);
   }
@@ -37,7 +37,7 @@ export class WorkPermissionsController {
   @Get()
   async getPermissions(
     @Query() query: PermissionQueryDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.workPermissionsService.getPermissionRequests(query, user);
   }
@@ -49,7 +49,7 @@ export class WorkPermissionsController {
   @RequirePermissions('leaves.approve')
   async approvePermission(
     @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.workPermissionsService.approvePermissionRequest(id, user);
   }
@@ -62,7 +62,7 @@ export class WorkPermissionsController {
   async rejectPermission(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RejectPermissionRequestDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.workPermissionsService.rejectPermissionRequest(id, dto, user);
   }

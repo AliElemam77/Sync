@@ -12,7 +12,7 @@ import {
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { ChatService } from './chat.service';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { CreateDirectConversationDto } from './dto/create-direct-conversation.dto';
 import { SendMessageDto } from './dto/send-message.dto';
@@ -30,7 +30,7 @@ export class ChatController {
    * Get all active conversations and groups for the authenticated user
    */
   @Get('conversations')
-  async getConversations(@CurrentUser() user: any) {
+  async getConversations(@CurrentUser() user: AuthenticatedUser) {
     return this.chatService.getConversations(user.id);
   }
 
@@ -40,7 +40,7 @@ export class ChatController {
   @Get('conversations/:id')
   async getConversationById(
     @Param('id', ParseUUIDPipe) conversationId: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.chatService.getConversationById(conversationId, user.id);
   }
@@ -51,7 +51,7 @@ export class ChatController {
   @Get('conversations/:id/messages')
   async getMessages(
     @Param('id', ParseUUIDPipe) conversationId: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
   ) {
@@ -69,7 +69,7 @@ export class ChatController {
   @Post('conversations/direct')
   async getOrCreateDirectConversation(
     @Body() dto: CreateDirectConversationDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.chatService.getOrCreateDirectConversation(user.id, dto.targetUserId);
   }
@@ -80,7 +80,7 @@ export class ChatController {
   @Post('conversations/group')
   async createGroup(
     @Body() dto: CreateGroupDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.chatService.createGroup(user.id, dto);
   }
@@ -91,7 +91,7 @@ export class ChatController {
   @Post('messages')
   async sendMessage(
     @Body() dto: SendMessageDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.chatService.sendMessage(user.id, dto);
   }
@@ -103,7 +103,7 @@ export class ChatController {
   async editMessage(
     @Param('id', ParseUUIDPipe) messageId: string,
     @Body() dto: EditMessageDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.chatService.editMessage(messageId, user.id, dto.content);
   }
@@ -114,7 +114,7 @@ export class ChatController {
   @Delete('messages/:id')
   async deleteMessage(
     @Param('id', ParseUUIDPipe) messageId: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.chatService.deleteMessage(messageId, user.id);
   }
@@ -126,7 +126,7 @@ export class ChatController {
   async toggleReaction(
     @Param('id', ParseUUIDPipe) messageId: string,
     @Body() dto: ToggleReactionDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.chatService.toggleReaction(messageId, user.id, dto.emoji);
   }
@@ -138,7 +138,7 @@ export class ChatController {
   async addParticipants(
     @Param('id', ParseUUIDPipe) conversationId: string,
     @Body() dto: AddParticipantsDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.chatService.addParticipants(conversationId, user.id, dto);
   }
@@ -149,7 +149,7 @@ export class ChatController {
   @Patch('conversations/:id/read')
   async markAsRead(
     @Param('id', ParseUUIDPipe) conversationId: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.chatService.markAsRead(conversationId, user.id);
   }

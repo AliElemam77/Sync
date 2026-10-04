@@ -8,14 +8,17 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePermissionRequestDto } from './dto/create-permission-request.dto';
 import { RejectPermissionRequestDto } from './dto/reject-permission-request.dto';
 import { PermissionQueryDto } from './dto/permission-query.dto';
-import { RequestStatus } from '@prisma/client';
+import { Prisma, RequestStatus } from '@prisma/client';
 import { EventsGateway } from '../events/events.gateway';
+import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+import { AccessScopeService } from '../../common/access/access-scope.service';
 
 @Injectable()
 export class WorkPermissionsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventsGateway: EventsGateway,
+    private readonly access: AccessScopeService,
   ) {}
 
   /**
@@ -84,27 +87,20 @@ export class WorkPermissionsService {
   /**
    * Get Work Permission Requests (Role & Department Scoped)
    */
-  async getPermissionRequests(query: PermissionQueryDto, currentUser: any) {
-    const roleName = typeof currentUser.role === 'string' ? currentUser.role : currentUser.role?.name;
-    const isSuperAdminOrHR = ['SUPER_ADMIN', 'HR_MANAGER'].includes(roleName || '');
-
-    const currentEmp = await this.prisma.employeeProfile.findUnique({
-      where: { userId: currentUser.id },
-    });
-
-    const where: any = {};
+  async getPermissionRequests(query: PermissionQueryDto, currentUser: AuthenticatedUser) {
+    const where: Prisma.PermissionRequestWhereInput = {};
 
     if (query.status) where.status = query.status;
 
-    if (isSuperAdminOrHR) {
+    if (this.access.isHrAdmin(currentUser)) {
       if (query.employeeId) where.employeeId = query.employeeId;
       if (query.departmentId) where.employee = { departmentId: query.departmentId };
     } else {
       // Non-HR users (including Team Leaders) see only their own requests
-      if (!currentEmp) {
+      if (!currentUser.employeeId) {
         return [];
       }
-      where.employeeId = currentEmp.id;
+      where.employeeId = currentUser.employeeId;
     }
 
     const permissions = await this.prisma.permissionRequest.findMany({
@@ -137,10 +133,8 @@ export class WorkPermissionsService {
   /**
    * Approve Permission Request with Atomic Balance Deduction
    */
-  async approvePermissionRequest(id: string, approverUser: any) {
-    const roleName = typeof approverUser.role === 'string' ? approverUser.role : approverUser.role?.name;
-    const isSuperAdminOrHR = ['SUPER_ADMIN', 'HR_MANAGER'].includes(roleName || '');
-    if (!isSuperAdminOrHR) {
+  async approvePermissionRequest(id: string, approverUser: AuthenticatedUser) {
+    if (!this.access.isHrAdmin(approverUser)) {
       throw new ForbiddenException('Only HR Managers or Admins have the authority to approve permissions.');
     }
 
@@ -223,10 +217,12 @@ export class WorkPermissionsService {
   /**
    * Reject Permission Request with Reason
    */
-  async rejectPermissionRequest(id: string, dto: RejectPermissionRequestDto, rejectorUser: any) {
-    const roleName = typeof rejectorUser.role === 'string' ? rejectorUser.role : rejectorUser.role?.name;
-    const isSuperAdminOrHR = ['SUPER_ADMIN', 'HR_MANAGER'].includes(roleName || '');
-    if (!isSuperAdminOrHR) {
+  async rejectPermissionRequest(
+    id: string,
+    dto: RejectPermissionRequestDto,
+    rejectorUser: AuthenticatedUser,
+  ) {
+    if (!this.access.isHrAdmin(rejectorUser)) {
       throw new ForbiddenException('Only HR Managers or Admins have the authority to reject permissions.');
     }
 

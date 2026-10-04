@@ -21,15 +21,15 @@ export class AttendanceController {
    * Get Today's Live Shift & Attendance Status
    */
   @Get('today')
-  async getTodayStatus(@CurrentUser() user: any) {
-    return this.attendanceService.getTodayStatus(user.id);
+  async getTodayStatus(@CurrentUser() user: AuthenticatedUser) {
+    return this.attendanceService.getTodayStatus(user);
   }
 
   /**
    * Check In for Today
    */
   @Post('check-in')
-  async checkIn(@CurrentUser() user: any) {
+  async checkIn(@CurrentUser() user: AuthenticatedUser) {
     return this.attendanceService.checkIn(user.id);
   }
 
@@ -37,7 +37,7 @@ export class AttendanceController {
    * Check Out for Today (Calculates Delay or Overtime)
    */
   @Patch('check-out')
-  async checkOut(@CurrentUser() user: any) {
+  async checkOut(@CurrentUser() user: AuthenticatedUser) {
     return this.attendanceService.checkOut(user.id);
   }
 
@@ -48,7 +48,7 @@ export class AttendanceController {
   @RequirePermissions('attendance.view')
   async getRecords(
     @Query() query: AttendanceQueryDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.attendanceService.getRecords(query, user);
   }
