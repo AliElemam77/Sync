@@ -58,7 +58,11 @@ export class ChatService {
         department: {
           select: { id: true, name: true, code: true },
         },
+        // Only the requester's own participation and direct-chat counterparts are needed here
         participants: {
+          where: {
+            OR: [{ userId }, { conversation: { type: ConversationType.DIRECT } }],
+          },
           include: {
             user: {
               select: { id: true, email: true, isActive: true },
@@ -75,6 +79,7 @@ export class ChatService {
             },
           },
         },
+        _count: { select: { participants: true } },
         messages: {
           take: 1,
           orderBy: { createdAt: 'desc' },
@@ -91,68 +96,75 @@ export class ChatService {
       ],
     });
 
-    // Format conversations with unread counts and counterpart metadata for DIRECT chats
-    const formatted = await Promise.all(
-      conversations.map(async (conv) => {
-        const myParticipant = conv.participants.find((p) => p.userId === userId);
-        const lastReadAt = myParticipant?.lastReadAt || new Date(0);
-
-        // Count unread messages
-        const unreadCount = await this.prisma.message.count({
-          where: {
-            conversationId: conv.id,
-            createdAt: { gt: lastReadAt },
-            senderId: { not: userId },
-          },
-        });
-
-        // Determine title & avatar
-        let displayTitle = conv.title;
-        let displayAvatar = conv.avatarUrl;
-        let counterpartEmployee: any = null;
-
-        if (conv.type === ConversationType.DIRECT) {
-          const counterpart = conv.participants.find((p) => p.userId !== userId);
-          if (counterpart) {
-            displayTitle = counterpart.employee?.fullName || counterpart.user.email;
-            displayAvatar = counterpart.employee?.avatarUrl || null;
-            counterpartEmployee = counterpart.employee;
-          }
-        }
-
-        const lastMessage = conv.messages[0] || null;
-
-        return {
-          id: conv.id,
-          title: displayTitle,
-          description: conv.description,
-          avatarUrl: displayAvatar,
-          type: conv.type,
-          isGroup: conv.isGroup,
-          department: conv.department,
-          creatorId: conv.creatorId,
-          unreadCount,
-          isParticipant: Boolean(myParticipant),
-          role: myParticipant?.role || null,
-          isMuted: myParticipant?.isMuted || false,
-          counterpartEmployee,
-          lastMessage: lastMessage
-            ? {
-                id: lastMessage.id,
-                content: lastMessage.content,
-                type: lastMessage.type,
-                senderName: lastMessage.senderEmployee?.fullName || 'User',
-                createdAt: lastMessage.createdAt,
-              }
-            : null,
-          lastMessageAt: conv.lastMessageAt || conv.createdAt,
-          participantsCount: conv.participants.length,
-          createdAt: conv.createdAt,
-        };
-      }),
+    // Unread counts for every conversation in one grouped query (messages from others after lastReadAt)
+    const unreadGroups =
+      conversations.length === 0
+        ? []
+        : await this.prisma.message.groupBy({
+            by: ['conversationId'],
+            where: {
+              senderId: { not: userId },
+              OR: conversations.map((conv) => ({
+                conversationId: conv.id,
+                createdAt: {
+                  gt: conv.participants.find((p) => p.userId === userId)?.lastReadAt || new Date(0),
+                },
+              })),
+            },
+            _count: { _all: true },
+          });
+    const unreadByConversation = new Map(
+      unreadGroups.map((group) => [group.conversationId, group._count._all]),
     );
 
-    return formatted;
+    // Format conversations with unread counts and counterpart metadata for DIRECT chats
+    return conversations.map((conv) => {
+      const myParticipant = conv.participants.find((p) => p.userId === userId);
+
+      // Determine title & avatar
+      let displayTitle = conv.title;
+      let displayAvatar = conv.avatarUrl;
+      let counterpartEmployee: (typeof conv.participants)[number]['employee'] = null;
+
+      if (conv.type === ConversationType.DIRECT) {
+        const counterpart = conv.participants.find((p) => p.userId !== userId);
+        if (counterpart) {
+          displayTitle = counterpart.employee?.fullName || counterpart.user.email;
+          displayAvatar = counterpart.employee?.avatarUrl || null;
+          counterpartEmployee = counterpart.employee;
+        }
+      }
+
+      const lastMessage = conv.messages[0] || null;
+
+      return {
+        id: conv.id,
+        title: displayTitle,
+        description: conv.description,
+        avatarUrl: displayAvatar,
+        type: conv.type,
+        isGroup: conv.isGroup,
+        department: conv.department,
+        creatorId: conv.creatorId,
+        unreadCount: unreadByConversation.get(conv.id) ?? 0,
+        isParticipant: Boolean(myParticipant),
+        role: myParticipant?.role || null,
+        isMuted: myParticipant?.isMuted || false,
+        counterpartEmployee,
+        lastMessage: lastMessage
+          ? {
+              id: lastMessage.id,
+              content: lastMessage.content,
+              type: lastMessage.type,
+              senderName: lastMessage.senderEmployee?.fullName || 'User',
+              createdAt: lastMessage.createdAt,
+            }
+          : null,
+        lastMessageAt: conv.lastMessageAt || conv.createdAt,
+        participantsCount: conv._count.participants,
+        createdAt: conv.createdAt,
+      };
+    });
   }
 
   /**
