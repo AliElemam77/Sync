@@ -214,10 +214,12 @@ export default function EmployeesListPage() {
                             <FiMail className="h-3 w-3" />
                             <span>{emp.user?.email}</span>
                           </div>
-                          <div className="text-[10px] text-foreground-subtle flex items-center gap-1 font-mono">
-                            <FiPhone className="h-3 w-3" />
-                            <span>{emp.phone}</span>
-                          </div>
+                          {emp.phone && (
+                            <div className="text-[10px] text-foreground-subtle flex items-center gap-1 font-mono">
+                              <FiPhone className="h-3 w-3" />
+                              <span>{emp.phone}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -234,6 +236,9 @@ export default function EmployeesListPage() {
                         </span>
                       )}
                     </td>
+                    {emp.isLimitedView ? (
+                      <td className="px-5 py-4 text-foreground-subtle">—</td>
+                    ) : (
                     <td className="px-5 py-4 space-y-1">
                       <div>
                         <span
@@ -251,6 +256,10 @@ export default function EmployeesListPage() {
                         <span className="text-foreground font-bold">{emp.monthlyPermissionHours}س/شهر</span>
                       </div>
                     </td>
+                    )}
+                    {emp.isLimitedView ? (
+                      <td className="px-5 py-4 text-foreground-subtle">—</td>
+                    ) : (
                     <td className="px-5 py-4">
                       <span
                         className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
@@ -268,6 +277,7 @@ export default function EmployeesListPage() {
                           : emp.status}
                       </span>
                     </td>
+                    )}
                     <td className="px-5 py-4 text-end space-x-2 whitespace-nowrap">
                       <Link
                         href="/dashboard/chat"

@@ -32,7 +32,7 @@ describe('EmployeesService', () => {
       employeeProfile: { findUnique: jest.fn(), update: jest.fn().mockResolvedValue({ id: 'emp-1' }) },
       user: { findUnique: jest.fn(), update: jest.fn(), delete: jest.fn() },
       role: { findUnique: jest.fn() },
-      department: { findMany: jest.fn(), updateMany: jest.fn() },
+      department: { findMany: jest.fn().mockResolvedValue([]), updateMany: jest.fn() },
       $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
     };
     service = new EmployeesService(prisma, new AccessScopeService(prisma));
@@ -180,19 +180,55 @@ describe('EmployeesService', () => {
       await expect(service.getEmployeeById('emp-1', agent)).rejects.toThrow(NotFoundException);
     });
 
-    it('shows colleagues in the same department', async () => {
-      prisma.employeeProfile.findUnique
-        .mockResolvedValueOnce(existingEmployee())
-        .mockResolvedValueOnce({
-          id: 'agent-emp',
-          departmentId: 'dept-eng',
-          department: { code: 'ENG', name: 'Engineering' },
-          position: { name: 'Developer' },
-        });
+    const colleagueProfile = () => ({
+      ...existingEmployee(),
+      fullName: 'Sara Ali',
+      employeeCode: 'TAR0007',
+      avatarUrl: null,
+      phone: '01000000000',
+      address: 'Cairo',
+      dob: new Date('1995-01-01'),
+      department: { id: 'dept-eng', name: 'Engineering', code: 'ENG' },
+      position: { id: 'pos-1', name: 'Developer' },
+      user: { id: 'target-user', email: 'sara@example.com', isActive: true },
+    });
+    const agentOwnProfile = {
+      id: 'agent-emp',
+      departmentId: 'dept-eng',
+      department: { code: 'ENG', name: 'Engineering' },
+      position: { name: 'Developer' },
+    };
 
-      await expect(service.getEmployeeById('emp-1', agent)).resolves.toEqual(
-        expect.objectContaining({ id: 'emp-1' }),
-      );
+    it('shows a same-department colleague as a card without personal details', async () => {
+      prisma.employeeProfile.findUnique
+        .mockResolvedValueOnce(colleagueProfile())
+        .mockResolvedValueOnce(agentOwnProfile);
+
+      const result: any = await service.getEmployeeById('emp-1', agent);
+
+      expect(result).toEqual({
+        id: 'emp-1',
+        employeeCode: 'TAR0007',
+        fullName: 'Sara Ali',
+        avatarUrl: null,
+        department: { id: 'dept-eng', name: 'Engineering', code: 'ENG' },
+        position: { id: 'pos-1', name: 'Developer' },
+        user: { id: 'target-user', email: 'sara@example.com' },
+        isLimitedView: true,
+      });
+      expect(result.phone).toBeUndefined();
+    });
+
+    it('shows the full profile to the Team Leader of that department', async () => {
+      const leader = makeUser({ id: 'tl-user', role: 'TEAM_LEADER', employeeId: 'tl-emp', departmentId: 'dept-eng', permissions: ['employees.view'] });
+      prisma.employeeProfile.findUnique
+        .mockResolvedValueOnce(colleagueProfile())
+        .mockResolvedValueOnce({ ...agentOwnProfile, id: 'tl-emp', position: { name: 'Team Leader' } });
+
+      const result: any = await service.getEmployeeById('emp-1', leader);
+
+      expect(result.phone).toBe('01000000000');
+      expect(result.isLimitedView).toBeUndefined();
     });
 
     it('always shows the requester their own profile', async () => {

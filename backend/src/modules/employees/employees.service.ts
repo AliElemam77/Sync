@@ -204,6 +204,18 @@ export class EmployeesService {
       ? await this.access.resolveDirectoryScope(currentUser)
       : null;
 
+    // Outside company-wide access, full rows only for departments the user leads; others get cards
+    const ledDepartmentIds =
+      currentUser && scopedDepartmentIds !== null
+        ? await this.access.getApprovalDepartmentIds(currentUser)
+        : null;
+    const seesFullProfile = (emp: { userId: string; departmentId: string }) =>
+      ledDepartmentIds === null ||
+      emp.userId === currentUser?.id ||
+      ledDepartmentIds.includes(emp.departmentId);
+    // Users who only ever see cards may not search by phone (it would reveal hidden numbers)
+    const canSearchPhone = ledDepartmentIds === null || ledDepartmentIds.length > 0;
+
     const where: Prisma.EmployeeProfileWhereInput = {
       ...(scopedDepartmentIds !== null
         ? {
@@ -224,7 +236,9 @@ export class EmployeesService {
         OR: [
           { fullName: { contains: search, mode: 'insensitive' } },
           { employeeCode: { contains: search, mode: 'insensitive' } },
-          { phone: { contains: search, mode: 'insensitive' } },
+          ...(canSearchPhone
+            ? [{ phone: { contains: search, mode: Prisma.QueryMode.insensitive } }]
+            : []),
           { user: { email: { contains: search, mode: 'insensitive' } } },
         ],
       }),
@@ -249,7 +263,7 @@ export class EmployeesService {
     ]);
 
     const sanitizedRecords = records.map((emp) =>
-      this.maskSensitiveData(emp, currentUser),
+      seesFullProfile(emp) ? this.maskSensitiveData(emp, currentUser) : this.toColleagueCard(emp),
     );
 
     return {
@@ -285,12 +299,41 @@ export class EmployeesService {
     // Same visibility as the directory list: users may open profiles they can see there, plus their own
     if (currentUser && employee.userId !== currentUser.id) {
       const scopedDepartmentIds = await this.access.resolveDirectoryScope(currentUser);
-      if (scopedDepartmentIds !== null && !scopedDepartmentIds.includes(employee.departmentId)) {
-        throw new NotFoundException(`Employee with ID '${id}' not found`);
+      if (scopedDepartmentIds !== null) {
+        if (!scopedDepartmentIds.includes(employee.departmentId)) {
+          throw new NotFoundException(`Employee with ID '${id}' not found`);
+        }
+        // Colleagues outside the departments this user leads see a card, not the full profile
+        const ledDepartmentIds = await this.access.getApprovalDepartmentIds(currentUser);
+        if (ledDepartmentIds !== null && !ledDepartmentIds.includes(employee.departmentId)) {
+          return this.toColleagueCard(employee);
+        }
       }
     }
 
     return this.maskSensitiveData(employee, currentUser);
+  }
+
+  // What a regular employee may see about a colleague: identity and work role only
+  private toColleagueCard(employee: {
+    id: string;
+    employeeCode: string;
+    fullName: string;
+    avatarUrl: string | null;
+    department: { id: string; name: string; code: string } | null;
+    position: { id: string; name: string } | null;
+    user: { id: string; email: string } | null;
+  }) {
+    return {
+      id: employee.id,
+      employeeCode: employee.employeeCode,
+      fullName: employee.fullName,
+      avatarUrl: employee.avatarUrl,
+      department: employee.department,
+      position: employee.position,
+      user: employee.user ? { id: employee.user.id, email: employee.user.email } : null,
+      isLimitedView: true as const,
+    };
   }
 
   // ---------------------------------------------------------------------------

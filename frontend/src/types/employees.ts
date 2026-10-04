@@ -45,6 +45,11 @@ export interface EmployeeDocument {
 
 export interface Employee {
   id: string;
+  /**
+   * Set when the viewer may only see a colleague card: then only id, employeeCode, fullName,
+   * avatarUrl, department, position and user.email are present.
+   */
+  isLimitedView?: boolean;
   userId: string;
   user: {
     id: string;

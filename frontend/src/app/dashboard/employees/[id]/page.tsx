@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import { useAuth } from '../../../../hooks/use-auth';
 import { useEmployee } from '../../../../hooks/use-employees';
 import { useEmployeeAssets } from '../../../../hooks/use-assets';
+import { Employee } from '../../../../types/employees';
 import {
   FiUser,
   FiBriefcase,
@@ -51,6 +52,10 @@ export default function EmployeeProfilePage() {
         لم يتم العثور على بيانات الموظف.
       </div>
     );
+  }
+
+  if (employee.isLimitedView) {
+    return <ColleagueCard employee={employee} />;
   }
 
   return (
@@ -365,6 +370,58 @@ export default function EmployeeProfilePage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Shown to colleagues outside the departments the viewer leads: identity and work role only
+function ColleagueCard({ employee }: { employee: Employee }) {
+  return (
+    <div className="space-y-6 animate-in fade-in duration-300">
+      <Link
+        href="/dashboard/employees"
+        className="inline-flex items-center gap-1.5 text-xs font-bold text-foreground-muted hover:text-foreground"
+      >
+        <FiArrowRight className="h-3.5 w-3.5" />
+        <span>العودة إلى دليل الزملاء</span>
+      </Link>
+
+      <div className="max-w-md rounded-3xl border border-border bg-card p-6 shadow-luxury dark:shadow-luxury-dark space-y-5">
+        <div className="flex items-center gap-4">
+          {employee.avatarUrl ? (
+            <img
+              src={employee.avatarUrl}
+              alt={employee.fullName}
+              className="h-16 w-16 rounded-2xl object-cover border border-border"
+            />
+          ) : (
+            <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center text-2xl font-black text-primary">
+              {employee.fullName?.slice(0, 1) || 'E'}
+            </div>
+          )}
+          <div>
+            <h1 className="text-lg font-black text-foreground">{employee.fullName}</h1>
+            <span className="font-mono text-[11px] text-foreground-subtle">{employee.employeeCode}</span>
+          </div>
+        </div>
+
+        <div className="space-y-2.5 text-xs">
+          <div className="flex items-center gap-2 text-foreground">
+            <FiBriefcase className="h-4 w-4 text-primary" />
+            <span className="font-bold">{employee.position?.name || '—'}</span>
+          </div>
+          <div className="flex items-center gap-2 text-foreground">
+            <BiBuildingHouse className="h-4 w-4 text-primary" />
+            <span>{employee.department?.name || '—'}</span>
+          </div>
+          {employee.user?.email && (
+            <div className="flex items-center gap-2 text-foreground">
+              <FiMail className="h-4 w-4 text-primary" />
+              <span className="font-mono">{employee.user.email}</span>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
