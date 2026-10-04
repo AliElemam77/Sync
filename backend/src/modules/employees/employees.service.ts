@@ -55,6 +55,8 @@ export class EmployeesService {
     dto: CreateEmployeeDto,
     currentUser?: AuthenticatedUser,
   ) {
+    this.assertCanWriteSalary(dto.bankInfo, currentUser);
+
     const email = dto.email.toLowerCase().trim();
 
     // Verify email uniqueness before transaction
@@ -312,6 +314,7 @@ export class EmployeesService {
     }
 
     await this.assertCanChangeAccount(existing.userId, existing.user.role.name, dto, currentUser);
+    this.assertCanWriteSalary(dto.bankInfo, currentUser);
 
     // Handle user account updates (email, password, status, role)
     if (dto.email && dto.email.toLowerCase().trim() !== existing.user.email.toLowerCase()) {
@@ -513,6 +516,16 @@ export class EmployeesService {
     }
     if (newRole.name === 'SUPER_ADMIN' && !actorIsSuperAdmin) {
       throw new ForbiddenException('Only a Super Admin can grant the Super Admin role.');
+    }
+  }
+
+  // Bank and salary details are hidden from users without employees.manage_salary; they may not write them either
+  private assertCanWriteSalary(bankInfo: unknown, currentUser?: AuthenticatedUser) {
+    if (bankInfo === undefined) return;
+    if (!currentUser || !this.access.hasPermission(currentUser, 'employees.manage_salary')) {
+      throw new ForbiddenException(
+        'Bank and salary details require the employees.manage_salary permission.',
+      );
     }
   }
 
