@@ -16,8 +16,15 @@ import {
   MANAGEMENT_DEPARTMENT_CODE,
 } from '../../common/access/access-scope.service';
 import { EmployeeStatus, Prisma, ShiftType } from '@prisma/client';
+import { getZonedParts } from '../../common/time/business-time';
+import { MONTHLY_LEAVE_ACCRUAL } from '../leaves/leave-policy';
 
 const SALARY_PROFILE_SELECT = { baseSalary: true, paymentMethod: true } as const;
+
+function currentBusinessMonthStart(): Date {
+  const { year, month } = getZonedParts(new Date());
+  return new Date(Date.UTC(year, month - 1, 1));
+}
 
 const statusBlocksLogin = (status: EmployeeStatus) =>
   status === EmployeeStatus.ENDED || status === EmployeeStatus.INACTIVE;
@@ -132,7 +139,9 @@ export class EmployeesService {
           avatarUrl: dto.avatarUrl || null,
           shiftType: dto.shiftType ?? ShiftType.RS,
           monthlyPermissionHours: 4, // Default business requirement
-          annualLeaveDays: 21,        // Default business requirement
+          // New hires start with the current month's share of annual leave and accrue monthly from here
+          annualLeaveDays: MONTHLY_LEAVE_ACCRUAL,
+          leaveAccruedThrough: currentBusinessMonthStart(),
           company: dto.company?.trim() || 'Tawfeer',
           branch: dto.branch?.trim() || 'Headquarters',
           departmentId: dto.departmentId,

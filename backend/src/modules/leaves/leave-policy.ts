@@ -1,4 +1,15 @@
-import { ShiftType } from '@prisma/client';
+import { Prisma, ShiftType } from '@prisma/client';
+
+/** Annual leave entitlement, credited monthly (21 / 12 = 1.75 days) and carried over between years */
+export const ANNUAL_LEAVE_DAYS_PER_YEAR = 21;
+export const MONTHLY_LEAVE_ACCRUAL = new Prisma.Decimal(ANNUAL_LEAVE_DAYS_PER_YEAR).div(12);
+
+/** Whole calendar months from one month-start date to another (UTC date-only values) */
+export function monthsBetween(from: Date, to: Date): number {
+  return (
+    (to.getUTCFullYear() - from.getUTCFullYear()) * 12 + (to.getUTCMonth() - from.getUTCMonth())
+  );
+}
 
 /** Longest annual leave allowed in a single request, in working days */
 export const MAX_ANNUAL_LEAVE_DAYS_PER_REQUEST = 3;
