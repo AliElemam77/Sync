@@ -62,3 +62,16 @@ export interface QueryPayrollCyclesDto {
   month?: number;
   status?: PayrollCycleStatus;
 }
+
+/** Payroll options set by Management */
+export interface PayrollSettings {
+  /** Overtime is paid only when enabled */
+  overtimeEnabled: boolean;
+  /** Regular hours paid per overtime hour (decimal as a string, e.g. "2") */
+  overtimeMultiplier: string;
+}
+
+export interface UpdatePayrollSettingsInput {
+  overtimeEnabled?: boolean;
+  overtimeMultiplier?: number;
+}

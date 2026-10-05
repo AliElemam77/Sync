@@ -13,6 +13,7 @@ import {
 import { PayrollService } from './payroll.service';
 import { GeneratePayrollDto } from './dto/generate-payroll.dto';
 import { QueryPayrollCyclesDto } from './dto/query-payroll-cycles.dto';
+import { UpdatePayrollSettingsDto } from './dto/update-payroll-settings.dto';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
 import { Audit } from '../../common/decorators/audit.decorator';
 import {
@@ -37,6 +38,26 @@ export class PayrollController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.payrollService.generatePayroll(dto, user);
+  }
+
+  // ---------------------------------------------------------------------------
+  // PAYROLL SETTINGS: readable by payroll staff, changed by Management only
+  // ---------------------------------------------------------------------------
+
+  @Get('settings')
+  @RequirePermissions('payroll.view')
+  async getSettings() {
+    return this.payrollService.getSettings();
+  }
+
+  @Patch('settings')
+  @RequirePermissions('payroll.manage')
+  @Audit({ action: 'UPDATE', entity: 'CompanySettings' })
+  async updateSettings(
+    @Body() dto: UpdatePayrollSettingsDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.payrollService.updateSettings(dto, user);
   }
 
   // ---------------------------------------------------------------------------

@@ -10,6 +10,7 @@ import {
   useMyPayslips,
 } from '../../../hooks/use-payroll';
 import { Card } from '../../../components/ui/card';
+import { OvertimeSettingsCard } from '../../../components/payroll/overtime-settings-card';
 import {
   PayrollCycle,
   Payslip,
@@ -52,6 +53,9 @@ export default function PayrollCommandCenterPage() {
 
   const canViewCompanyPayroll =
     hasPermission('payroll.view') || canManage;
+
+  // Payroll options such as overtime are set by Management (or the Super Admin)
+  const canEditPayrollSettings = !!user?.isManagement || user?.role?.name === 'SUPER_ADMIN';
 
   // Active view tab: 'MANAGER' (Finance Manager) or 'SELF_SERVICE' (My Payslips)
   const [activeTab, setActiveTab] = useState<'MANAGER' | 'SELF_SERVICE'>(
@@ -303,6 +307,9 @@ export default function PayrollCommandCenterPage() {
       {/* ===================================================================== */}
       {activeTab === 'MANAGER' && (
         <div className="space-y-6">
+          {/* Overtime option: changed by Management only (enforced by the backend) */}
+          <OvertimeSettingsCard canEdit={canEditPayrollSettings} />
+
           {/* Generation & Period Selector Bar */}
           <div className="rounded-3xl glass-card p-5 border border-border/40 shadow-sm space-y-4">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-border/20 pb-4">
@@ -312,7 +319,7 @@ export default function PayrollCommandCenterPage() {
                   <span>مركز احتساب وتوليد الرواتب الشهري</span>
                 </h2>
                 <p className="text-[11px] text-foreground-muted leading-relaxed">
-                  يقوم المحرك بالربط اللحظي مع سجلات الحضور لاحتساب دقائق التأخير وتحويلها إلى خصومات مالية دقيقة وفق قانون العمل.
+                  يقوم المحرك بالربط مع سجلات الحضور لاحتساب خصومات التأخير والغياب ونسيان بصمة الانصراف، والوقت الإضافي إذا فعّلته الإدارة.
                 </p>
               </div>
 

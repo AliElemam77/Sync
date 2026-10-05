@@ -982,3 +982,20 @@ model FinancialAdjustment {
 }
 
 
+
+// -----------------------------------------------------------------------------
+// COMPANY SETTINGS: a single row (id = 1) of payroll options set by Management
+// -----------------------------------------------------------------------------
+
+model CompanySettings {
+  id                 Int      @id @default(1)
+
+  // Overtime is paid only after Management turns it on
+  overtimeEnabled    Boolean  @default(false) @map("overtime_enabled")
+  // Regular hours paid for each overtime hour (2 = an overtime hour pays two regular hours)
+  overtimeMultiplier Decimal  @default(2) @map("overtime_multiplier") @db.Decimal(4, 2)
+
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("company_settings")
+}

@@ -102,6 +102,8 @@ describe('PayrollService.generatePayroll', () => {
       leaveRequest: { findMany: jest.fn().mockResolvedValue([]) },
       permissionRequest: { findMany: jest.fn().mockResolvedValue([]) },
       publicHoliday: { findMany: jest.fn().mockResolvedValue([]) },
+      // No settings row yet: overtime is off
+      companySettings: { findUnique: jest.fn().mockResolvedValue(null) },
       task: { findMany: jest.fn().mockResolvedValue([]) },
       payslip: { createMany: jest.fn() },
       financialAdjustment: { createMany: jest.fn() },
@@ -133,7 +135,12 @@ describe('PayrollService.generatePayroll', () => {
         };
       });
 
-  it('deducts lateness in tiers of a day and pays 1.5x minute-rate overtime', async () => {
+  it('deducts lateness in tiers of a day and pays enabled overtime at the set rate', async () => {
+    prisma.companySettings.findUnique.mockResolvedValue({
+      id: 1,
+      overtimeEnabled: true,
+      overtimeMultiplier: new Prisma.Decimal(2),
+    });
     prisma.employeeProfile.findMany.mockResolvedValue([
       employee({ baseSalary: new Prisma.Decimal(9000) }),
     ]);
@@ -154,14 +161,14 @@ describe('PayrollService.generatePayroll', () => {
     // A single attendance query covers every employee
     expect(prisma.attendanceRecord.findMany).toHaveBeenCalledTimes(1);
 
-    // day rate = 9000 / 30 = 300; minute rate = 300 / 480 = 0.625
+    // day = 9000 / 30 = 300; an RS hour = 300 / 8 = 37.5
     const [payslip] = prisma.payslip.createMany.mock.calls[0][0].data;
     expect(payslip.payrollCycleId).toBe('cycle-1');
     expect(payslip.baseSalary.toString()).toBe('9000');
     expect(payslip.attendancePenalties.toString()).toBe('75'); // 30 min late: a quarter day
-    expect(payslip.totalAllowances.toString()).toBe('56.25'); // 60 min x 0.625 x 1.5
-    expect(payslip.grossPay.toString()).toBe('9056.25');
-    expect(payslip.netPay.toString()).toBe('8981.25');
+    expect(payslip.totalAllowances.toString()).toBe('75'); // 1 overtime hour = 2 x 37.5
+    expect(payslip.grossPay.toString()).toBe('9075');
+    expect(payslip.netPay.toString()).toBe('9000');
 
     const adjustments = prisma.financialAdjustment.createMany.mock.calls[0][0].data;
     expect(adjustments).toHaveLength(2);
@@ -169,8 +176,44 @@ describe('PayrollService.generatePayroll', () => {
     expect(adjustments.every((a: { payslipId: string }) => a.payslipId === payslip.id)).toBe(true);
     expect(adjustments.map((a: { amount: Prisma.Decimal }) => a.amount.toString())).toEqual([
       '75',
-      '56.25',
+      '75',
     ]);
+    expect(adjustments[1].reason).toBe('وقت إضافي 60 دقيقة (الساعة بـ 2 ساعة) بتاريخ 2026-09-03');
+  });
+
+  it('pays no overtime until Management turns it on', async () => {
+    prisma.employeeProfile.findMany.mockResolvedValue([
+      employee({ baseSalary: new Prisma.Decimal(9000) }),
+    ]);
+    prisma.attendanceRecord.findMany.mockResolvedValue(
+      septemberAttendance({ '2026-09-03': { overtimeMinutes: 120 } }),
+    );
+
+    await service.generatePayroll({ month: 9, year: 2026 }, payrollManager);
+
+    const [payslip] = prisma.payslip.createMany.mock.calls[0][0].data;
+    expect(payslip.totalAllowances.toString()).toBe('0');
+    expect(payslip.grossPay.toString()).toBe('9000');
+    expect(prisma.financialAdjustment.createMany).not.toHaveBeenCalled();
+  });
+
+  it('values an overtime hour by the shift length (LS: 9 hours)', async () => {
+    prisma.companySettings.findUnique.mockResolvedValue({
+      id: 1,
+      overtimeEnabled: true,
+      overtimeMultiplier: new Prisma.Decimal('1.5'),
+    });
+    prisma.employeeProfile.findMany.mockResolvedValue([
+      { ...employee({ baseSalary: new Prisma.Decimal(9000) }), shiftType: 'LS' },
+    ]);
+    prisma.attendanceRecord.findMany.mockResolvedValue(
+      septemberAttendance({ '2026-09-03': { overtimeMinutes: 60 } }),
+    );
+
+    await service.generatePayroll({ month: 9, year: 2026 }, payrollManager);
+
+    const [payslip] = prisma.payslip.createMany.mock.calls[0][0].data;
+    expect(payslip.totalAllowances.toString()).toBe('50'); // 300 / 9 hours x 1.5
   });
 
   it('forgives 15 minutes, then deducts a quarter, half or full day', async () => {
@@ -325,5 +368,43 @@ describe('PayrollService.generatePayroll', () => {
     expect(adjustments.map((a: { reason: string }) => a.reason)).toEqual([
       'خصم غياب بدون إذن أو إجازة بتاريخ 2026-09-14',
     ]);
+  });
+});
+
+describe('PayrollService settings', () => {
+  let prisma: any;
+  let service: PayrollService;
+
+  beforeEach(() => {
+    prisma = {
+      companySettings: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        upsert: jest.fn(),
+      },
+    };
+    service = new PayrollService(prisma, new AccessScopeService(prisma));
+  });
+
+  it('defaults to overtime off at two regular hours per overtime hour', async () => {
+    const settings = await service.getSettings();
+    expect(settings.overtimeEnabled).toBe(false);
+    expect(settings.overtimeMultiplier.toString()).toBe('2');
+  });
+
+  it('lets only Management change them', async () => {
+    await expect(
+      service.updateSettings({ overtimeEnabled: true }, payrollManager),
+    ).rejects.toThrow('الإدارة');
+    expect(prisma.companySettings.upsert).not.toHaveBeenCalled();
+
+    await service.updateSettings(
+      { overtimeEnabled: true, overtimeMultiplier: 2.5 },
+      { ...payrollManager, isManagement: true },
+    );
+    expect(prisma.companySettings.upsert).toHaveBeenCalledWith({
+      where: { id: 1 },
+      create: { id: 1, overtimeEnabled: true, overtimeMultiplier: new Prisma.Decimal('2.5') },
+      update: { overtimeEnabled: true, overtimeMultiplier: new Prisma.Decimal('2.5') },
+    });
   });
 });

@@ -5,6 +5,8 @@ import {
   Payslip,
   GeneratePayrollDto,
   QueryPayrollCyclesDto,
+  PayrollSettings,
+  UpdatePayrollSettingsInput,
 } from '../types/payroll';
 import { FINANCIAL_SUMMARY_KEY, TRANSACTIONS_KEY } from './use-accounting';
 
@@ -12,6 +14,7 @@ export const PAYROLL_CYCLES_KEY = ['payroll', 'cycles'];
 export const PAYROLL_CYCLE_KEY = ['payroll', 'cycle'];
 export const MY_PAYSLIPS_KEY = ['payroll', 'my-payslips'];
 export const PAYSLIP_KEY = ['payroll', 'payslip'];
+export const PAYROLL_SETTINGS_KEY = ['payroll', 'settings'];
 
 // -----------------------------------------------------------------------------
 // 1. GET ALL PAYROLL CYCLES
@@ -124,5 +127,33 @@ export function usePayslip(id: string | null) {
       return res.data;
     },
     enabled: !!id,
+  });
+}
+
+// -----------------------------------------------------------------------------
+// 7. PAYROLL SETTINGS (set by Management)
+// -----------------------------------------------------------------------------
+
+export function usePayrollSettings(enabled = true) {
+  return useQuery({
+    queryKey: PAYROLL_SETTINGS_KEY,
+    queryFn: async () => {
+      const res = await apiClient.get<PayrollSettings>('/api/v1/payroll/settings');
+      return res.data;
+    },
+    enabled,
+  });
+}
+
+export function useUpdatePayrollSettings() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: UpdatePayrollSettingsInput) => {
+      const res = await apiClient.patch<PayrollSettings>('/api/v1/payroll/settings', data);
+      return res.data;
+    },
+    onSuccess: (settings) => {
+      queryClient.setQueryData(PAYROLL_SETTINGS_KEY, settings);
+    },
   });
 }

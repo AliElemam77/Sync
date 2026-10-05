@@ -9,6 +9,7 @@ import { randomUUID } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { GeneratePayrollDto } from './dto/generate-payroll.dto';
 import { QueryPayrollCyclesDto } from './dto/query-payroll-cycles.dto';
+import { UpdatePayrollSettingsDto } from './dto/update-payroll-settings.dto';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { AccessScopeService } from '../../common/access/access-scope.service';
 import {
@@ -38,6 +39,10 @@ const PAYOUT_LABELS: Partial<Record<PaymentMethod, string>> = {
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** CompanySettings is a single row */
+const SETTINGS_ID = 1;
+const DEFAULT_SETTINGS = { overtimeEnabled: false, overtimeMultiplier: new Prisma.Decimal(2) };
 
 function groupBy<T>(items: T[], keyOf: (item: T) => string): Map<string, T[]> {
   const groups = new Map<string, T[]>();
@@ -200,16 +205,14 @@ export class PayrollService {
       tasksByEmployee.set(task.assigneeId, list);
     }
 
+    const settings = await this.getSettings();
+
     // 4. Iterate and compute each employee's salary and attendance penalties
     for (const emp of employees) {
       const salary = emp.salaryProfile?.baseSalary ?? new Prisma.Decimal(0);
 
-      // Standard Rate Calculation:
-      // Working month = 30 days, 8 hours/day = 480 minutes/day
-      // Daily Rate = Monthly Salary / 30
-      // Minute Rate = Daily Rate / 480
+      // A day's pay is the monthly salary over 30 days
       const dailyRate = salary.div(new Prisma.Decimal(30));
-      const minuteRate = dailyRate.div(new Prisma.Decimal(480));
 
       const employeeRecords = (recordsByEmployee.get(emp.id) ?? []).filter(
         (r) => r.status !== AttendanceStatus.ABSENT,
@@ -288,23 +291,25 @@ export class PayrollService {
         );
       }
 
-      const overtimeRecords = employeeRecords.filter((r) => r.overtimeMinutes > 0);
-
+      // Overtime is paid only when Management has turned it on. A regular hour is the day's pay over
+      // the shift's hours (RS 8, LS 9); each overtime hour pays `overtimeMultiplier` regular hours.
       let employeeOvertimeBonus = new Prisma.Decimal(0);
+      const overtimeRecords = settings.overtimeEnabled
+        ? employeeRecords.filter((r) => r.overtimeMinutes > 0)
+        : [];
       for (const record of overtimeRecords) {
-        // Standard overtime rate: 1.5x minute rate
-        const overtimeAmount = minuteRate
-          .mul(new Prisma.Decimal(record.overtimeMinutes))
-          .mul(new Prisma.Decimal(1.5))
+        const overtimeAmount = dailyRate
+          .mul(settings.overtimeMultiplier)
+          .mul(record.overtimeMinutes)
+          .div(shiftMinutes)
           .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+        if (!overtimeAmount.greaterThan(0)) continue;
 
         employeeOvertimeBonus = employeeOvertimeBonus.add(overtimeAmount);
-
-        const dateStr = record.date.toISOString().slice(0, 10);
         adjustments.push({
           type: AdjustmentType.OVERTIME,
           amount: overtimeAmount,
-          reason: `ساعات عمل إضافية (${record.overtimeMinutes} دقيقة) بتاريخ ${dateStr}`,
+          reason: `وقت إضافي ${record.overtimeMinutes} دقيقة (الساعة بـ ${settings.overtimeMultiplier.toString()} ساعة) بتاريخ ${dateKey(record.date)}`,
           date: record.date,
         });
       }
@@ -660,5 +665,37 @@ export class PayrollService {
     }
 
     return payslip;
+  }
+
+  // ---------------------------------------------------------------------------
+  // 7. PAYROLL SETTINGS (set by Management)
+  // ---------------------------------------------------------------------------
+
+  async getSettings() {
+    const settings = await this.prisma.companySettings.findUnique({ where: { id: SETTINGS_ID } });
+    return {
+      overtimeEnabled: settings?.overtimeEnabled ?? DEFAULT_SETTINGS.overtimeEnabled,
+      overtimeMultiplier: settings?.overtimeMultiplier ?? DEFAULT_SETTINGS.overtimeMultiplier,
+    };
+  }
+
+  async updateSettings(dto: UpdatePayrollSettingsDto, user: AuthenticatedUser) {
+    if (!this.access.isSuperAdmin(user) && !this.access.isManagement(user)) {
+      throw new ForbiddenException('إعدادات الرواتب تحددها الإدارة فقط.');
+    }
+
+    const data = {
+      ...(dto.overtimeEnabled !== undefined && { overtimeEnabled: dto.overtimeEnabled }),
+      ...(dto.overtimeMultiplier !== undefined && {
+        overtimeMultiplier: new Prisma.Decimal(dto.overtimeMultiplier),
+      }),
+    };
+    await this.prisma.companySettings.upsert({
+      where: { id: SETTINGS_ID },
+      create: { id: SETTINGS_ID, ...DEFAULT_SETTINGS, ...data },
+      update: data,
+    });
+
+    return this.getSettings();
   }
 }
