@@ -7,7 +7,20 @@ committed to git, and applied in order by `npm run prisma:deploy` (`prisma migra
   (earlier tables were created with `db push`, so the old migration history was incomplete).
 - Later folders change the schema step by step and may include one-off data updates.
 
-## Existing database (one time only)
+## Existing database
+
+Stop the running backend, then from `backend/`:
+
+```bash
+npm run db:upgrade
+```
+
+It backs up every table to `backend/backups/<timestamp>/` (git-ignored: it holds personal data),
+baselines the history if needed (after a read-only check, stopping if the database differs),
+applies the pending migrations and regenerates the client. It is safe to run again later.
+Deploy the new backend code right after it: the code expects the new columns.
+
+### The same steps by hand
 
 The tables already exist, so the baseline must be marked as applied instead of executed.
 Take a backup first, then from `backend/`:

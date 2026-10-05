@@ -20,6 +20,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:status": "prisma migrate status",
+    "db:upgrade": "node prisma/upgrade-existing-db.mjs",
     "prisma:seed": "ts-node prisma/seed.ts"
   },
   "prisma": {

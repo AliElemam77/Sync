@@ -56,3 +56,6 @@ coverage/
 # Turbo & Cache
 .turbo
 .eslintcache
+
+# Local database backups (contain personal data)
+backend/backups/
