@@ -16,6 +16,7 @@ import {
   PayrollCycleStatus,
   AdjustmentType,
   AttendanceStatus,
+  BonusKind,
   EmployeeStatus,
   PaymentMethod,
   Prisma,
@@ -29,8 +30,8 @@ import {
   SHIFT_MINUTES,
   dateKey,
   findAbsentDays,
+  isCompanyClosedDay,
   isWeeklyDayOff,
-  isWorkingDay,
   latenessTier,
 } from '../attendance/attendance-policy';
 
@@ -137,7 +138,7 @@ export class PayrollService {
     // The month's attendance, approved leaves and permissions, and public holidays: one query each,
     // grouped per employee in memory
     const employeeIds = employees.map((e) => e.id);
-    const [attendanceRecords, approvedLeaves, approvedPermissions, holidays] = await Promise.all([
+    const [attendanceRecords, approvedLeaves, approvedPermissions, holidays, payBonuses] = await Promise.all([
       this.prisma.attendanceRecord.findMany({
         where: { employeeId: { in: employeeIds }, date: { gte: startDate, lte: endDate } },
         select: {
@@ -171,10 +172,22 @@ export class PayrollService {
         where: { date: { gte: startDate, lte: endDate } },
         select: { date: true },
       }),
+      // Pay bonuses granted for this payroll month and not cancelled
+      this.prisma.bonus.findMany({
+        where: {
+          employeeId: { in: employeeIds },
+          kind: BonusKind.PAY,
+          cancelledAt: null,
+          payrollMonth: startDate,
+        },
+        select: { employeeId: true, days: true, reason: true, createdAt: true },
+        orderBy: { createdAt: 'asc' },
+      }),
     ]);
 
     const recordsByEmployee = groupBy(attendanceRecords, (r) => r.employeeId);
     const leavesByEmployee = groupBy(approvedLeaves, (l) => l.employeeId);
+    const bonusesByEmployee = groupBy(payBonuses, (b) => b.employeeId);
     const permissionMinutesByDay = new Map<string, number>();
     for (const p of approvedPermissions) {
       const key = `${p.employeeId}:${dateKey(p.date)}`;
@@ -233,6 +246,14 @@ export class PayrollService {
         adjustments.push({ type: AdjustmentType.PENALTY, amount, reason, date });
       };
 
+      // Additions on top of the salary: worked days off, overtime, commission, bonuses
+      let employeeAdditions = new Prisma.Decimal(0);
+      const addEarning = (type: AdjustmentType, amount: Prisma.Decimal, reason: string, date?: Date) => {
+        if (!amount.greaterThan(0)) return;
+        employeeAdditions = employeeAdditions.add(amount);
+        adjustments.push({ type, amount, reason, date });
+      };
+
       // A day that is not worked costs a day's pay, less any approved permission time that day
       const shiftMinutes = SHIFT_MINUTES[emp.shiftType];
       const unworkedDay = (day: Date) => {
@@ -249,13 +270,24 @@ export class PayrollService {
       };
 
       for (const record of employeeRecords) {
-        // No deduction on weekly days off or public holidays
-        if (!isWorkingDay(record.date, emp.shiftType, holidayDays)) continue;
         const day = dateKey(record.date);
+        // Fridays and public holidays are not working days: nothing is deducted or added
+        if (isCompanyClosedDay(record.date) || holidayDays.has(day)) continue;
+        // A day still in progress is settled once it is over
+        if (!record.checkOutTime && record.date > lastClosedDay) continue;
+
+        // A weekly day off that was worked (Saturday for LS) is paid as a normal day, under the normal rules
+        if (isWeeklyDayOff(record.date, emp.shiftType)) {
+          addEarning(
+            AdjustmentType.EXTRA_DAY,
+            dailyRate.toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP),
+            `يوم عمل في الإجازة الأسبوعية بتاريخ ${day}`,
+            record.date,
+          );
+        }
 
         if (!record.checkOutTime) {
-          // Settled once the day is over; a forgotten check-out counts as a day not worked
-          if (record.date > lastClosedDay) continue;
+          // A forgotten check-out counts as a day not worked
           const { amount, permissionNote } = unworkedDay(record.date);
           addPenalty(amount, `خصم يوم: لم تُسجَّل بصمة الانصراف بتاريخ ${day}${permissionNote}`, record.date);
           continue;
@@ -294,52 +326,49 @@ export class PayrollService {
 
       // Overtime is paid only when Management has turned it on. A regular hour is the day's pay over
       // the shift's hours (RS 8, LS 9); each overtime hour pays `overtimeMultiplier` regular hours.
-      let employeeOvertimeBonus = new Prisma.Decimal(0);
-      // Weekly days off are never worked, so they never earn overtime
+      // Nobody works on Friday, so it never earns overtime
       const overtimeRecords = settings.overtimeEnabled
-        ? employeeRecords.filter(
-            (r) => r.overtimeMinutes > 0 && !isWeeklyDayOff(r.date, emp.shiftType),
-          )
+        ? employeeRecords.filter((r) => r.overtimeMinutes > 0 && !isCompanyClosedDay(r.date))
         : [];
       for (const record of overtimeRecords) {
-        const overtimeAmount = dailyRate
-          .mul(settings.overtimeMultiplier)
-          .mul(record.overtimeMinutes)
-          .div(shiftMinutes)
-          .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
-        if (!overtimeAmount.greaterThan(0)) continue;
-
-        employeeOvertimeBonus = employeeOvertimeBonus.add(overtimeAmount);
-        adjustments.push({
-          type: AdjustmentType.OVERTIME,
-          amount: overtimeAmount,
-          reason: `وقت إضافي ${record.overtimeMinutes} دقيقة (الساعة بـ ${settings.overtimeMultiplier.toString()} ساعة) بتاريخ ${dateKey(record.date)}`,
-          date: record.date,
-        });
+        addEarning(
+          AdjustmentType.OVERTIME,
+          dailyRate
+            .mul(settings.overtimeMultiplier)
+            .mul(record.overtimeMinutes)
+            .div(shiftMinutes)
+            .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP),
+          `وقت إضافي ${record.overtimeMinutes} دقيقة (الساعة بـ ${settings.overtimeMultiplier.toString()} ساعة) بتاريخ ${dateKey(record.date)}`,
+          record.date,
+        );
       }
 
       // Commission: the employee's department rate x the weight of each task accepted this month
-      let employeeCommission = new Prisma.Decimal(0);
       const commissionRate = emp.department?.commissionPerTask ?? new Prisma.Decimal(0);
       if (commissionRate.greaterThan(0)) {
         for (const task of tasksByEmployee.get(emp.id) ?? []) {
-          const commissionAmount = commissionRate
-            .mul(task.weight)
-            .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
-
-          employeeCommission = employeeCommission.add(commissionAmount);
-          adjustments.push({
-            type: AdjustmentType.COMMISSION,
-            amount: commissionAmount,
-            reason: `كوميشن تاسك "${task.title}" (وزن ${task.weight.toString()})`,
-            date: task.completedAt ?? undefined,
-          });
+          addEarning(
+            AdjustmentType.COMMISSION,
+            commissionRate.mul(task.weight).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP),
+            `كوميشن تاسك "${task.title}" (وزن ${task.weight.toString()})`,
+            task.completedAt ?? undefined,
+          );
         }
       }
 
+      // Incentive bonuses granted by department leaders or Management: days of pay
+      for (const bonus of bonusesByEmployee.get(emp.id) ?? []) {
+        addEarning(
+          AdjustmentType.BONUS,
+          dailyRate.mul(bonus.days).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP),
+          `بونص تحفيزي ${bonus.days.toString()} يوم: ${bonus.reason}`,
+          businessToday(bonus.createdAt),
+        );
+      }
+
       // Financial totals
-      const grossPay = salary.add(employeeOvertimeBonus).add(employeeCommission);
-      const totalAllowances = employeeOvertimeBonus.add(employeeCommission);
+      const grossPay = salary.add(employeeAdditions);
+      const totalAllowances = employeeAdditions;
       const totalDeductions = employeeAttendancePenalties;
       const netPay = grossPay.sub(totalDeductions);
 

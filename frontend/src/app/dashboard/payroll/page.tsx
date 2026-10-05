@@ -11,6 +11,7 @@ import {
 } from '../../../hooks/use-payroll';
 import { Card } from '../../../components/ui/card';
 import { OvertimeSettingsCard } from '../../../components/payroll/overtime-settings-card';
+import { BonusesPanel } from '../../../components/payroll/bonuses-panel';
 import {
   PayrollCycle,
   Payslip,
@@ -40,6 +41,7 @@ import {
   FiTrendingDown,
   FiArrowUpRight,
   FiRefreshCw,
+  FiAward,
 } from 'react-icons/fi';
 
 export default function PayrollCommandCenterPage() {
@@ -57,8 +59,14 @@ export default function PayrollCommandCenterPage() {
   // Payroll options such as overtime are set by Management (or the Super Admin)
   const canEditPayrollSettings = !!user?.isManagement || user?.role?.name === 'SUPER_ADMIN';
 
+  // Bonuses: department leaders give them to their team, Management to anyone (and extra leave days);
+  // HR sees and cancels them. The backend enforces every rule.
+  const isHrManager = user?.role?.name === 'HR_MANAGER';
+  const canGrantBonus = canEditPayrollSettings || (!!user?.canApproveRequests && !isHrManager);
+  const canSeeBonuses = canGrantBonus || canViewCompanyPayroll;
+
   // Active view tab: 'MANAGER' (Finance Manager) or 'SELF_SERVICE' (My Payslips)
-  const [activeTab, setActiveTab] = useState<'MANAGER' | 'SELF_SERVICE'>(
+  const [activeTab, setActiveTab] = useState<'MANAGER' | 'SELF_SERVICE' | 'BONUSES'>(
     canViewCompanyPayroll ? 'MANAGER' : 'SELF_SERVICE',
   );
 
@@ -299,8 +307,34 @@ export default function PayrollCommandCenterPage() {
             <FiUser className="h-3.5 w-3.5" />
             <span>قسائم رواتبي (My Payslips)</span>
           </button>
+
+          {canSeeBonuses && (
+            <button
+              onClick={() => setActiveTab('BONUSES')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 ${
+                activeTab === 'BONUSES'
+                  ? 'bg-primary text-primary-foreground shadow-xs'
+                  : 'text-foreground-muted hover:text-foreground hover:bg-surface-hover'
+              }`}
+            >
+              <FiAward className="h-3.5 w-3.5" />
+              <span>البونص</span>
+            </button>
+          )}
         </div>
       </div>
+
+      {/* ===================================================================== */}
+      {/* BONUSES                                                               */}
+      {/* ===================================================================== */}
+      {activeTab === 'BONUSES' && canSeeBonuses && (
+        <BonusesPanel
+          canGrant={canGrantBonus}
+          canGrantLeave={canEditPayrollSettings}
+          canCancelAny={canEditPayrollSettings || isHrManager}
+          currentUserId={user?.id}
+        />
+      )}
 
       {/* ===================================================================== */}
       {/* 2. PERSPECTIVE A: FINANCE MANAGER COMMAND CENTER                      */}
@@ -929,9 +963,9 @@ export default function PayrollCommandCenterPage() {
                       </span>
                     </div>
 
-                    {/* Additions: overtime, task commissions and bonuses */}
+                    {/* Additions: worked days off, overtime, task commissions and bonuses */}
                     {activePayslipDetails.adjustments
-                      ?.filter((a) => a.type === 'OVERTIME' || a.type === 'COMMISSION' || a.type === 'BONUS')
+                      ?.filter((a) => a.type !== 'PENALTY')
                       .map((adj) => (
                         <div
                           key={adj.id}

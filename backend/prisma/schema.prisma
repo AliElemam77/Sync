@@ -41,6 +41,10 @@ model User {
   // Payroll approval relations (PHASE 06)
   approvedPayrollCycles    PayrollCycle[]            @relation("ApprovedPayrollCycles")
 
+  // Bonuses granted or cancelled by this user
+  grantedBonuses           Bonus[]                   @relation("GrantedBonuses")
+  cancelledBonuses         Bonus[]                   @relation("CancelledBonuses")
+
   createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -320,6 +324,7 @@ model EmployeeProfile {
   // Payroll & Compensation relations (PHASE 06)
   salaryProfile            SalaryProfile?
   payslips                 Payslip[]
+  bonuses                  Bonus[]
 
   createdAt                DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -892,6 +897,8 @@ enum AdjustmentType {
   PENALTY
   OVERTIME
   COMMISSION
+  // A weekly day off that was worked (Saturday for LS), paid as a normal day
+  EXTRA_DAY
 }
 
 model SalaryProfile {
@@ -998,4 +1005,39 @@ model CompanySettings {
   updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@map("company_settings")
+}
+
+// -----------------------------------------------------------------------------
+// BONUS (البونص): incentive measured in days, granted by department leaders or Management
+// -----------------------------------------------------------------------------
+
+enum BonusKind {
+  // Days of pay (salary / 30 each) added to the month's payslip
+  PAY
+  // Leave days added to the annual leave balance, beyond the yearly 21 (Management only)
+  LEAVE
+}
+
+model Bonus {
+  id            String          @id @default(uuid()) @db.Uuid
+  employeeId    String          @map("employee_id") @db.Uuid
+  employee      EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  kind          BonusKind       @default(PAY)
+  days          Decimal         @db.Decimal(4, 1)
+  reason        String          @db.VarChar(200)
+  // First day of the payroll month a pay bonus is paid in
+  payrollMonth  DateTime        @map("payroll_month") @db.Date
+
+  grantedById   String          @map("granted_by_id") @db.Uuid
+  grantedBy     User            @relation("GrantedBonuses", fields: [grantedById], references: [id], onDelete: Restrict)
+  cancelledAt   DateTime?       @map("cancelled_at") @db.Timestamptz(6)
+  cancelledById String?         @map("cancelled_by_id") @db.Uuid
+  cancelledBy   User?           @relation("CancelledBonuses", fields: [cancelledById], references: [id], onDelete: SetNull)
+
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([employeeId])
+  @@index([payrollMonth])
+  @@map("bonuses")
 }

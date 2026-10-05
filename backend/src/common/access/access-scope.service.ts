@@ -73,7 +73,21 @@ export class AccessScopeService {
    */
   async getApprovalDepartmentIds(user: AuthenticatedUser): Promise<string[] | null> {
     if (this.isHrAdmin(user)) return null;
+    return this.getLedDepartmentIds(user);
+  }
 
+  /**
+   * Departments whose employees the user may give a bonus to; null means every department.
+   * Management (and the Super Admin) give bonuses to anyone, Team Leaders and heads to the
+   * departments they lead. HR does not give bonuses; it can cancel them.
+   */
+  async getBonusDepartmentIds(user: AuthenticatedUser): Promise<string[] | null> {
+    if (this.isSuperAdmin(user) || this.isManagement(user)) return null;
+    return this.getLedDepartmentIds(user);
+  }
+
+  /** A Team Leader's own department plus every department the user heads */
+  private async getLedDepartmentIds(user: AuthenticatedUser): Promise<string[]> {
     const departmentIds = new Set<string>();
     if (this.isTeamLeader(user) && user.departmentId) {
       departmentIds.add(user.departmentId);

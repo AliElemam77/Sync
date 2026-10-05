@@ -17,6 +17,7 @@ import { AssetsModule } from './modules/assets/assets.module';
 import { AccountingModule } from './modules/accounting/accounting.module';
 import { ManagementModule } from './modules/management/management.module';
 import { PayrollModule } from './modules/payroll/payroll.module';
+import { BonusesModule } from './modules/bonuses/bonuses.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
@@ -43,6 +44,7 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
     AccountingModule,
     ManagementModule,
     PayrollModule,
+    BonusesModule,
   ],
   providers: [
     {

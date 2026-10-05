@@ -104,6 +104,7 @@ describe('PayrollService.generatePayroll', () => {
       publicHoliday: { findMany: jest.fn().mockResolvedValue([]) },
       // No settings row yet: overtime is off
       companySettings: { findUnique: jest.fn().mockResolvedValue(null) },
+      bonus: { findMany: jest.fn().mockResolvedValue([]) },
       task: { findMany: jest.fn().mockResolvedValue([]) },
       payslip: { createMany: jest.fn() },
       financialAdjustment: { createMany: jest.fn() },
@@ -216,6 +217,54 @@ describe('PayrollService.generatePayroll', () => {
     expect(payslip.totalAllowances.toString()).toBe('0');
   });
 
+  it('pays a worked LS Saturday as a normal day, under the normal rules', async () => {
+    prisma.employeeProfile.findMany.mockResolvedValue([
+      { ...employee({ baseSalary: new Prisma.Decimal(9000) }), shiftType: 'LS' }, // 300 a day
+    ]);
+    prisma.attendanceRecord.findMany.mockResolvedValue(
+      septemberAttendance({ '2026-09-12': { delayMinutes: 20 } }) // Saturday, 20 minutes late
+        .filter((r) => r.date.getUTCDay() !== 6 || r.date.getUTCDate() === 12),
+    );
+
+    await service.generatePayroll({ month: 9, year: 2026 }, payrollManager);
+
+    const adjustments = prisma.financialAdjustment.createMany.mock.calls[0][0].data;
+    expect(adjustments.map((a: { type: string; amount: Prisma.Decimal }) => [a.type, a.amount.toString()])).toEqual([
+      ['EXTRA_DAY', '300'],
+      ['PENALTY', '75'], // quarter day for the lateness, like any working day
+    ]);
+    const [payslip] = prisma.payslip.createMany.mock.calls[0][0].data;
+    expect(payslip.netPay.toString()).toBe('9225');
+  });
+
+  it('adds pay bonuses granted for the month, in days of pay', async () => {
+    prisma.employeeProfile.findMany.mockResolvedValue([
+      employee({ baseSalary: new Prisma.Decimal(9000) }), // 300 a day
+    ]);
+    prisma.attendanceRecord.findMany.mockResolvedValue(septemberAttendance());
+    prisma.bonus.findMany.mockResolvedValue([
+      { employeeId: 'emp-1', days: new Prisma.Decimal('1.5'), reason: 'Launch week', createdAt: new Date('2026-09-20T10:00:00Z') },
+    ]);
+
+    await service.generatePayroll({ month: 9, year: 2026 }, payrollManager);
+
+    expect(prisma.bonus.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          kind: 'PAY',
+          cancelledAt: null,
+          payrollMonth: new Date('2026-09-01T00:00:00Z'),
+        }),
+      }),
+    );
+    const adjustments = prisma.financialAdjustment.createMany.mock.calls[0][0].data;
+    expect(adjustments.map((a: { type: string; reason: string; amount: Prisma.Decimal }) => [a.type, a.reason, a.amount.toString()])).toEqual([
+      ['BONUS', 'بونص تحفيزي 1.5 يوم: Launch week', '450'],
+    ]);
+    const [payslip] = prisma.payslip.createMany.mock.calls[0][0].data;
+    expect(payslip.grossPay.toString()).toBe('9450');
+  });
+
   it('values an overtime hour by the shift length (LS: 9 hours)', async () => {
     prisma.companySettings.findUnique.mockResolvedValue({
       id: 1,
@@ -226,7 +275,10 @@ describe('PayrollService.generatePayroll', () => {
       { ...employee({ baseSalary: new Prisma.Decimal(9000) }), shiftType: 'LS' },
     ]);
     prisma.attendanceRecord.findMany.mockResolvedValue(
-      septemberAttendance({ '2026-09-03': { overtimeMinutes: 60 } }),
+      // LS is off on Saturday
+      septemberAttendance({ '2026-09-03': { overtimeMinutes: 60 } }).filter(
+        (r) => r.date.getUTCDay() !== 6,
+      ),
     );
 
     await service.generatePayroll({ month: 9, year: 2026 }, payrollManager);

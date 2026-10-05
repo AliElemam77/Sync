@@ -1,5 +1,6 @@
 export type PayrollCycleStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'PAID';
-export type AdjustmentType = 'BONUS' | 'PENALTY' | 'OVERTIME' | 'COMMISSION';
+// EXTRA_DAY: a weekly day off that was worked (Saturday for LS), paid as a normal day
+export type AdjustmentType = 'BONUS' | 'PENALTY' | 'OVERTIME' | 'COMMISSION' | 'EXTRA_DAY';
 
 export interface FinancialAdjustment {
   id: string;
@@ -74,4 +75,42 @@ export interface PayrollSettings {
 export interface UpdatePayrollSettingsInput {
   overtimeEnabled?: boolean;
   overtimeMultiplier?: number;
+}
+
+/** PAY: days of pay on the month's payslip. LEAVE: extra leave days beyond the yearly 21 */
+export type BonusKind = 'PAY' | 'LEAVE';
+
+interface BonusActor {
+  id: string;
+  email: string;
+  employeeProfile?: { fullName: string } | null;
+}
+
+export interface Bonus {
+  id: string;
+  employeeId: string;
+  kind: BonusKind;
+  /** Decimal as a string, in half days */
+  days: string;
+  reason: string;
+  /** First day of the payroll month (YYYY-MM-01) */
+  payrollMonth: string;
+  grantedById: string;
+  cancelledAt?: string | null;
+  createdAt: string;
+  employee?: {
+    id: string;
+    fullName: string;
+    employeeCode: string;
+    department?: { id: string; name: string } | null;
+  };
+  grantedBy?: BonusActor;
+  cancelledBy?: BonusActor | null;
+}
+
+export interface GrantBonusInput {
+  employeeId: string;
+  kind?: BonusKind;
+  days: number;
+  reason: string;
 }
