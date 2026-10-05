@@ -29,6 +29,7 @@ import {
   SHIFT_MINUTES,
   dateKey,
   findAbsentDays,
+  isWeeklyDayOff,
   isWorkingDay,
   latenessTier,
 } from '../attendance/attendance-policy';
@@ -294,8 +295,11 @@ export class PayrollService {
       // Overtime is paid only when Management has turned it on. A regular hour is the day's pay over
       // the shift's hours (RS 8, LS 9); each overtime hour pays `overtimeMultiplier` regular hours.
       let employeeOvertimeBonus = new Prisma.Decimal(0);
+      // Weekly days off are never worked, so they never earn overtime
       const overtimeRecords = settings.overtimeEnabled
-        ? employeeRecords.filter((r) => r.overtimeMinutes > 0)
+        ? employeeRecords.filter(
+            (r) => r.overtimeMinutes > 0 && !isWeeklyDayOff(r.date, emp.shiftType),
+          )
         : [];
       for (const record of overtimeRecords) {
         const overtimeAmount = dailyRate

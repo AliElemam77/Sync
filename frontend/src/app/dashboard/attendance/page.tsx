@@ -464,6 +464,11 @@ export default function AttendancePage() {
                     <FiCheckCircle className="h-4 w-4 text-primary" />
                     <span>تم إنهاء وردية اليوم بنجاح</span>
                   </span>
+                ) : todayStatus?.isWeeklyDayOff ? (
+                  <span className="text-foreground-muted flex items-center gap-2">
+                    <FiCalendar className="h-4 w-4 text-primary" />
+                    <span>اليوم إجازتك الأسبوعية</span>
+                  </span>
                 ) : (
                   <span className="text-amber-500 flex items-center gap-2">
                     <FiClock className="h-4 w-4" />
@@ -524,9 +529,13 @@ export default function AttendancePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <button
               onClick={handleCheckIn}
-              disabled={!!todayStatus?.record?.checkInTime || checkInMutation.isPending}
+              disabled={
+                !!todayStatus?.record?.checkInTime ||
+                !!todayStatus?.isWeeklyDayOff ||
+                checkInMutation.isPending
+              }
               className={`flex items-center justify-center gap-3 p-4 rounded-2xl text-xs font-black transition-all shadow-xs ${
-                todayStatus?.record?.checkInTime
+                todayStatus?.record?.checkInTime || todayStatus?.isWeeklyDayOff
                   ? 'bg-surface-raised/40 text-foreground-muted cursor-not-allowed opacity-60'
                   : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-md active:scale-95'
               }`}

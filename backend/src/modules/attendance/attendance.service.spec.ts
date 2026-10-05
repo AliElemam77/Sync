@@ -95,9 +95,19 @@ describe('AttendanceService.checkIn (company time: Africa/Cairo)', () => {
   });
 
   it('files the record under the Cairo calendar date', async () => {
-    // 01:30 on 16 January in Cairo is still 15 January in UTC
-    const record = await checkInAt('2026-01-15T23:30:00Z');
-    expect(record.date).toEqual(new Date('2026-01-16T00:00:00Z'));
+    // 01:30 on Thursday 15 January in Cairo is still 14 January in UTC
+    const record = await checkInAt('2026-01-14T23:30:00Z');
+    expect(record.date).toEqual(new Date('2026-01-15T00:00:00Z'));
+  });
+
+  it("refuses check-in on the shift's weekly day off", async () => {
+    // Friday 16 January, 09:00 in Cairo
+    await expect(checkInAt('2026-01-16T07:00:00Z')).rejects.toThrow('إجازتك الأسبوعية');
+
+    // LS is also off on Saturday
+    prisma.employeeProfile.findUnique.mockResolvedValue({ id: 'emp-1', shiftType: 'LS' });
+    await expect(checkInAt('2026-01-17T07:00:00Z')).rejects.toThrow('إجازتك الأسبوعية');
+    expect(prisma.attendanceRecord.create).not.toHaveBeenCalled();
   });
 });
 
@@ -186,6 +196,13 @@ describe('AttendanceService.recordAttendance (HR correction)', () => {
         where: { employeeId_date: { employeeId: 'emp-1', date: new Date('2026-01-15T00:00:00Z') } },
       }),
     );
+  });
+
+  it("rejects the employee's weekly day off", async () => {
+    await expect(
+      service.recordAttendance({ employeeId: 'emp-1', date: '2026-01-16', checkInTime: '09:00' }),
+    ).rejects.toThrow('إجازة أسبوعية');
+    expect(prisma.attendanceRecord.upsert).not.toHaveBeenCalled();
   });
 
   it('rejects future dates and a check-out before the check-in', async () => {

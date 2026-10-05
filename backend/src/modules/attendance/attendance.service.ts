@@ -24,7 +24,7 @@ import {
   permissionMonthRange,
 } from '../work-permissions/permission-policy';
 import { calendarDaysBetween, toDateOnly } from '../leaves/leave-policy';
-import { arrivalDelayMinutes, shiftBalance } from './attendance-policy';
+import { arrivalDelayMinutes, isWeeklyDayOff, shiftBalance } from './attendance-policy';
 
 /** Longest single holiday entry (a feast spans a few days) */
 const MAX_HOLIDAY_SPAN_DAYS = 14;
@@ -156,6 +156,8 @@ export class AttendanceService {
       },
       approvedPermissionHours,
       approvedPermissions,
+      // No check-in on the shift's weekly day off
+      isWeeklyDayOff: isWeeklyDayOff(today, employee.shiftType),
       hasCheckedIn: !!record,
       hasCheckedOut: !!record?.checkOutTime,
       record,
@@ -169,6 +171,11 @@ export class AttendanceService {
     const employee = await this.getEmployeeByUserId(userId);
     const today = this.getTodayDateOnly();
     const now = new Date();
+
+    // Nobody works on their weekly day off
+    if (isWeeklyDayOff(today, employee.shiftType)) {
+      throw new BadRequestException('اليوم إجازتك الأسبوعية، ولا يمكن تسجيل الحضور فيه.');
+    }
 
     // Check if already checked in today
     const existing = await this.prisma.attendanceRecord.findUnique({
@@ -402,6 +409,9 @@ export class AttendanceService {
     const date = toDateOnly(new Date(dto.date));
     if (date.getTime() > this.getTodayDateOnly().getTime()) {
       throw new BadRequestException('Attendance cannot be recorded for a future date.');
+    }
+    if (isWeeklyDayOff(date, employee.shiftType)) {
+      throw new BadRequestException('هذا اليوم إجازة أسبوعية للموظف، ولا يمكن تسجيل حضور فيه.');
     }
 
     const toMinutes = (time: string) => {

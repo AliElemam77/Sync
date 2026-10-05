@@ -50,9 +50,14 @@ export function dateKey(date: Date): string {
   return toDateOnly(date).toISOString().slice(0, 10);
 }
 
+/** The shift's weekly days off (Friday for everyone, also Saturday for LS): nobody works on them */
+export function isWeeklyDayOff(day: Date, shiftType: ShiftType): boolean {
+  return WEEKLY_DAYS_OFF[shiftType].includes(toDateOnly(day).getUTCDay());
+}
+
 /** The shift's weekly days off and public holidays are not working days */
 export function isWorkingDay(day: Date, shiftType: ShiftType, holidays: Set<string>): boolean {
-  return !WEEKLY_DAYS_OFF[shiftType].includes(toDateOnly(day).getUTCDay()) && !holidays.has(dateKey(day));
+  return !isWeeklyDayOff(day, shiftType) && !holidays.has(dateKey(day));
 }
 
 /**

@@ -197,6 +197,25 @@ describe('PayrollService.generatePayroll', () => {
     expect(prisma.financialAdjustment.createMany).not.toHaveBeenCalled();
   });
 
+  it('never pays overtime on a weekly day off', async () => {
+    prisma.companySettings.findUnique.mockResolvedValue({
+      id: 1,
+      overtimeEnabled: true,
+      overtimeMultiplier: new Prisma.Decimal(2),
+    });
+    prisma.employeeProfile.findMany.mockResolvedValue([
+      employee({ baseSalary: new Prisma.Decimal(9000) }),
+    ]);
+    prisma.attendanceRecord.findMany.mockResolvedValue(
+      septemberAttendance({ '2026-09-04': { overtimeMinutes: 240 } }), // Friday
+    );
+
+    await service.generatePayroll({ month: 9, year: 2026 }, payrollManager);
+
+    const [payslip] = prisma.payslip.createMany.mock.calls[0][0].data;
+    expect(payslip.totalAllowances.toString()).toBe('0');
+  });
+
   it('values an overtime hour by the shift length (LS: 9 hours)', async () => {
     prisma.companySettings.findUnique.mockResolvedValue({
       id: 1,

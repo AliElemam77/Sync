@@ -41,6 +41,8 @@ export interface TodayAttendanceStatus {
   } | null;
   approvedPermissionHours?: number;
   approvedPermissions?: PermissionRequest[];
+  /** Today is the shift's weekly day off: check-in is not allowed */
+  isWeeklyDayOff?: boolean;
   hasCheckedIn: boolean;
   hasCheckedOut: boolean;
   record?: AttendanceRecord | null;
