@@ -10,10 +10,13 @@ import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 import prismaClient from '@prisma/client';
 
 const { PrismaClient } = prismaClient;
 const backendDir = join(dirname(fileURLToPath(import.meta.url)), '..');
+// The Prisma CLI is run with the current Node binary: no shell, so arguments are passed as-is
+const prismaCli = createRequire(import.meta.url).resolve('prisma/build/index.js');
 const BASELINE_COMMIT = 'bff0ffd';
 const BASELINE_MIGRATION = '0_init';
 
@@ -27,9 +30,8 @@ function fail(message) {
 }
 
 function prisma(args, { capture = false } = {}) {
-  const result = spawnSync('npx', ['prisma', ...args], {
+  const result = spawnSync(process.execPath, [prismaCli, ...args], {
     cwd: backendDir,
-    shell: process.platform === 'win32',
     encoding: 'utf8',
     stdio: capture ? 'pipe' : 'inherit',
   });
