@@ -39,8 +39,12 @@ export function useTodayAttendance() {
 export function useCheckIn() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async () => {
-      const res = await apiClient.post<AttendanceRecord>('/api/v1/attendance/check-in');
+    // confirmDayOff: the employee confirmed working on their weekly day off (e.g. Saturday for LS)
+    mutationFn: async (confirmDayOff: boolean = false) => {
+      const res = await apiClient.post<AttendanceRecord>(
+        '/api/v1/attendance/check-in',
+        confirmDayOff ? { confirmDayOff: true } : {},
+      );
       return res.data;
     },
     onSuccess: () => {

@@ -59,9 +59,9 @@ describe('AttendanceService.checkIn (company time: Africa/Cairo)', () => {
 
   afterEach(() => jest.useRealTimers());
 
-  const checkInAt = async (isoInstant: string) => {
+  const checkInAt = async (isoInstant: string, confirmDayOff?: boolean) => {
     jest.useFakeTimers({ now: new Date(isoInstant) });
-    return service.checkIn('user-1');
+    return service.checkIn('user-1', confirmDayOff);
   };
 
   it('counts lateness from 09:00 Cairo time', async () => {
@@ -100,14 +100,21 @@ describe('AttendanceService.checkIn (company time: Africa/Cairo)', () => {
     expect(record.date).toEqual(new Date('2026-01-15T00:00:00Z'));
   });
 
-  it("refuses check-in on the shift's weekly day off", async () => {
+  it('refuses check-in on Friday for everyone, even when confirmed', async () => {
     // Friday 16 January, 09:00 in Cairo
-    await expect(checkInAt('2026-01-16T07:00:00Z')).rejects.toThrow('إجازتك الأسبوعية');
+    await expect(checkInAt('2026-01-16T07:00:00Z', true)).rejects.toThrow('الجمعة');
+    expect(prisma.attendanceRecord.create).not.toHaveBeenCalled();
+  });
 
-    // LS is also off on Saturday
+  it('lets LS work on Saturday once the employee confirms it', async () => {
     prisma.employeeProfile.findUnique.mockResolvedValue({ id: 'emp-1', shiftType: 'LS' });
+
+    // Saturday 17 January, 09:00 in Cairo
     await expect(checkInAt('2026-01-17T07:00:00Z')).rejects.toThrow('إجازتك الأسبوعية');
     expect(prisma.attendanceRecord.create).not.toHaveBeenCalled();
+
+    const record = await checkInAt('2026-01-17T07:00:00Z', true);
+    expect(record.date).toEqual(new Date('2026-01-17T00:00:00Z'));
   });
 });
 
@@ -198,11 +205,16 @@ describe('AttendanceService.recordAttendance (HR correction)', () => {
     );
   });
 
-  it("rejects the employee's weekly day off", async () => {
+  it('rejects Friday but accepts Saturday for LS', async () => {
     await expect(
       service.recordAttendance({ employeeId: 'emp-1', date: '2026-01-16', checkInTime: '09:00' }),
-    ).rejects.toThrow('إجازة أسبوعية');
+    ).rejects.toThrow('الجمعة');
     expect(prisma.attendanceRecord.upsert).not.toHaveBeenCalled();
+
+    prisma.employeeProfile.findUnique.mockResolvedValue({ id: 'emp-1', shiftType: 'LS' });
+    await expect(
+      service.recordAttendance({ employeeId: 'emp-1', date: '2026-01-17', checkInTime: '09:00' }),
+    ).resolves.toBeDefined();
   });
 
   it('rejects future dates and a check-out before the check-in', async () => {

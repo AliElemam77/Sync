@@ -41,7 +41,9 @@ export interface TodayAttendanceStatus {
   } | null;
   approvedPermissionHours?: number;
   approvedPermissions?: PermissionRequest[];
-  /** Today is the shift's weekly day off: check-in is not allowed */
+  /** Friday: the company is closed and check-in is not allowed */
+  isCompanyClosedDay?: boolean;
+  /** Today is the shift's weekly day off (e.g. Saturday for LS): check-in needs a confirmation */
   isWeeklyDayOff?: boolean;
   hasCheckedIn: boolean;
   hasCheckedOut: boolean;

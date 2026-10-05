@@ -24,7 +24,12 @@ import {
   permissionMonthRange,
 } from '../work-permissions/permission-policy';
 import { calendarDaysBetween, toDateOnly } from '../leaves/leave-policy';
-import { arrivalDelayMinutes, isWeeklyDayOff, shiftBalance } from './attendance-policy';
+import {
+  arrivalDelayMinutes,
+  isCompanyClosedDay,
+  isWeeklyDayOff,
+  shiftBalance,
+} from './attendance-policy';
 
 /** Longest single holiday entry (a feast spans a few days) */
 const MAX_HOLIDAY_SPAN_DAYS = 14;
@@ -156,7 +161,8 @@ export class AttendanceService {
       },
       approvedPermissionHours,
       approvedPermissions,
-      // No check-in on the shift's weekly day off
+      // Friday: no check-in at all. Another weekly day off: check-in after confirming
+      isCompanyClosedDay: isCompanyClosedDay(today),
       isWeeklyDayOff: isWeeklyDayOff(today, employee.shiftType),
       hasCheckedIn: !!record,
       hasCheckedOut: !!record?.checkOutTime,
@@ -167,14 +173,17 @@ export class AttendanceService {
   /**
    * Employee Check-In for Today
    */
-  async checkIn(userId: string) {
+  async checkIn(userId: string, confirmDayOff = false) {
     const employee = await this.getEmployeeByUserId(userId);
     const today = this.getTodayDateOnly();
     const now = new Date();
 
-    // Nobody works on their weekly day off
-    if (isWeeklyDayOff(today, employee.shiftType)) {
-      throw new BadRequestException('اليوم إجازتك الأسبوعية، ولا يمكن تسجيل الحضور فيه.');
+    // Nobody works on Friday; another weekly day off (Saturday for LS) needs the employee's confirmation
+    if (isCompanyClosedDay(today)) {
+      throw new BadRequestException('اليوم الجمعة إجازة للجميع، ولا يمكن تسجيل الحضور فيه.');
+    }
+    if (isWeeklyDayOff(today, employee.shiftType) && !confirmDayOff) {
+      throw new BadRequestException('اليوم إجازتك الأسبوعية. أكّد أنك تعمل اليوم لتسجيل الحضور.');
     }
 
     // Check if already checked in today
@@ -410,8 +419,8 @@ export class AttendanceService {
     if (date.getTime() > this.getTodayDateOnly().getTime()) {
       throw new BadRequestException('Attendance cannot be recorded for a future date.');
     }
-    if (isWeeklyDayOff(date, employee.shiftType)) {
-      throw new BadRequestException('هذا اليوم إجازة أسبوعية للموظف، ولا يمكن تسجيل حضور فيه.');
+    if (isCompanyClosedDay(date)) {
+      throw new BadRequestException('يوم الجمعة إجازة للجميع، ولا يمكن تسجيل حضور فيه.');
     }
 
     const toMinutes = (time: string) => {

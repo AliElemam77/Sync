@@ -50,7 +50,17 @@ export function dateKey(date: Date): string {
   return toDateOnly(date).toISOString().slice(0, 10);
 }
 
-/** The shift's weekly days off (Friday for everyone, also Saturday for LS): nobody works on them */
+/** Friday (Date#getUTCDay 5): the company is closed and nobody works, whatever the shift */
+export const COMPANY_CLOSED_DAYS = [5];
+
+export function isCompanyClosedDay(day: Date): boolean {
+  return COMPANY_CLOSED_DAYS.includes(toDateOnly(day).getUTCDay());
+}
+
+/**
+ * The shift's weekly days off (Friday for everyone, also Saturday for LS). Apart from Friday,
+ * an employee may still work one when there is pressure, after confirming it at check-in.
+ */
 export function isWeeklyDayOff(day: Date, shiftType: ShiftType): boolean {
   return WEEKLY_DAYS_OFF[shiftType].includes(toDateOnly(day).getUTCDay());
 }

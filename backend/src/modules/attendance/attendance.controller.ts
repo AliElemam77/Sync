@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { AttendanceService } from './attendance.service';
 import { AttendanceQueryDto } from './dto/attendance-query.dto';
+import { CheckInDto } from './dto/check-in.dto';
 import { CreatePublicHolidayDto } from './dto/create-public-holiday.dto';
 import { HolidayQueryDto } from './dto/holiday-query.dto';
 import { RecordAttendanceDto } from './dto/record-attendance.dto';
@@ -36,8 +37,8 @@ export class AttendanceController {
    * Check In for Today
    */
   @Post('check-in')
-  async checkIn(@CurrentUser() user: AuthenticatedUser) {
-    return this.attendanceService.checkIn(user.id);
+  async checkIn(@CurrentUser() user: AuthenticatedUser, @Body() dto: CheckInDto) {
+    return this.attendanceService.checkIn(user.id, dto.confirmDayOff);
   }
 
   /**

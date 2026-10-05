@@ -255,6 +255,7 @@ export default function AttendancePage() {
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
   const [isPermissionModalOpen, setIsPermissionModalOpen] = useState(false);
   const [isManualAttendanceOpen, setIsManualAttendanceOpen] = useState(false);
+  const [isDayOffConfirmOpen, setIsDayOffConfirmOpen] = useState(false);
   const [rejectingItem, setRejectingItem] = useState<{
     id: string;
     kind: 'LEAVE' | 'PERMISSION';
@@ -347,10 +348,16 @@ export default function AttendancePage() {
   const totalPendingCount = pendingLeaves.length + pendingPermissions.length;
 
   // Handlers
-  const handleCheckIn = async () => {
+  const handleCheckIn = async (confirmDayOff = false) => {
+    // On a weekly day off other than Friday (e.g. Saturday for LS), ask the employee first
+    if (todayStatus?.isWeeklyDayOff && !confirmDayOff) {
+      setIsDayOffConfirmOpen(true);
+      return;
+    }
     try {
       setFeedback(null);
-      await checkInMutation.mutateAsync();
+      setIsDayOffConfirmOpen(false);
+      await checkInMutation.mutateAsync(confirmDayOff);
       setFeedback({ type: 'SUCCESS', message: 'تم إثبات حضورك بنجاح! نتمنى لك يوماً موفقاً ومثمراً.' });
     } catch (err: any) {
       setFeedback({
@@ -464,10 +471,15 @@ export default function AttendancePage() {
                     <FiCheckCircle className="h-4 w-4 text-primary" />
                     <span>تم إنهاء وردية اليوم بنجاح</span>
                   </span>
+                ) : todayStatus?.isCompanyClosedDay ? (
+                  <span className="text-foreground-muted flex items-center gap-2">
+                    <FiCalendar className="h-4 w-4 text-primary" />
+                    <span>اليوم الجمعة إجازة للجميع</span>
+                  </span>
                 ) : todayStatus?.isWeeklyDayOff ? (
                   <span className="text-foreground-muted flex items-center gap-2">
                     <FiCalendar className="h-4 w-4 text-primary" />
-                    <span>اليوم إجازتك الأسبوعية</span>
+                    <span>اليوم إجازتك الأسبوعية (سجّل حضورك فقط إذا كنت تعمل اليوم)</span>
                   </span>
                 ) : (
                   <span className="text-amber-500 flex items-center gap-2">
@@ -528,14 +540,14 @@ export default function AttendancePage() {
           {/* Action Buttons: Check In / Check Out */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <button
-              onClick={handleCheckIn}
+              onClick={() => handleCheckIn()}
               disabled={
                 !!todayStatus?.record?.checkInTime ||
-                !!todayStatus?.isWeeklyDayOff ||
+                !!todayStatus?.isCompanyClosedDay ||
                 checkInMutation.isPending
               }
               className={`flex items-center justify-center gap-3 p-4 rounded-2xl text-xs font-black transition-all shadow-xs ${
-                todayStatus?.record?.checkInTime || todayStatus?.isWeeklyDayOff
+                todayStatus?.record?.checkInTime || todayStatus?.isCompanyClosedDay
                   ? 'bg-surface-raised/40 text-foreground-muted cursor-not-allowed opacity-60'
                   : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-md active:scale-95'
               }`}
@@ -1093,6 +1105,40 @@ export default function AttendancePage() {
       {/* TAB 5: PUBLIC HOLIDAYS                                                */}
       {/* ===================================================================== */}
       {activeTab === 'HOLIDAYS' && <PublicHolidaysPanel canManage={canManageAttendance} />}
+
+      {/* ===================================================================== */}
+      {/* MODAL: CONFIRM WORKING ON A WEEKLY DAY OFF                            */}
+      {/* ===================================================================== */}
+      {isDayOffConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-sm rounded-3xl border border-white/30 dark:border-white/10 bg-white/90 dark:bg-[#141411]/95 p-6 shadow-2xl space-y-4 text-center">
+            <div className="mx-auto h-12 w-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-500 flex items-center justify-center">
+              <FiCalendar className="h-6 w-6" />
+            </div>
+            <div className="space-y-1">
+              <h2 className="text-sm font-black text-foreground">اليوم إجازتك الأسبوعية</h2>
+              <p className="text-xs text-foreground-muted">إنت المفروض إجازة النهارده. هل أنت شغال اليوم؟</p>
+            </div>
+            <div className="flex items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => setIsDayOffConfirmOpen(false)}
+                className="rounded-2xl border border-border/80 bg-surface px-5 py-2.5 text-xs font-bold text-foreground hover:bg-surface-hover transition-colors"
+              >
+                لا، أنا إجازة
+              </button>
+              <button
+                type="button"
+                onClick={() => handleCheckIn(true)}
+                disabled={checkInMutation.isPending}
+                className="rounded-2xl bg-emerald-500 hover:bg-emerald-600 px-5 py-2.5 text-xs font-black text-white shadow-md active:scale-95 disabled:opacity-50 transition-all"
+              >
+                أيوه، شغال
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ===================================================================== */}
       {/* MODAL: MANUAL ATTENDANCE (HR)                                         */}
